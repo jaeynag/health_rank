@@ -1,0 +1,1487 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>운동기록 랭킹</title>
+  <meta name="theme-color" content="#ffffff"/>
+  <style>
+    :root { --pad: 14px; --radius: 14px; --border: #e7e7e7; --muted:#6b7280; }
+    * { box-sizing: border-box; }
+    body { margin:0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Noto Sans KR", system-ui, sans-serif; background:#f6f7f9; color:#111; }
+    header { position: sticky; top:0; z-index:10; background:#fff; border-bottom:1px solid var(--border); padding: 10px var(--pad); }
+    header .row { display:flex; align-items:center; justify-content:space-between; gap:10px; }
+    header .title { font-weight:800; letter-spacing:-.2px; }
+    header .status { font-size:12px; color:var(--muted); }
+    main { padding: var(--pad); padding-bottom: 90px; max-width: 900px; margin: 0 auto; }
+    .card { background:#fff; border:1px solid var(--border); border-radius: var(--radius); padding: var(--pad); box-shadow: 0 1px 0 rgba(0,0,0,.02); }
+    .stack { display:flex; flex-direction:column; gap:12px; }
+    .grid2 { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+    @media (max-width: 520px) { .grid2 { grid-template-columns: 1fr; } }
+    label { display:block; font-size:12px; color:var(--muted); margin-bottom:6px; }
+    input, select, button, textarea {
+      width:100%; padding: 12px 12px; border:1px solid var(--border); border-radius: 12px; font-size:15px; background:#fff;
+    }
+    textarea { min-height: 70px; resize: vertical; }
+    button { cursor:pointer; font-weight:700; }
+    button.primary { background:#111; color:#fff; border-color:#111; }
+    button.ghost { background:#fff; }
+    button.danger { background:#fff; border-color:#ef4444; color:#b91c1c; }
+    .chips { display:flex; flex-wrap:wrap; gap:8px; }
+    .chip { padding: 8px 10px; border:1px solid var(--border); border-radius: 999px; background:#fff; font-size:13px; cursor:pointer; }
+    .chip.active { border-color:#111; }
+    .small { font-size:12px; color:var(--muted); }
+    .muted { color: var(--muted); }
+    .divider { height:1px; background:var(--border); margin: 10px 0; }
+    .nav { position: fixed; left:0; right:0; bottom:0; background:#fff; border-top:1px solid var(--border); padding: 10px; display:flex; gap:10px; justify-content:space-between; }
+    .nav button { flex:1; padding: 12px 10px; border-radius: 14px; }
+    .pill { display:inline-flex; align-items:center; gap:8px; padding:8px 10px; border:1px solid var(--border); border-radius: 999px; background:#fff; font-size:12px; }
+    .kpi { display:flex; gap:10px; flex-wrap:wrap; }
+    .kpi .pill b { font-size:12px; }
+    .row { display:flex; gap:10px; align-items:center; }
+    .row > * { flex: 1; }
+    .right { text-align:right; }
+    .table { width:100%; border-collapse: collapse; font-size:14px; }
+    .table th, .table td { padding:10px 6px; border-bottom:1px solid var(--border); vertical-align: top; }
+    .table th { text-align:left; color:var(--muted); font-size:12px; font-weight:700; }
+    .tag { display:inline-block; padding:4px 8px; border:1px solid var(--border); border-radius: 999px; font-size:12px; color:#111; background:#fff; }
+    .warn { color:#b45309; }
+    .ok { color:#0f766e; }
+    .hide { display:none !important; }
+    .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; }
+    details summary { cursor:pointer; font-weight:700; }
+  </style>
+</head>
+<body>
+<header>
+  <div class="row">
+    <div class="title">운동기록 랭킹</div>
+    <div class="status" id="netStatus">상태 확인중…</div>
+  </div>
+  <div class="kpi" style="margin-top:8px;">
+    <span class="pill"><span class="muted">닉</span> <b id="kpiNick">-</b></span>
+    <span class="pill"><span class="muted">급</span> <b id="kpiClass">-</b></span>
+    <span class="pill"><span class="muted">장소</span> <b id="kpiPlace">-</b></span>
+    <span class="pill"><span class="muted">동기화</span> <b id="kpiSync">-</b></span>
+  </div>
+</header>
+
+<main class="stack">
+
+  <!-- PROFILE -->
+  <section class="card" id="viewProfile">
+    <h2 style="margin:0 0 10px 0;">프로필</h2>
+    <p class="small" style="margin:0 0 12px 0;">닉네임/성별/키/몸무게/장소를 저장해. 몸무게는 언제든 바꿀 수 있어.</p>
+
+    <div class="grid2">
+      <div>
+        <label>닉네임</label>
+        <input id="inpNick" placeholder="예) 재양" maxlength="20" autocomplete="nickname" />
+        <div class="small" id="nickHint"></div>
+      </div>
+      <div>
+        <label>성별</label>
+        <select id="selGender">
+          <option value="M">남</option>
+          <option value="F">여</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="grid2">
+      <div>
+        <label>키 (cm, 선택)</label>
+        <input id="inpHeight" inputmode="decimal" placeholder="예) 175" />
+      </div>
+      <div>
+        <label>몸무게 (kg)</label>
+        <input id="inpWeight" inputmode="decimal" placeholder="예) 72.4" />
+        <div class="small">자동으로 급이 정해짐: <b id="computedClass">-</b></div>
+      </div>
+    </div>
+
+    <div class="divider"></div>
+
+    <div class="stack">
+      <div>
+        <label>지역</label>
+        <div class="grid2">
+          <select id="selRegion1"></select>
+          <select id="selRegion2"></select>
+        </div>
+      </div>
+
+      <div>
+        <label>장소 검색/선택</label>
+        <input id="inpPlaceSearch" placeholder="장소 이름 검색 (예: OO짐)" />
+        <div class="small">검색 결과에서 선택하거나, 없으면 아래에서 직접 등록.</div>
+        <div class="stack" id="placeResults" style="margin-top:8px;"></div>
+      </div>
+
+      <details>
+        <summary>장소 직접 등록</summary>
+        <div style="margin-top:10px;" class="stack">
+          <div class="grid2">
+            <div>
+              <label>장소명</label>
+              <input id="inpPlaceName" placeholder="예) OO짐 강남점" />
+            </div>
+            <div>
+              <label>주소(선택)</label>
+              <input id="inpPlaceAddr" placeholder="예) 서울 강남구 …" />
+            </div>
+          </div>
+          <button class="ghost" id="btnAddPlace">장소 추가</button>
+        </div>
+      </details>
+
+      <div class="divider"></div>
+
+      <button class="primary" id="btnSaveProfile">프로필 저장</button>
+      <div class="small muted">기기 ID: <span class="mono" id="deviceIdTxt">-</span></div>
+    </div>
+  </section>
+
+  <!-- TODAY -->
+  <section class="card hide" id="viewToday">
+    <div class="row" style="align-items:flex-start;">
+      <div>
+        <h2 style="margin:0 0 4px 0;">오늘 운동</h2>
+        <div class="small muted">종목 추가형 · 오프라인 입력 가능</div>
+      </div>
+      <div class="right">
+        <div class="small muted">날짜</div>
+        <input id="inpDate" type="date" />
+      </div>
+    </div>
+
+    <div class="divider"></div>
+
+    <div class="chips" id="tabToday">
+      <div class="chip active" data-tab="weight">웨이트</div>
+      <div class="chip" data-tab="cardio">유산소</div>
+    </div>
+
+    <!-- WEIGHT -->
+    <div id="panelWeight" class="stack" style="margin-top:12px;">
+      <div class="grid2">
+        <div>
+          <label>단위</label>
+          <select id="selUnit">
+            <option value="kg" selected>kg (기본)</option>
+            <option value="lb">lb</option>
+          </select>
+        </div>
+        <div>
+          <label>부위</label>
+          <select id="selBodyPart"></select>
+        </div>
+      </div>
+
+      <button class="ghost" id="btnAddExercise">+ 종목 추가</button>
+
+      <div class="stack" id="exerciseCards"></div>
+
+      <button class="primary" id="btnSaveTodayWeight">오늘 웨이트 저장</button>
+      <div class="small muted" id="weightSaveHint"></div>
+    </div>
+
+    <!-- CARDIO -->
+    <div id="panelCardio" class="stack hide" style="margin-top:12px;">
+      <div class="grid2">
+        <div>
+          <label>유형</label>
+          <select id="selCardioType">
+            <option value="outdoor">야외</option>
+            <option value="treadmill">런닝머신</option>
+          </select>
+        </div>
+        <div>
+          <label>최소거리(페이스 랭킹 기준)</label>
+          <input value="2.0 km" disabled />
+        </div>
+      </div>
+
+      <div class="grid2">
+        <div>
+          <label>거리 (km)</label>
+          <input id="inpDist" inputmode="decimal" placeholder="예) 5" />
+        </div>
+        <div>
+          <label>시간 (분:초)</label>
+          <input id="inpDur" inputmode="text" placeholder="예) 27:30" />
+        </div>
+      </div>
+
+      <div class="pill">
+        <span class="muted">페이스</span> <b id="paceOut">-</b>
+        <span class="muted" style="margin-left:auto;">/km</span>
+      </div>
+
+      <button class="primary" id="btnSaveCardio">유산소 저장</button>
+      <div class="small muted" id="cardioSaveHint"></div>
+    </div>
+  </section>
+
+  <!-- RANKING -->
+  <section class="card hide" id="viewRank">
+    <div class="row" style="align-items:flex-start;">
+      <div>
+        <h2 style="margin:0 0 4px 0;">랭킹</h2>
+        <div class="small muted">체급 내 경쟁 · 남/여 분리 · 기록한 사람만</div>
+      </div>
+      <div class="right">
+        <div class="small muted">날짜</div>
+        <input id="rankDate" type="date" />
+      </div>
+    </div>
+
+    <div class="divider"></div>
+
+    <div class="chips" id="tabRank">
+      <div class="chip active" data-tab="w">웨이트</div>
+      <div class="chip" data-tab="c">유산소</div>
+    </div>
+
+    <div id="rankWeight" class="stack" style="margin-top:12px;">
+      <div class="grid2">
+        <div>
+          <label>부위</label>
+          <select id="rankBodyPart"></select>
+        </div>
+        <div>
+          <label>성별</label>
+          <select id="rankGender">
+            <option value="M">남</option>
+            <option value="F">여</option>
+          </select>
+        </div>
+      </div>
+
+      <button class="ghost" id="btnLoadWeightRank">웨이트 랭킹 불러오기</button>
+      <div class="small" id="myWeightPercent"></div>
+
+      <table class="table" id="tblWeight">
+        <thead>
+          <tr><th>#</th><th>닉네임</th><th>볼륨</th></tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </div>
+
+    <div id="rankCardio" class="stack hide" style="margin-top:12px;">
+      <div class="grid2">
+        <div>
+          <label>랭킹 종류</label>
+          <select id="rankCardioType">
+            <option value="distance">많이 뜀(거리)</option>
+            <option value="pace">페이스 좋음(최소 2km)</option>
+          </select>
+        </div>
+        <div>
+          <label>성별</label>
+          <select id="rankCardioGender">
+            <option value="M">남</option>
+            <option value="F">여</option>
+          </select>
+        </div>
+      </div>
+
+      <button class="ghost" id="btnLoadCardioRank">유산소 랭킹 불러오기</button>
+      <div class="small" id="myCardioPercent"></div>
+
+      <table class="table" id="tblCardio">
+        <thead>
+          <tr><th>#</th><th>닉네임</th><th id="cardioColTitle">거리</th></tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+
+      <div class="small muted">
+        페이스는 거리 2km 미만 기록은 제외됨(꼼수 방지).
+      </div>
+    </div>
+  </section>
+
+  <!-- SETTINGS / DEBUG -->
+  <section class="card hide" id="viewMore">
+    <h2 style="margin:0 0 10px 0;">더보기</h2>
+    <div class="stack">
+      <div class="pill"><span class="muted">오프라인 큐</span> <b id="queueCount">0</b></div>
+      <button class="ghost" id="btnSyncNow">지금 동기화</button>
+      <button class="danger" id="btnResetLocal">로컬 초기화(주의)</button>
+
+      <details>
+        <summary>기본 종목(30~50개)</summary>
+        <div class="small muted" id="baseExercisesTxt" style="margin-top:10px;"></div>
+      </details>
+
+      <details>
+        <summary>현재 설정</summary>
+        <pre class="mono" id="dbgCfg" style="white-space:pre-wrap;"></pre>
+      </details>
+    </div>
+  </section>
+
+</main>
+
+<div class="nav">
+  <button class="ghost" data-view="Profile">프로필</button>
+  <button class="ghost" data-view="Today">오늘</button>
+  <button class="ghost" data-view="Rank">랭킹</button>
+  <button class="ghost" data-view="More">더보기</button>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+/** =========================
+ *  CONFIG
+ *  ========================= */
+const SUPABASE_URL = "https://plwtafeydntllgqmufhc.supabase.co";
+const SUPABASE_ANON_KEY = "sb_publishable_Famg4_KKiWfrVznxdsZ0-g_M59PKT4k";
+const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+// 앱 표준 체급 구간(kg): ~60 / 60~70 / 70~80 / 80~90 / 90+
+function computeWeightClass(weightKg) {
+  const w = Number(weightKg);
+  if (!isFinite(w) || w <= 0) return "-";
+  if (w < 60) return "라이트급";
+  if (w < 70) return "미들급";
+  if (w < 80) return "라이트헤비급";
+  if (w < 90) return "헤비급";
+  return "슈퍼헤비급";
+}
+const BODY_PARTS = ["하체","가슴","등","어깨","팔","복근"];
+
+// 기본 종목(최소세트) 30~50개
+const BASE_EXERCISES = [
+  // 하체
+  {name:"스쿼트", part:"하체"}, {name:"레그프레스", part:"하체"}, {name:"레그익스텐션", part:"하체"},
+  {name:"레그컬", part:"하체"}, {name:"런지", part:"하체"}, {name:"루마니안 데드리프트", part:"하체"},
+  {name:"힙쓰러스트", part:"하체"}, {name:"카프레이즈", part:"하체"},
+  // 가슴
+  {name:"벤치프레스", part:"가슴"}, {name:"인클라인 벤치프레스", part:"가슴"}, {name:"덤벨프레스", part:"가슴"},
+  {name:"체스트프레스(머신)", part:"가슴"}, {name:"플라이(머신/케이블)", part:"가슴"}, {name:"푸쉬업", part:"가슴"},
+  // 등
+  {name:"풀업/친업", part:"등"}, {name:"랫풀다운", part:"등"}, {name:"바벨로우", part:"등"},
+  {name:"덤벨로우", part:"등"}, {name:"시티드로우(케이블)", part:"등"}, {name:"데드리프트", part:"등"},
+  {name:"페이스풀", part:"등"},
+  // 어깨
+  {name:"오버헤드프레스", part:"어깨"}, {name:"숄더프레스(머신)", part:"어깨"}, {name:"사이드레터럴레이즈", part:"어깨"},
+  {name:"프론트레이즈", part:"어깨"}, {name:"리어델트플라이", part:"어깨"}, {name:"업라이트로우", part:"어깨"},
+  // 팔
+  {name:"바벨컬", part:"팔"}, {name:"덤벨컬", part:"팔"}, {name:"해머컬", part:"팔"},
+  {name:"트라이셉스푸시다운", part:"팔"}, {name:"딥스", part:"팔"}, {name:"스컬크러셔", part:"팔"},
+  // 복근
+  {name:"크런치", part:"복근"}, {name:"레그레이즈", part:"복근"}, {name:"행잉 니레이즈", part:"복근"},
+  {name:"플랭크", part:"복근"}, {name:"케이블 크런치", part:"복근"}, {name:"러시안트위스트", part:"복근"}
+];
+
+const REGION = {
+  "서울": ["강남구","강동구","강북구","강서구","관악구","광진구","구로구","금천구","노원구","도봉구","동대문구","동작구","마포구","서대문구","서초구","성동구","성북구","송파구","양천구","영등포구","용산구","은평구","종로구","중구","중랑구"],
+  "부산": ["강서구","금정구","기장군","남구","동구","동래구","부산진구","북구","사상구","사하구","서구","수영구","연제구","영도구","중구","해운대구"],
+  "대구": ["남구","달서구","달성군","동구","북구","서구","수성구","중구"],
+  "인천": ["강화군","계양구","미추홀구","남동구","동구","부평구","서구","연수구","옹진군","중구"],
+  "광주": ["광산구","남구","동구","북구","서구"],
+  "대전": ["대덕구","동구","서구","유성구","중구"],
+  "울산": ["남구","동구","북구","중구","울주군"],
+  "세종": ["세종시"],
+  "경기": ["수원시","성남시","용인시","고양시","화성시","부천시","안산시","안양시","평택시","시흥시","김포시","광주시","군포시","오산시","이천시","안성시","의왕시","하남시","여주시","양평군","과천시","구리시","남양주시","파주시","포천시","동두천시","양주시","연천군","가평군","의정부시"],
+  "강원": ["춘천시","원주시","강릉시","동해시","태백시","속초시","삼척시","홍천군","횡성군","영월군","평창군","정선군","철원군","화천군","양구군","인제군","고성군","양양군"],
+  "충북": ["청주시","충주시","제천시","보은군","옥천군","영동군","진천군","괴산군","음성군","단양군"],
+  "충남": ["천안시","공주시","보령시","아산시","서산시","논산시","계룡시","당진시","금산군","부여군","서천군","청양군","홍성군","예산군","태안군"],
+  "전북": ["전주시","익산시","군산시","정읍시","남원시","김제시","완주군","진안군","무주군","장수군","임실군","순창군","고창군","부안군"],
+  "전남": ["목포시","여수시","순천시","나주시","광양시","담양군","곡성군","구례군","고흥군","보성군","화순군","장흥군","강진군","해남군","영암군","무안군","함평군","영광군","장성군","완도군","진도군","신안군"],
+  "경북": ["포항시","경주시","김천시","안동시","구미시","영주시","영천시","상주시","문경시","경산시","군위군","의성군","청송군","영양군","영덕군","청도군","고령군","성주군","칠곡군","예천군","봉화군","울진군","울릉군"],
+  "경남": ["창원시","진주시","통영시","사천시","김해시","밀양시","거제시","양산시","의령군","함안군","창녕군","고성군","남해군","하동군","산청군","함양군","거창군","합천군"],
+  "제주": ["제주시","서귀포시"]
+};
+
+// 비속어 필터(최소). 완벽하지 않음.
+const BAD_WORDS = []; // disabled (MVP)
+function normalizeNick(s) {
+  return (s||"").toLowerCase().replace(/\s+/g,"").replace(/[^a-z0-9가-힣]/g,"");
+}
+function isBadNick(nick) { return false; }
+
+function fmtNumber(n) {
+  if (!isFinite(n)) return "-";
+  const x = Number(n);
+  if (Math.abs(x) >= 1000) return x.toLocaleString("ko-KR", {maximumFractionDigits: 0});
+  return x.toLocaleString("ko-KR", {maximumFractionDigits: 1});
+}
+function lbToKg(lb) { return lb * 0.45359237; }
+function toVolKg(unit, w, r) {
+  const ww = Number(w), rr = Number(r);
+  if (!isFinite(ww) || !isFinite(rr)) return 0;
+  const kg = (unit === "lb") ? lbToKg(ww) : ww;
+  return kg * rr;
+}
+function todayISO() {
+  const d = new Date();
+  const off = d.getTimezoneOffset();
+  const local = new Date(d.getTime() - off*60000);
+  return local.toISOString().slice(0,10);
+}
+function parseMmSs(s) {
+  const m = String(s||"").trim().match(/^(\d+)\s*:\s*([0-5]?\d)$/);
+  if (!m) return null;
+  const mm = Number(m[1]), ss = Number(m[2]);
+  return mm*60 + ss;
+}
+function formatPace(secPerKm) {
+  if (!isFinite(secPerKm) || secPerKm <= 0) return "-";
+  const m = Math.floor(secPerKm/60);
+  const s = Math.round(secPerKm%60);
+  return `${m}:${String(s).padStart(2,"0")}`;
+}
+
+/** =========================
+ *  IndexedDB (offline + queue)
+ *  ========================= */
+const DB_NAME = "fit_rank_db_v1";
+const DB_VER = 1;
+let idb;
+
+function idbOpen() {
+  return new Promise((resolve, reject) => {
+    const req = indexedDB.open(DB_NAME, DB_VER);
+    req.onupgradeneeded = () => {
+      const db = req.result;
+      if (!db.objectStoreNames.contains("profile")) db.createObjectStore("profile", { keyPath: "key" });
+      if (!db.objectStoreNames.contains("weight_drafts")) db.createObjectStore("weight_drafts", { keyPath: "id" });
+      if (!db.objectStoreNames.contains("cardio_drafts")) db.createObjectStore("cardio_drafts", { keyPath: "id" });
+      if (!db.objectStoreNames.contains("sync_queue")) db.createObjectStore("sync_queue", { keyPath: "qid" });
+    };
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => reject(req.error);
+  });
+}
+function tx(store, mode="readonly") {
+  const t = idb.transaction(store, mode);
+  return [t.objectStore(store), t];
+}
+function idbPut(store, val) {
+  return new Promise((resolve, reject) => {
+    const [s, t] = tx(store, "readwrite");
+    const r = s.put(val);
+    r.onsuccess = () => resolve(true);
+    r.onerror = () => reject(r.error);
+  });
+}
+function idbGet(store, key) {
+  return new Promise((resolve, reject) => {
+    const [s] = tx(store, "readonly");
+    const r = s.get(key);
+    r.onsuccess = () => resolve(r.result || null);
+    r.onerror = () => reject(r.error);
+  });
+}
+function idbDel(store, key) {
+  return new Promise((resolve, reject) => {
+    const [s] = tx(store, "readwrite");
+    const r = s.delete(key);
+    r.onsuccess = () => resolve(true);
+    r.onerror = () => reject(r.error);
+  });
+}
+function idbAll(store) {
+  return new Promise((resolve, reject) => {
+    const [s] = tx(store, "readonly");
+    const r = s.getAll();
+    r.onsuccess = () => resolve(r.result || []);
+    r.onerror = () => reject(r.error);
+  });
+}
+
+/** =========================
+ *  State
+ *  ========================= */
+const state = {
+  deviceId: null,
+  profile: null,
+  selectedPlace: null,
+  todayExercises: [], // {id, name, part, unit, sets:[{w,r}], note}
+};
+
+function ensureDeviceId() {
+  let id = localStorage.getItem("device_user_id");
+  if (!id) {
+    id = crypto.randomUUID();
+    localStorage.setItem("device_user_id", id);
+  }
+  state.deviceId = id;
+  document.getElementById("deviceIdTxt").textContent = id;
+}
+
+function setNetStatus() {
+  const el = document.getElementById("netStatus");
+  const online = navigator.onLine;
+  el.textContent = online ? "온라인" : "오프라인(로컬 저장 후 동기화)";
+  el.className = "status " + (online ? "ok" : "warn");
+}
+
+async function loadLocalProfile() {
+  const p = await idbGet("profile", "me");
+  state.profile = p ? p.data : null;
+}
+
+function refreshKpis() {
+  document.getElementById("kpiNick").textContent = state.profile?.nickname || "-";
+  document.getElementById("kpiClass").textContent = state.profile?.weight_class || "-";
+  document.getElementById("kpiPlace").textContent = state.profile?.place_name || "-";
+}
+
+async function updateQueueKpi() {
+  const q = await idbAll("sync_queue");
+  document.getElementById("queueCount").textContent = q.length;
+  document.getElementById("kpiSync").textContent = q.length ? `${q.length}개 대기` : "정상";
+}
+
+/** =========================
+ *  Navigation
+ *  ========================= */
+function showView(name) {
+  const ids = ["Profile","Today","Rank","More"];
+  for (const v of ids) {
+    document.getElementById("view"+v).classList.toggle("hide", v !== name);
+  }
+  // require profile for Today/Rank/More
+  if (!state.profile && name !== "Profile") {
+    document.getElementById("viewProfile").classList.remove("hide");
+    document.getElementById("viewToday").classList.add("hide");
+    document.getElementById("viewRank").classList.add("hide");
+    document.getElementById("viewMore").classList.add("hide");
+    alert("프로필을 먼저 저장해야 함.");
+    return;
+  }
+}
+
+/** =========================
+ *  Places
+ *  ========================= */
+function fillRegions() {
+  const r1 = document.getElementById("selRegion1");
+  r1.innerHTML = Object.keys(REGION).map(k => `<option value="${k}">${k}</option>`).join("");
+  r1.value = "서울";
+  fillRegion2();
+}
+function fillRegion2() {
+  const r1 = document.getElementById("selRegion1").value;
+  const r2 = document.getElementById("selRegion2");
+  const arr = REGION[r1] || ["-"];
+  r2.innerHTML = arr.map(k => `<option value="${k}">${k}</option>`).join("");
+}
+
+async function searchPlaces() {
+  const region1 = document.getElementById("selRegion1").value;
+  const region2 = document.getElementById("selRegion2").value;
+  const q = document.getElementById("inpPlaceSearch").value.trim();
+  const box = document.getElementById("placeResults");
+  box.innerHTML = "";
+
+  if (!q) return;
+
+  // online query
+  if (navigator.onLine) {
+    const { data, error } = await supabase
+      .from("places")
+      .select("place_id, place_name, address, region1, region2")
+      .ilike("place_name", `%${q}%`)
+      .eq("region1", region1)
+      .eq("region2", region2)
+      .limit(10);
+
+    if (error) {
+      box.innerHTML = `<div class="small warn">장소 검색 실패: ${error.message}</div>`;
+      return;
+    }
+    if (!data?.length) {
+      box.innerHTML = `<div class="small muted">검색 결과 없음</div>`;
+      return;
+    }
+    data.forEach(p => {
+      const btn = document.createElement("button");
+      btn.className = "ghost";
+      btn.textContent = `${p.place_name} ${p.address ? "· "+p.address : ""}`;
+      btn.onclick = () => {
+        state.selectedPlace = p;
+        document.getElementById("inpPlaceSearch").value = p.place_name;
+        box.innerHTML = `<div class="small ok">선택됨: ${p.place_name}</div>`;
+      };
+      box.appendChild(btn);
+    });
+  } else {
+    box.innerHTML = `<div class="small warn">오프라인이라 장소 검색은 불가. 직접 등록만 가능.</div>`;
+  }
+}
+
+async function addPlace() {
+  const region1 = document.getElementById("selRegion1").value;
+  const region2 = document.getElementById("selRegion2").value;
+  const name = document.getElementById("inpPlaceName").value.trim();
+  const addr = document.getElementById("inpPlaceAddr").value.trim();
+  if (!name) return alert("장소명을 입력해.");
+
+  const place = { region1, region2, place_name: name, address: addr || null };
+  if (!navigator.onLine) {
+    // offline: store in selectedPlace as local placeholder; will be created during sync with profile/workouts.
+    const localId = crypto.randomUUID();
+    state.selectedPlace = { place_id: localId, ...place, _local: true };
+    alert("오프라인: 장소를 임시로 저장했어. 온라인 되면 서버에 등록됨.");
+    return;
+  }
+
+  const { data, error } = await supabase.from("places").insert(place).select("place_id, place_name, address, region1, region2").single();
+  if (error) return alert("장소 추가 실패: " + error.message);
+  state.selectedPlace = data;
+  alert("장소 추가 완료. 선택됨: " + data.place_name);
+}
+
+/** =========================
+ *  Profile
+ *  ========================= */
+function bindProfileInputs() {
+  const w = document.getElementById("inpWeight");
+  const n = document.getElementById("inpNick");
+  const classOut = document.getElementById("computedClass");
+  const nickHint = document.getElementById("nickHint");
+
+  w.addEventListener("input", () => {
+    classOut.textContent = computeWeightClass(w.value);
+  });
+  n.addEventListener("input", () => {
+    const val = n.value.trim();
+    if (!val) { nickHint.textContent = ""; return; }
+    if (isBadNick(val)) {
+      nickHint.textContent = "";
+      nickHint.className = "small warn";
+    } else {
+      nickHint.textContent = "";
+      nickHint.className = "small";
+    }
+  });
+}
+
+async function renderProfile() {
+  if (!state.profile) return;
+  document.getElementById("inpNick").value = state.profile.nickname || "";
+  document.getElementById("selGender").value = state.profile.gender || "M";
+  document.getElementById("inpHeight").value = state.profile.height_cm ?? "";
+  document.getElementById("inpWeight").value = state.profile.weight_kg ?? "";
+  document.getElementById("computedClass").textContent = state.profile.weight_class || "-";
+  document.getElementById("inpPlaceSearch").value = state.profile.place_name || "";
+  refreshKpis();
+}
+
+async function saveProfile() {
+  const nickname = document.getElementById("inpNick").value.trim();
+  const gender = document.getElementById("selGender").value;
+  const height_cm = document.getElementById("inpHeight").value.trim() ? Number(document.getElementById("inpHeight").value.trim()) : null;
+  const weight_kg = Number(document.getElementById("inpWeight").value.trim());
+
+  if (!nickname) return alert("닉네임을 입력해.");
+  if (isBadNick(nickname)) return alert("");
+  if (!isFinite(weight_kg) || weight_kg <= 0) return alert("몸무게(kg)를 제대로 입력해.");
+
+  const weight_class = computeWeightClass(weight_kg);
+
+  let place_id = null, place_name = null;
+  if (state.selectedPlace) {
+    place_id = state.selectedPlace.place_id;
+    place_name = state.selectedPlace.place_name;
+  } else if (state.profile?.home_place_id) {
+    place_id = state.profile.home_place_id;
+    place_name = state.profile.place_name;
+  }
+
+  const profile = {
+    user_id: state.deviceId,
+    nickname,
+    gender,
+    height_cm,
+    weight_kg,
+    weight_class,
+    home_place_id: place_id,
+    place_name: place_name || null,
+    updated_at: new Date().toISOString()
+  };
+
+  // Save locally first
+  state.profile = profile;
+  await idbPut("profile", { key: "me", data: profile });
+  refreshKpis();
+
+  // Queue sync
+  await enqueueSync({ type:"upsert_profile", payload: profile });
+
+  // try sync now if online
+  if (navigator.onLine) await syncNow();
+
+  alert("프로필 저장 완료");
+  // enable other views
+  document.getElementById("viewToday").classList.remove("hide");
+  document.getElementById("viewRank").classList.remove("hide");
+  document.getElementById("viewMore").classList.remove("hide");
+}
+
+/** =========================
+ *  Today - weight
+ *  ========================= */
+function fillBodyParts() {
+  const s1 = document.getElementById("selBodyPart");
+  const s2 = document.getElementById("rankBodyPart");
+  s1.innerHTML = BODY_PARTS.map(p=>`<option value="${p}">${p}</option>`).join("");
+  s2.innerHTML = BODY_PARTS.map(p=>`<option value="${p}">${p}</option>`).join("");
+}
+
+function switchTab(containerId, panels) {
+  const box = document.getElementById(containerId);
+  box.addEventListener("click", (e) => {
+    const chip = e.target.closest(".chip");
+    if (!chip) return;
+    [...box.querySelectorAll(".chip")].forEach(c => c.classList.remove("active"));
+    chip.classList.add("active");
+    const tab = chip.dataset.tab;
+    for (const [k, elId] of Object.entries(panels)) {
+      document.getElementById(elId).classList.toggle("hide", k !== tab);
+    }
+  });
+}
+
+function renderExerciseCards() {
+  const wrap = document.getElementById("exerciseCards");
+  wrap.innerHTML = "";
+  state.todayExercises.forEach(ex => {
+    const card = document.createElement("div");
+    card.className = "card";
+    card.style.padding = "12px";
+    card.innerHTML = `
+      <div class="row" style="align-items:flex-start;">
+        <div>
+          <div style="font-weight:800">${ex.name} <span class="tag">${ex.part}</span></div>
+          <div class="small muted">세트 입력 (무게/횟수)</div>
+        </div>
+        <div class="right" style="max-width:130px;">
+          <button class="ghost" data-action="loadPrev" data-id="${ex.id}" style="padding:10px;">지난 기록 불러오기</button>
+        </div>
+      </div>
+      <div class="divider"></div>
+      <div class="stack" data-sets="${ex.id}"></div>
+      <div class="row">
+        <button class="ghost" data-action="addSet" data-id="${ex.id}">+ 세트</button>
+        <button class="danger" data-action="removeEx" data-id="${ex.id}">삭제</button>
+      </div>
+      <div class="chips" style="margin-top:8px;">
+        <div class="chip" data-action="incR" data-id="${ex.id}">+1회</div>
+        <div class="chip" data-action="incW25" data-id="${ex.id}">+2.5</div>
+        <div class="chip" data-action="incW5" data-id="${ex.id}">+5</div>
+        <div class="chip" data-action="applyDown" data-id="${ex.id}">위→아래 적용</div>
+      </div>
+    `;
+    wrap.appendChild(card);
+
+    renderSets(ex.id);
+  });
+}
+
+function renderSets(exId) {
+  const ex = state.todayExercises.find(x=>x.id===exId);
+  const host = document.querySelector(`[data-sets="${exId}"]`);
+  host.innerHTML = "";
+  ex.sets.forEach((s, idx) => {
+    const row = document.createElement("div");
+    row.className = "row";
+    row.innerHTML = `
+      <div style="flex:0 0 56px;"><span class="tag">세트 ${idx+1}</span></div>
+      <div>
+        <input inputmode="decimal" placeholder="무게" value="${s.w ?? ""}" data-k="w" data-ex="${exId}" data-idx="${idx}">
+      </div>
+      <div>
+        <input inputmode="numeric" placeholder="횟수" value="${s.r ?? ""}" data-k="r" data-ex="${exId}" data-idx="${idx}">
+      </div>
+    `;
+    host.appendChild(row);
+  });
+
+  host.querySelectorAll("input").forEach(inp => {
+    inp.addEventListener("input", () => {
+      const exId = inp.dataset.ex;
+      const idx = Number(inp.dataset.idx);
+      const k = inp.dataset.k;
+      const v = inp.value;
+      const ex = state.todayExercises.find(x=>x.id===exId);
+      ex.sets[idx][k] = v;
+      saveDraftWeight();
+    });
+  });
+}
+
+async function saveDraftWeight() {
+  const date = document.getElementById("inpDate").value;
+  await idbPut("weight_drafts", { id: "draft_"+date, data: state.todayExercises });
+}
+
+async function loadDraftWeight() {
+  const date = document.getElementById("inpDate").value;
+  const d = await idbGet("weight_drafts", "draft_"+date);
+  state.todayExercises = d?.data || [];
+  renderExerciseCards();
+}
+
+function openExercisePicker() {
+  // lightweight picker: 추천(최근) + 검색 + 카테고리 + 직접추가
+  const unit = document.getElementById("selUnit").value;
+  const part = document.getElementById("selBodyPart").value;
+
+  const overlay = document.createElement("div");
+  overlay.style.position = "fixed";
+  overlay.style.inset = "0";
+  overlay.style.background = "rgba(0,0,0,.35)";
+  overlay.style.display = "flex";
+  overlay.style.alignItems = "flex-end";
+  overlay.style.justifyContent = "center";
+  overlay.style.zIndex = "9999";
+
+  const sheet = document.createElement("div");
+  sheet.className = "card";
+  sheet.style.width = "100%";
+  sheet.style.maxWidth = "900px";
+  sheet.style.borderRadius = "18px 18px 0 0";
+  sheet.style.paddingBottom = "16px";
+
+  const recent = getRecentExercises();
+  const baseFiltered = BASE_EXERCISES.filter(x=>x.part===part);
+
+  sheet.innerHTML = `
+    <div class="row" style="align-items:flex-start;">
+      <div>
+        <div style="font-weight:900; font-size:18px;">종목 추가</div>
+        <div class="small muted">추천/최근/검색이 메인. 리스트 지옥 금지.</div>
+      </div>
+      <div class="right" style="max-width:120px;">
+        <button class="ghost" id="closeSheet">닫기</button>
+      </div>
+    </div>
+    <div class="divider"></div>
+    <input id="exSearch" placeholder="검색 (예: 스쿼, bench, ㅅㅋㅌ)" />
+    <div class="small muted" style="margin-top:8px;">최근 사용</div>
+    <div class="chips" id="recentChips"></div>
+    <div class="small muted" style="margin-top:8px;">${part} 기본 종목</div>
+    <div class="stack" id="baseList" style="margin-top:8px;"></div>
+    <details style="margin-top:10px;">
+      <summary>직접 추가(내 종목)</summary>
+      <div class="stack" style="margin-top:10px;">
+        <input id="customName" placeholder="예) 인클라인벤치(스미스)" />
+        <button class="ghost" id="btnAddCustom">추가</button>
+      </div>
+    </details>
+  `;
+
+  overlay.appendChild(sheet);
+  document.body.appendChild(overlay);
+
+  const close = () => overlay.remove();
+  sheet.querySelector("#closeSheet").onclick = close;
+  overlay.addEventListener("click", (e)=>{ if (e.target===overlay) close(); });
+
+  const recentBox = sheet.querySelector("#recentChips");
+  if (!recent.length) {
+    recentBox.innerHTML = `<span class="small muted">아직 없음</span>`;
+  } else {
+    recent.forEach(r => {
+      const c = document.createElement("div");
+      c.className = "chip";
+      c.textContent = r.name;
+      c.onclick = () => { addExercise(r.name, r.part, unit); close(); };
+      recentBox.appendChild(c);
+    });
+  }
+
+  const baseList = sheet.querySelector("#baseList");
+  const renderBase = (list) => {
+    baseList.innerHTML = "";
+    list.slice(0, 30).forEach(x => {
+      const b = document.createElement("button");
+      b.className = "ghost";
+      b.textContent = x.name;
+      b.onclick = () => { addExercise(x.name, x.part, unit); close(); };
+      baseList.appendChild(b);
+    });
+    if (!list.length) baseList.innerHTML = `<div class="small muted">검색 결과 없음</div>`;
+  };
+  renderBase(baseFiltered);
+
+  const search = sheet.querySelector("#exSearch");
+  search.addEventListener("input", () => {
+    const q = search.value.trim().toLowerCase();
+    if (!q) return renderBase(baseFiltered);
+    const q2 = q.replace(/\s+/g,"");
+    const matches = BASE_EXERCISES.filter(x => (x.part===part) && (
+      x.name.toLowerCase().includes(q) ||
+      x.name.replace(/\s+/g,"").includes(q2) ||
+      hangulInitials(x.name).includes(q) ||
+      hangulInitials(x.name).includes(q2)
+    ));
+    renderBase(matches);
+  });
+
+  sheet.querySelector("#btnAddCustom").onclick = () => {
+    const name = sheet.querySelector("#customName").value.trim();
+    if (!name) return alert("종목 이름을 입력해.");
+    addExercise(name, part, unit, true);
+    close();
+  };
+}
+
+function hangulInitials(str) {
+  // 초성 추출(간단)
+  const CHO = ["ㄱ","ㄲ","ㄴ","ㄷ","ㄸ","ㄹ","ㅁ","ㅂ","ㅃ","ㅅ","ㅆ","ㅇ","ㅈ","ㅉ","ㅊ","ㅋ","ㅌ","ㅍ","ㅎ"];
+  let out = "";
+  for (const ch of str) {
+    const code = ch.charCodeAt(0);
+    if (code >= 0xAC00 && code <= 0xD7A3) {
+      const idx = Math.floor((code - 0xAC00) / 588);
+      out += CHO[idx] || "";
+    }
+  }
+  return out;
+}
+
+function addExercise(name, part, unit, isCustom=false) {
+  const ex = { id: crypto.randomUUID(), name, part, unit, sets: [{w:"", r:""}], isCustom };
+  state.todayExercises.push(ex);
+  bumpRecentExercise({name, part});
+  renderExerciseCards();
+  saveDraftWeight();
+}
+
+function bumpRecentExercise(ex) {
+  const key = "recent_exercises";
+  const list = JSON.parse(localStorage.getItem(key) || "[]");
+  const filtered = list.filter(x => x.name !== ex.name || x.part !== ex.part);
+  filtered.unshift({name: ex.name, part: ex.part, t: Date.now()});
+  localStorage.setItem(key, JSON.stringify(filtered.slice(0, 12)));
+}
+function getRecentExercises() {
+  const list = JSON.parse(localStorage.getItem("recent_exercises") || "[]");
+  return list.slice(0, 10);
+}
+
+function attachExerciseCardHandlers() {
+  document.getElementById("exerciseCards").addEventListener("click", async (e) => {
+    const btn = e.target.closest("[data-action]");
+    if (!btn) return;
+    const action = btn.dataset.action;
+    const id = btn.dataset.id;
+    const ex = state.todayExercises.find(x=>x.id===id);
+    if (!ex) return;
+
+    if (action === "addSet") {
+      ex.sets.push({w:"", r:""});
+      renderSets(id);
+      saveDraftWeight();
+    } else if (action === "removeEx") {
+      state.todayExercises = state.todayExercises.filter(x=>x.id!==id);
+      renderExerciseCards();
+      saveDraftWeight();
+    } else if (action === "incR") {
+      ex.sets.forEach(s => { if (s.r!=="" && isFinite(Number(s.r))) s.r = String(Number(s.r)+1); });
+      renderSets(id); saveDraftWeight();
+    } else if (action === "incW25") {
+      const delta = (document.getElementById("selUnit").value==="lb") ? 5 : 2.5;
+      ex.sets.forEach(s => { if (s.w!=="" && isFinite(Number(s.w))) s.w = String(Number(s.w)+delta); });
+      renderSets(id); saveDraftWeight();
+    } else if (action === "incW5") {
+      const delta = (document.getElementById("selUnit").value==="lb") ? 10 : 5;
+      ex.sets.forEach(s => { if (s.w!=="" && isFinite(Number(s.w))) s.w = String(Number(s.w)+delta); });
+      renderSets(id); saveDraftWeight();
+    } else if (action === "applyDown") {
+      const first = ex.sets[0];
+      for (let i=1;i<ex.sets.length;i++) ex.sets[i] = {w:first.w, r:first.r};
+      renderSets(id); saveDraftWeight();
+    } else if (action === "loadPrev") {
+      // opt-in: fetch last record for same exercise
+      await loadPrevSetsForExercise(ex);
+    }
+  });
+}
+
+async function loadPrevSetsForExercise(ex) {
+  if (!navigator.onLine) return alert("오프라인이라 지난 기록 불러오기는 불가.");
+  if (!state.profile) return;
+
+  const { data, error } = await supabase
+    .from("workouts_weight")
+    .select("sets, unit, workout_date")
+    .eq("user_id", state.profile.user_id)
+    .eq("exercise_name", ex.name)
+    .order("workout_date", {ascending:false})
+    .limit(1);
+
+  if (error) return alert("불러오기 실패: " + error.message);
+  if (!data?.length) return alert("지난 기록이 없음.");
+  const prev = data[0];
+  ex.sets = prev.sets || [{w:"", r:""}];
+  ex.unit = prev.unit || ex.unit;
+  renderExerciseCards();
+  saveDraftWeight();
+  alert(`지난 기록(${prev.workout_date})을 불러왔어.`);
+}
+
+function calcExerciseVolumeKg(ex) {
+  const unit = document.getElementById("selUnit").value; // today unit selection
+  // if ex.unit differs, use ex.unit
+  const u = ex.unit || unit;
+  let sum = 0;
+  for (const s of ex.sets) sum += toVolKg(u, s.w, s.r);
+  return sum;
+}
+
+async function saveTodayWeight() {
+  if (!state.profile) return alert("프로필 먼저.");
+  const date = document.getElementById("inpDate").value;
+  if (!date) return alert("날짜를 선택해.");
+
+  const gender_at_time = state.profile.gender;
+  const class_at_time = computeWeightClass(state.profile.weight_kg);
+  const place_id_at_time = state.profile.home_place_id || null;
+
+  // group by exercise and store each as one row, but ranking wants body_part volumes by date.
+  // We'll store each exercise row; ranking sums per user & body_part at query time using a view? We will store as is and for MVP we will also store each row with body_part and total_volume for that exercise.
+  // For ranking by body part per day, we compute per user in client by aggregating fetched rows.
+  // To keep it simple and efficient, we'll store each exercise row and total_volume as exercise volume (kg-equivalent).
+  const rows = [];
+  for (const ex of state.todayExercises) {
+    // validate at least one complete set
+    const cleanedSets = ex.sets
+      .map(s => ({ w: Number(s.w), r: Number(s.r) }))
+      .filter(s => isFinite(s.w) && isFinite(s.r) && s.w>0 && s.r>0);
+    if (!cleanedSets.length) continue;
+
+    const volKg = cleanedSets.reduce((acc,s)=> acc + toVolKg(ex.unit, s.w, s.r), 0);
+    rows.push({
+      user_id: state.profile.user_id,
+      workout_date: date,
+      body_part: ex.part,
+      exercise_name: ex.name,
+      unit: ex.unit,
+      sets: cleanedSets,
+      total_volume: volKg,
+      gender_at_time,
+      class_at_time,
+      place_id_at_time
+    });
+  }
+
+  if (!rows.length) return alert("저장할 세트가 없음. 최소 1세트(무게/횟수)를 입력해.");
+
+  // local draft: keep
+  await idbPut("weight_drafts", { id: "saved_"+date+"_"+Date.now(), data: rows });
+
+  // enqueue sync per row
+  for (const r of rows) await enqueueSync({ type:"insert_weight", payload: r });
+
+  document.getElementById("weightSaveHint").textContent = `로컬 저장 완료 (${rows.length}개 종목).`;
+  await updateQueueKpi();
+
+  if (navigator.onLine) await syncNow();
+}
+
+/** =========================
+ *  Today - cardio
+ *  ========================= */
+function updatePacePreview() {
+  const dist = Number(document.getElementById("inpDist").value);
+  const dur = parseMmSs(document.getElementById("inpDur").value);
+  if (!isFinite(dist) || dist <= 0 || !dur) {
+    document.getElementById("paceOut").textContent = "-";
+    return;
+  }
+  const pace = Math.round(dur / dist);
+  document.getElementById("paceOut").textContent = formatPace(pace);
+}
+
+async function saveCardio() {
+  if (!state.profile) return alert("프로필 먼저.");
+  const date = document.getElementById("inpDate").value;
+  const cardio_type = document.getElementById("selCardioType").value;
+  const distance_km = Number(document.getElementById("inpDist").value);
+  const duration_sec = parseMmSs(document.getElementById("inpDur").value);
+
+  if (!date) return alert("날짜를 선택해.");
+  if (!isFinite(distance_km) || distance_km <= 0) return alert("거리(km)를 제대로 입력해.");
+  if (!duration_sec || duration_sec <= 0) return alert("시간(mm:ss)을 제대로 입력해.");
+
+  const pace_sec_per_km = Math.round(duration_sec / distance_km);
+
+  const payload = {
+    user_id: state.profile.user_id,
+    workout_date: date,
+    cardio_type,
+    distance_km,
+    duration_sec,
+    pace_sec_per_km,
+    gender_at_time: state.profile.gender,
+    class_at_time: computeWeightClass(state.profile.weight_kg),
+    place_id_at_time: state.profile.home_place_id || null
+  };
+
+  await idbPut("cardio_drafts", { id: "saved_"+date+"_"+Date.now(), data: payload });
+  await enqueueSync({ type:"insert_cardio", payload });
+
+  document.getElementById("cardioSaveHint").textContent = `로컬 저장 완료 (페이스 ${formatPace(pace_sec_per_km)}/km).`;
+  await updateQueueKpi();
+
+  if (navigator.onLine) await syncNow();
+}
+
+/** =========================
+ *  Sync Queue
+ *  ========================= */
+async function enqueueSync(job) {
+  const qid = crypto.randomUUID();
+  await idbPut("sync_queue", { qid, job, t: Date.now() });
+}
+async function syncNow() {
+  if (!navigator.onLine) return;
+  const q = await idbAll("sync_queue");
+  if (!q.length) return;
+
+  // sort by time
+  q.sort((a,b)=>a.t-b.t);
+  let ok = 0;
+
+  for (const item of q) {
+    try {
+      const job = item.job;
+      if (job.type === "upsert_profile") {
+        await upsertProfileRemote(job.payload);
+      } else if (job.type === "insert_weight") {
+        await insertWeightRemote(job.payload);
+      } else if (job.type === "insert_cardio") {
+        await insertCardioRemote(job.payload);
+      } else if (job.type === "ensure_place") {
+        await ensurePlaceRemote(job.payload);
+      }
+      await idbDel("sync_queue", item.qid);
+      ok++;
+    } catch (e) {
+      // stop on first failure to avoid thrashing
+      console.warn("sync fail", e);
+      break;
+    }
+  }
+  await updateQueueKpi();
+  if (ok) document.getElementById("kpiSync").textContent = "정상";
+}
+
+async function ensurePlaceRemote(place) {
+  // place: {region1, region2, place_name, address, place_id?}
+  const { data, error } = await supabase.from("places").insert({
+    region1: place.region1, region2: place.region2, place_name: place.place_name, address: place.address || null
+  }).select("place_id, place_name, address, region1, region2").single();
+  if (error) throw new Error(error.message);
+  return data;
+}
+
+async function upsertProfileRemote(profile) {
+  // if selectedPlace is local placeholder, create remote place first and update profile
+  if (state.selectedPlace?._local) {
+    const created = await ensurePlaceRemote(state.selectedPlace);
+    state.selectedPlace = created;
+    profile.home_place_id = created.place_id;
+    profile.place_name = created.place_name;
+    state.profile = profile;
+    await idbPut("profile", { key:"me", data: profile });
+    refreshKpis();
+  }
+
+  const row = {
+    user_id: profile.user_id,
+    nickname: profile.nickname,
+    gender: profile.gender,
+    height_cm: profile.height_cm,
+    weight_kg: profile.weight_kg,
+    weight_class: profile.weight_class,
+    home_place_id: profile.home_place_id || null,
+    updated_at: new Date().toISOString()
+  };
+
+  // upsert by PK user_id
+  const { error } = await supabase.from("users").upsert(row, { onConflict: "user_id" });
+  if (error) throw new Error(error.message);
+}
+
+async function insertWeightRemote(row) {
+  // ensure user exists
+  await upsertProfileRemote(state.profile);
+
+  const { error } = await supabase.from("workouts_weight").insert(row);
+  if (error) throw new Error(error.message);
+}
+async function insertCardioRemote(row) {
+  await upsertProfileRemote(state.profile);
+  const { error } = await supabase.from("workouts_cardio").insert(row);
+  if (error) throw new Error(error.message);
+}
+
+/** =========================
+ *  Ranking
+ *  ========================= */
+async function loadWeightRanking() {
+  if (!navigator.onLine) return alert("오프라인에서는 랭킹 불러오기 불가.");
+  if (!state.profile) return;
+
+  const date = document.getElementById("rankDate").value;
+  const part = document.getElementById("rankBodyPart").value;
+  const gender = document.getElementById("rankGender").value;
+  const cls = state.profile.weight_class; // current class; rankings are within class. (This is a choice: compare by current class)
+  // Note: Records store class_at_time; If user changed weight later, their older records remain in old class.
+  // For fairness of ranking-by-day, use class_at_time in records. We'll show user's current class filter for that day.
+  // We'll compute my volume for the day+part from remote records with class_at_time = cls.
+
+  // 1) fetch all rows for day/part/gender/class (limit 5000; MVP)
+  const { data, error } = await supabase
+    .from("workouts_weight")
+    .select("user_id, total_volume")
+    .eq("workout_date", date)
+    .eq("body_part", part)
+    .eq("gender_at_time", gender)
+    .eq("class_at_time", cls);
+
+  if (error) return alert("랭킹 불러오기 실패: " + error.message);
+
+  // Aggregate per user (sum volume across exercises)
+  const map = new Map();
+  for (const r of (data || [])) {
+    map.set(r.user_id, (map.get(r.user_id) || 0) + Number(r.total_volume || 0));
+  }
+
+  const arr = [...map.entries()].map(([user_id, volume]) => ({user_id, volume}));
+  arr.sort((a,b)=>b.volume - a.volume);
+
+  // top list
+  const top = arr.slice(0, 50);
+
+  // fetch nicknames for top
+  const ids = top.map(x=>x.user_id);
+  const { data: udata, error: uerr } = await supabase.from("users").select("user_id,nickname").in("user_id", ids);
+  if (uerr) return alert("유저정보 불러오기 실패: " + uerr.message);
+  const nickMap = new Map((udata||[]).map(u => [u.user_id, u.nickname]));
+
+  const tbody = document.querySelector("#tblWeight tbody");
+  tbody.innerHTML = "";
+  top.forEach((x, i) => {
+    const tr = document.createElement("tr");
+    tr.innerHTML = `<td>${i+1}</td><td>${nickMap.get(x.user_id) || "-"}</td><td>${fmtNumber(x.volume)}</td>`;
+    tbody.appendChild(tr);
+  });
+
+  // My percentile
+  const myVol = map.get(state.profile.user_id) || 0;
+  if (myVol <= 0) {
+    document.getElementById("myWeightPercent").innerHTML =
+      `<span class="muted">내 기록 없음(이 부위/날짜).</span>`;
+    return;
+  }
+  const N = arr.length;
+  const higher = arr.filter(x => x.volume > myVol).length;
+  const rank = higher + 1;
+  const topPct = Math.round((1 - (rank-1)/N) * 1000)/10; // one decimal
+  document.getElementById("myWeightPercent").innerHTML =
+    `내 볼륨 <b>${fmtNumber(myVol)}</b> · <b>상위 ${topPct}%</b> (체급/성별 내 ${N}명 중 ${rank}등)`;
+}
+
+async function loadCardioRanking() {
+  if (!navigator.onLine) return alert("오프라인에서는 랭킹 불러오기 불가.");
+  if (!state.profile) return;
+
+  const date = document.getElementById("rankDate").value;
+  const kind = document.getElementById("rankCardioType").value; // distance|pace
+  const gender = document.getElementById("rankCardioGender").value;
+  const cls = state.profile.weight_class;
+  const minDist = 2.0;
+
+  // fetch all cardio records for day/gender/class (MVP)
+  const q = supabase
+    .from("workouts_cardio")
+    .select("user_id, distance_km, pace_sec_per_km")
+    .eq("workout_date", date)
+    .eq("gender_at_time", gender)
+    .eq("class_at_time", cls);
+
+  const { data, error } = await q;
+  if (error) return alert("랭킹 불러오기 실패: " + error.message);
+
+  // aggregate per user:
+  // distance: sum distance
+  // pace: best pace among records with distance >= minDist (lower is better)
+  const map = new Map();
+  const paceMap = new Map();
+
+  for (const r of (data || [])) {
+    const uid = r.user_id;
+    const dist = Number(r.distance_km || 0);
+    const pace = Number(r.pace_sec_per_km || 0);
+
+    map.set(uid, (map.get(uid) || 0) + dist);
+
+    if (dist >= minDist && isFinite(pace) && pace > 0) {
+      const prev = paceMap.get(uid);
+      paceMap.set(uid, (prev ? Math.min(prev, pace) : pace));
+    }
+  }
+
+  let arr = [];
+  if (kind === "distance") {
+    arr = [...map.entries()].map(([user_id, val]) => ({user_id, val})).filter(x => x.val > 0);
+    arr.sort((a,b)=>b.val - a.val);
+    document.getElementById("cardioColTitle").textContent = "거리(km)";
+  } else {
+    arr = [...paceMap.entries()].map(([user_id, val]) => ({user_id, val}));
+    arr.sort((a,b)=>a.val - b.val);
+    document.getElementById("cardioColTitle").textContent = "페이스(분/km)";
+  }
+
+  const top = arr.slice(0, 50);
+  const ids = top.map(x=>x.user_id);
+  const { data: udata, error: uerr } = await supabase.from("users").select("user_id,nickname").in("user_id", ids);
+  if (uerr) return alert("유저정보 불러오기 실패: " + uerr.message);
+  const nickMap = new Map((udata||[]).map(u => [u.user_id, u.nickname]));
+
+  const tbody = document.querySelector("#tblCardio tbody");
+  tbody.innerHTML = "";
+  top.forEach((x, i) => {
+    const shown = (kind === "distance") ? fmtNumber(x.val) : formatPace(x.val);
+    const tr = document.createElement("tr");
+    tr.innerHTML = `<td>${i+1}</td><td>${nickMap.get(x.user_id) || "-"}</td><td>${shown}</td>`;
+    tbody.appendChild(tr);
+  });
+
+  // My percentile
+  let myVal = null;
+  if (kind === "distance") myVal = map.get(state.profile.user_id) || 0;
+  else myVal = paceMap.get(state.profile.user_id) || null;
+
+  const N = arr.length;
+  if (!N || !myVal || (kind==="distance" && myVal<=0)) {
+    document.getElementById("myCardioPercent").innerHTML = `<span class="muted">내 기록 없음(이 날짜/조건).</span>`;
+    return;
+  }
+
+  const higher = (kind === "distance")
+    ? arr.filter(x => x.val > myVal).length
+    : arr.filter(x => x.val < myVal).length; // lower pace is better
+
+  const rank = higher + 1;
+  const topPct = Math.round((1 - (rank-1)/N) * 1000)/10;
+  const myShown = (kind === "distance") ? `${fmtNumber(myVal)} km` : `${formatPace(myVal)}/km`;
+  document.getElementById("myCardioPercent").innerHTML =
+    `내 기록 <b>${myShown}</b> · <b>상위 ${topPct}%</b> (체급/성별 내 ${N}명 중 ${rank}등)`;
+}
+
+/** =========================
+ *  Misc
+ *  ========================= */
+async function resetLocal() {
+  if (!confirm("로컬 데이터를 초기화할 거야. (프로필/오프라인 큐 포함)")) return;
+  indexedDB.deleteDatabase(DB_NAME);
+  localStorage.removeItem("device_user_id");
+  location.reload();
+}
+
+/** =========================
+ *  Boot
+ *  ========================= */
+async function boot() {
+  ensureDeviceId();
+  idb = await idbOpen();
+  setNetStatus();
+  window.addEventListener("online", async()=>{ setNetStatus(); await syncNow(); });
+  window.addEventListener("offline", ()=>setNetStatus());
+
+  fillRegions();
+  fillBodyParts();
+
+  // date fields
+  document.getElementById("inpDate").value = todayISO();
+  document.getElementById("rankDate").value = todayISO();
+
+  // tabs
+  switchTab("tabToday", { weight:"panelWeight", cardio:"panelCardio" });
+  switchTab("tabRank", { w:"rankWeight", c:"rankCardio" });
+
+  // profile
+  bindProfileInputs();
+  document.getElementById("selRegion1").addEventListener("change", fillRegion2);
+  document.getElementById("inpPlaceSearch").addEventListener("input", () => {
+    clearTimeout(window.__placeTimer);
+    window.__placeTimer = setTimeout(searchPlaces, 250);
+  });
+  document.getElementById("btnAddPlace").onclick = addPlace;
+  document.getElementById("btnSaveProfile").onclick = saveProfile;
+
+  // today
+  document.getElementById("btnAddExercise").onclick = openExercisePicker;
+  attachExerciseCardHandlers();
+  document.getElementById("inpDate").addEventListener("change", loadDraftWeight);
+  document.getElementById("btnSaveTodayWeight").onclick = saveTodayWeight;
+
+  // cardio
+  document.getElementById("inpDist").addEventListener("input", updatePacePreview);
+  document.getElementById("inpDur").addEventListener("input", updatePacePreview);
+  document.getElementById("btnSaveCardio").onclick = saveCardio;
+
+  // ranking
+  document.getElementById("btnLoadWeightRank").onclick = loadWeightRanking;
+  document.getElementById("btnLoadCardioRank").onclick = loadCardioRanking;
+
+  // more
+  document.getElementById("btnSyncNow").onclick = syncNow;
+  document.getElementById("btnResetLocal").onclick = resetLocal;
+
+  // nav
+  document.querySelectorAll(".nav button").forEach(b => {
+    b.onclick = () => showView(b.dataset.view);
+  });
+
+  // show base exercises
+  document.getElementById("baseExercisesTxt").textContent =
+    BASE_EXERCISES.map(x=>`- ${x.part}: ${x.name}`).join("\n");
+
+  // debug
+  document.getElementById("dbgCfg").textContent = JSON.stringify({
+    SUPABASE_URL,
+    DEVICE_ID: state.deviceId,
+    WEIGHT_CLASS_BINS: ["<60","60-70","70-80","80-90","90+"],
+    BAD_WORDS_COUNT: BAD_WORDS.length
+  }, null, 2);
+
+  // load profile
+  await loadLocalProfile();
+  await updateQueueKpi();
+  await renderProfile();
+
+  if (state.profile) {
+    // enable other views
+    document.getElementById("viewToday").classList.remove("hide");
+    document.getElementById("viewRank").classList.remove("hide");
+    document.getElementById("viewMore").classList.remove("hide");
+    refreshKpis();
+    await loadDraftWeight();
+  } else {
+    showView("Profile");
+  }
+
+  // initial sync if online
+  if (navigator.onLine) await syncNow();
+}
+
+boot().catch(err => {
+  console.error(err);
+  alert("초기화 실패: " + (err?.message || err));
+});
+</script>
+</body>
+</html>
