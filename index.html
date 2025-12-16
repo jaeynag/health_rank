@@ -3,16 +3,20 @@
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1"/>
-<title>Health Rank - Today (Ticker)</title>
+<title>Health Rank - Today (Ticker + Top10)</title>
 <style>
   body{margin:0;font-family:-apple-system,BlinkMacSystemFont,system-ui,Segoe UI,Roboto,Apple SD Gothic Neo,Noto Sans KR,sans-serif;background:#0f1115;color:#eaeaf0}
   .page{max-width:480px;margin:0 auto;padding:12px}
   .header{position:sticky;top:0;background:#0f1115;padding:6px 0;border-bottom:1px solid #1f2430;z-index:5}
-  .ticker-wrap{overflow:hidden;white-space:nowrap}
+
+  /* Ticker */
+  .ticker-wrap{overflow:hidden;white-space:nowrap;border-radius:10px}
+  .ticker-touch{cursor:pointer}
   .ticker{
     display:inline-block;
     padding-left:100%;
     animation: marquee 18s linear infinite;
+    will-change:transform;
   }
   .ticker span{
     display:inline-block;
@@ -20,6 +24,9 @@
     color:#cfd3ff;
     animation:pulse 1.6s ease-in-out infinite;
   }
+  .paused .ticker{animation-play-state:paused}
+  .paused .ticker span{animation-play-state:paused}
+
   @keyframes marquee{
     0%{transform:translateX(0)}
     100%{transform:translateX(-100%)}
@@ -29,9 +36,10 @@
     50%{opacity:1;text-shadow:0 0 6px rgba(120,140,255,.6)}
   }
 
+  /* UI */
   .section{margin:12px 0}
   .grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
-  .btn{background:#1b1f2a;border:1px solid #2a3040;color:#fff;border-radius:10px;padding:12px;text-align:center}
+  .btn{background:#1b1f2a;border:1px solid #2a3040;color:#fff;border-radius:10px;padding:12px;text-align:center;user-select:none}
   .btn.primary{background:#4c5cff;border-color:#4c5cff}
   .btn.ghost{background:#141826}
   .row{display:flex;gap:8px}
@@ -42,13 +50,27 @@
   .kbd .key{padding:14px;border-radius:12px;background:#1b1f2a;border:1px solid #2a3040;text-align:center}
   .pill{padding:6px 10px;border-radius:999px;border:1px solid #2a3040}
   .set{display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px dashed #2a3040}
+
+  /* Top10 drawer */
+  .overlay{position:fixed;inset:0;background:rgba(0,0,0,.55);display:none;align-items:flex-start;justify-content:center;padding:12px;z-index:50}
+  .overlay.show{display:flex}
+  .drawer{width:min(480px,100%);margin-top:56px;background:#141826;border:1px solid #2a3040;border-radius:16px;overflow:hidden}
+  .drawer-head{display:flex;align-items:center;justify-content:space-between;padding:12px;border-bottom:1px solid #2a3040}
+  .drawer-title{font-weight:700}
+  .drawer-sub{color:#8e93b5;font-size:12px;margin-top:2px}
+  .drawer-body{max-height:60vh;overflow:auto}
+  .rank-row{display:flex;gap:10px;align-items:center;justify-content:space-between;padding:10px 12px;border-bottom:1px dashed #2a3040}
+  .rank-left{display:flex;gap:10px;align-items:center;min-width:0}
+  .rank-badge{width:28px;text-align:center;color:#cfd3ff}
+  .rank-name{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .rank-val{color:#eaeaf0}
 </style>
 </head>
 <body>
-<div class="page">
+<div class="page" id="app">
   <div class="header">
-    <div class="ticker-wrap">
-      <div class="ticker">
+    <div class="ticker-wrap ticker-touch" id="tickerWrap" title="누르면 Top10">
+      <div class="ticker" id="ticker">
         <span>하체 🥇 jaeyang 8,420kg</span>
         <span>하체 🥈 userB 7,980kg</span>
         <span>하체 🥉 userC 7,450kg</span>
@@ -107,5 +129,74 @@
     <div class="btn">운동 종료</div>
   </div>
 </div>
+
+<!-- Top10 Overlay -->
+<div class="overlay" id="overlay" aria-hidden="true">
+  <div class="drawer" role="dialog" aria-modal="true" aria-label="Top10">
+    <div class="drawer-head">
+      <div>
+        <div class="drawer-title">Top 10 · 하체(오늘)</div>
+        <div class="drawer-sub">같은 체급 · 성별 · 부위 기준</div>
+      </div>
+      <div class="btn ghost" id="closeBtn" style="padding:8px 10px;border-radius:12px">닫기</div>
+    </div>
+    <div class="drawer-body" id="top10">
+      <!-- rows inserted by JS -->
+    </div>
+  </div>
+</div>
+
+<script>
+  const app = document.getElementById('app');
+  const tickerWrap = document.getElementById('tickerWrap');
+  const overlay = document.getElementById('overlay');
+  const closeBtn = document.getElementById('closeBtn');
+  const top10 = document.getElementById('top10');
+
+  const sample = [
+    {rank:1,name:"jaeyang",vol:"8,420kg"},
+    {rank:2,name:"userB",vol:"7,980kg"},
+    {rank:3,name:"userC",vol:"7,450kg"},
+    {rank:4,name:"userD",vol:"7,100kg"},
+    {rank:5,name:"userE",vol:"6,980kg"},
+    {rank:6,name:"userF",vol:"6,850kg"},
+    {rank:7,name:"userG",vol:"6,700kg"},
+    {rank:8,name:"userH",vol:"6,500kg"},
+    {rank:9,name:"userI",vol:"6,320kg"},
+    {rank:10,name:"userJ",vol:"6,100kg"},
+  ];
+
+  function renderTop10(){
+    top10.innerHTML = "";
+    for(const r of sample){
+      const row = document.createElement('div');
+      row.className = "rank-row";
+      row.innerHTML = `
+        <div class="rank-left">
+          <div class="rank-badge">${r.rank}</div>
+          <div class="rank-name">${r.name}</div>
+        </div>
+        <div class="rank-val">${r.vol}</div>
+      `;
+      top10.appendChild(row);
+    }
+  }
+
+  function openTop10(){
+    renderTop10();
+    app.classList.add('paused');        // pause ticker + pulse
+    overlay.classList.add('show');
+    overlay.setAttribute('aria-hidden', 'false');
+  }
+  function closeTop10(){
+    overlay.classList.remove('show');
+    overlay.setAttribute('aria-hidden', 'true');
+    app.classList.remove('paused');     // resume
+  }
+
+  tickerWrap.addEventListener('click', openTop10);
+  closeBtn.addEventListener('click', closeTop10);
+  overlay.addEventListener('click', (e)=>{ if(e.target===overlay) closeTop10(); });
+</script>
 </body>
 </html>
