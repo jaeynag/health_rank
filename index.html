@@ -218,41 +218,48 @@
       <div class="btn ghost small" id="closeSet">닫기</div>
     </div>
     <div class="drawer-body">
-      <div class="center">
-        <div class="muted">무게</div>
-        <div class="big"><span id="setWeightVal">0.0</span> <span class="pill">KG</span></div>
-      </div>
-      <div class="row" style="justify-content:center;margin:10px 0">
-        <div class="pill tap" id="incBtn">증</div>
-        <div class="pill tap" id="decBtn">감</div>
-      </div>
-      <div class="kbd">
-        <div class="key" id="barKey">BAR</div>
-        <div class="key" data-d="0.25">0.25</div>
-        <div class="key" data-d="0.5">0.5</div>
-        <div class="key" data-d="1">1</div>
-        <div class="key" data-d="2.5">2.5</div>
-        <div class="key" data-d="5">5</div>
-        <div class="key" data-d="10">10</div>
-        <div class="key" data-d="20">20</div>
-        <div class="key" id="backKey">←</div>
+      <div id="weightStage">
+        <div class="center">
+          <div class="muted">무게</div>
+          <div class="big"><span id="setWeightVal">0.0</span> <span class="pill">KG</span></div>
+        </div>
+        <div class="row" style="justify-content:center;margin:10px 0">
+          <div class="pill tap" id="incBtn">증</div>
+          <div class="pill tap" id="decBtn">감</div>
+        </div>
+        <div class="kbd">
+          <div class="key" id="barKey">BAR</div>
+          <div class="key" data-d="0.25">0.25</div>
+          <div class="key" data-d="0.5">0.5</div>
+          <div class="key" data-d="1">1</div>
+          <div class="key" data-d="2.5">2.5</div>
+          <div class="key" data-d="5">5</div>
+          <div class="key" data-d="10">10</div>
+          <div class="key" data-d="20">20</div>
+          <div class="key" id="backKey">←</div>
+        </div>
       </div>
 
-      <div class="divider"></div>
+      <div id="repsStage" style="display:none">
+        <div class="divider"></div>
 
-      <div class="center">
-        <div class="muted">횟수</div>
-        <div class="big"><span id="setRepsVal">0</span> reps</div>
-      </div>
-      <div class="kbd" style="margin-top:10px">
-        <div class="key" data-n="1">1</div><div class="key" data-n="2">2</div><div class="key" data-n="3">3</div>
-        <div class="key" data-n="4">4</div><div class="key" data-n="5">5</div><div class="key" data-n="6">6</div>
-        <div class="key" data-n="7">7</div><div class="key" data-n="8">8</div><div class="key" data-n="9">9</div>
-        <div class="key" id="repsClear">C</div><div class="key" data-n="0">0</div><div class="key" id="repsBack">←</div>
+        <div class="center">
+          <div class="muted">횟수</div>
+          <div class="big"><span id="setRepsVal">0</span> reps</div>
+          <div class="muted" style="margin-top:6px">무게: <span id="setWeightSummary">0.0</span>kg</div>
+        </div>
+
+        <div class="kbd" style="margin-top:10px">
+          <div class="key" data-n="1">1</div><div class="key" data-n="2">2</div><div class="key" data-n="3">3</div>
+          <div class="key" data-n="4">4</div><div class="key" data-n="5">5</div><div class="key" data-n="6">6</div>
+          <div class="key" data-n="7">7</div><div class="key" data-n="8">8</div><div class="key" data-n="9">9</div>
+          <div class="key" id="repsClear">C</div><div class="key" data-n="0">0</div><div class="key" id="repsBack">←</div>
+        </div>
       </div>
 
       <div class="row" style="margin-top:14px">
-        <div class="btn primary" style="flex:1;padding:16px" id="saveSetBtn">입력</div>
+        <div class="btn ghost" style="flex:0.36;display:none" id="prevStageBtn">무게</div>
+        <div class="btn primary" style="flex:0.64;padding:16px" id="saveSetBtn">완료</div>
       </div>
     </div>
   </div>
@@ -390,11 +397,35 @@
 
   // Set overlay
   const overlaySet=qs('#overlaySet'), closeSet=qs('#closeSet'), setTitle=qs('#setTitle'), setSub=qs('#setSub');
+  const weightStage=qs('#weightStage'), repsStage=qs('#repsStage'), prevStageBtn=qs('#prevStageBtn'), setWeightSummary=qs('#setWeightSummary');
   const setWeightVal=qs('#setWeightVal'), setRepsVal=qs('#setRepsVal'), incBtn=qs('#incBtn'), decBtn=qs('#decBtn');
   const barKey=qs('#barKey'), backKey=qs('#backKey'), repsClear=qs('#repsClear'), repsBack=qs('#repsBack'), saveSetBtn=qs('#saveSetBtn');
 
   let currentExId=null, currentReps=0;
   let pressTimer=null, repsPress=null;
+
+  let entryStage='weight';
+  function updateWeightUI(ex){
+    setWeightVal.textContent=fmtKg(ex.weightKg);
+    if(setWeightSummary) setWeightSummary.textContent=fmtKg(ex.weightKg);
+  }
+  function setEntryStage(stage){
+    entryStage=stage;
+    if(stage==='weight'){
+      if(weightStage) weightStage.style.display='';
+      if(repsStage) repsStage.style.display='none';
+      if(prevStageBtn) prevStageBtn.style.display='none';
+      if(saveSetBtn) saveSetBtn.textContent='완료';
+    }else{
+      if(weightStage) weightStage.style.display='none';
+      if(repsStage) repsStage.style.display='';
+      if(prevStageBtn) prevStageBtn.style.display='';
+      if(saveSetBtn) saveSetBtn.textContent='완료';
+      const ex=state.exercises.find(e=>e.id===currentExId);
+      if(ex) updateWeightUI(ex);
+    }
+  }
+  if(prevStageBtn) prevStageBtn.addEventListener('click',()=>setEntryStage('weight'));
 
   function setMode(mode){
     state.weightMode=mode; saveState();
@@ -419,8 +450,9 @@
     }
     setTitle.textContent=`${nextNo}세트 입력`;
     setSub.textContent=`${ex.part} · ${ex.name}`;
-    setWeightVal.textContent=fmtKg(ex.weightKg);
+    updateWeightUI(ex);
     currentReps=0; setRepsVal.textContent="0";
+    setEntryStage('weight');
     barKey.classList.toggle('disabled',!!ex.barUsed);
     overlaySet.classList.add('show'); overlaySet.setAttribute('aria-hidden','false');
     saveState();
@@ -428,6 +460,7 @@
   function closeSetFn(){
     overlaySet.classList.remove('show'); overlaySet.setAttribute('aria-hidden','true');
     currentExId=null; currentReps=0;
+    setEntryStage('weight');
   }
   closeSet.addEventListener('click',closeSetFn);
   overlaySet.addEventListener('click',e=>{if(e.target===overlaySet) closeSetFn();});
@@ -436,7 +469,7 @@
     const signed=(state.weightMode==="inc")?delta:-delta;
     ex.weightKg=Math.max(0, +(ex.weightKg + signed).toFixed(2));
     ex.weightHist.push({delta:signed, bar:!!meta.bar});
-    setWeightVal.textContent=fmtKg(ex.weightKg);
+    updateWeightUI(ex);
     saveState();
   }
   qsa('#overlaySet .key[data-d]').forEach(k=>k.addEventListener('click',()=>{
@@ -451,11 +484,11 @@
     const last=ex.weightHist.pop(); if(!last) return;
     ex.weightKg=Math.max(0, +(ex.weightKg - last.delta).toFixed(2));
     if(last.bar){ex.barUsed=false; barKey.classList.remove('disabled');}
-    setWeightVal.textContent=fmtKg(ex.weightKg); saveState();
+    updateWeightUI(ex); saveState();
   }
   function clearAll(ex){
     ex.weightKg=0; ex.weightHist=[]; ex.barUsed=false;
-    setWeightVal.textContent="0.0"; barKey.classList.remove('disabled'); saveState();
+    updateWeightUI(ex); barKey.classList.remove('disabled'); saveState();
   }
   backKey.addEventListener('pointerdown',()=>{
     const ex=state.exercises.find(e=>e.id===currentExId); if(!ex) return;
@@ -495,6 +528,14 @@
   }
   saveSetBtn.addEventListener('click',()=>{
     const ex=state.exercises.find(e=>e.id===currentExId); if(!ex) return;
+
+    // 1) 무게 입력 화면에서는 다음(횟수 입력)으로만 전환
+    if(entryStage==='weight'){
+      setEntryStage('reps');
+      return;
+    }
+
+    // 2) 횟수 입력 화면에서만 저장
     if(!saveOneSet(ex)) return;
     closeSetFn();
     renderExercises();
