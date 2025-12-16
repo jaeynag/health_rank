@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no"/>
-<title>Health Rank - Today (Step2.4)</title>
+<title>Health Rank - Today (Step2.6)</title>
 <style>
   :root{
     --bg:#0f1115; --card:#141826; --card2:#1b1f2a; --line:#2a3040;
@@ -108,17 +108,25 @@
     width:100%;padding:12px;border-radius:12px;border:1px solid var(--line);
     background:#0c0e13;color:var(--txt);outline:none;font-size:16px;
   }
+
+  .btn.disabled{opacity:.45;pointer-events:none;filter:saturate(.65)}
+  .rank-table{margin-top:10px;border:1px solid var(--line);border-radius:12px;overflow:hidden}
+  .rank-row{display:flex;gap:8px;align-items:center;justify-content:space-between;padding:10px 10px;border-top:1px solid rgba(42,48,64,.7)}
+  .rank-row.head{background:rgba(27,31,42,.55);border-top:none;font-weight:800}
+  .rank-cell{min-width:0}
+  .rank-r{width:56px;flex:0 0 auto;color:var(--accent2);font-variant-numeric:tabular-nums}
+  .rank-region{width:72px;flex:0 0 auto;color:var(--mut)}
+  .rank-gym{flex:1;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .rank-user{width:92px;flex:0 0 auto;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .rank-score{width:92px;flex:0 0 auto;color:var(--mut);text-align:right;font-variant-numeric:tabular-nums}
+
 </style>
 </head>
 <body>
 <div class="page" id="app">
   <div class="header">
     <div class="ticker-wrap ticker-touch" id="tickerWrap" title="누르면 Top10">
-      <div class="ticker">
-        <span>하체 🥇 jaeyang 8,420kg</span>
-        <span>하체 🥈 userB 7,980kg</span>
-        <span>하체 🥉 userC 7,450kg</span>
-      </div>
+      <div class="ticker" id="ticker"></div>
     </div>
   </div>
 
@@ -150,7 +158,10 @@
           <div style="font-weight:900" id="selectedPart">-</div>
         </div>
       </div>
-      <div class="muted" id="todaySmall"></div>
+      <div class="row" style="gap:8px;align-items:center">
+        <div class="muted" id="todaySmall"></div>
+        <div class="pill tap" id="headerUnitPill">KG</div>
+      </div>
     </div>
 
     <div id="exerciseList" style="margin-top:10px"></div>
@@ -221,7 +232,7 @@
       <div id="weightStage">
         <div class="center">
           <div class="muted">무게</div>
-          <div class="big"><span id="setWeightVal">0.0</span> <span class="pill">KG</span></div>
+          <div class="big"><span id="setWeightVal">0.0</span> <span class="pill tap" id="unitPill">KG</span></div>
         </div>
         <div class="row" style="justify-content:center;margin:10px 0">
           <div class="pill tap" id="incBtn">증</div>
@@ -246,7 +257,7 @@
         <div class="center">
           <div class="muted">횟수</div>
           <div class="big"><span id="setRepsVal">0</span> reps</div>
-          <div class="muted" style="margin-top:6px">무게: <span id="setWeightSummary">0.0</span>kg</div>
+          <div class="muted" style="margin-top:6px">무게: <span id="setWeightSummary">0.0</span><span id="setWeightUnit">kg</span></div>
         </div>
 
         <div class="kbd" style="margin-top:10px">
@@ -265,53 +276,222 @@
   </div>
 </div>
 
+
+<!-- Rank overlay -->
+<div class="overlay" id="overlayRank" aria-hidden="true">
+  <div class="drawer" role="dialog" aria-modal="true" aria-label="랭킹">
+    <div class="drawer-head">
+      <div>
+        <div class="drawer-title">랭킹</div>
+        <div class="drawer-sub">오늘 운동 부위별 순위</div>
+      </div>
+      <div class="btn ghost small" id="closeRank">닫기</div>
+    </div>
+    <div class="drawer-body">
+      <div class="card" style="padding:12px">
+        <div class="row between">
+          <div style="font-weight:900">내 정보</div>
+          <div class="muted" id="rankDate">-</div>
+        </div>
+        <div class="divider"></div>
+        <div class="row"><input type="text" id="profileRegion" placeholder="지역 (예: 서울)"/></div>
+        <div class="row" style="margin-top:8px"><input type="text" id="profileGym" placeholder="헬스장 (예: OO짐)"/></div>
+        <div class="row" style="margin-top:8px"><input type="text" id="profileUser" placeholder="유저 이름"/></div>
+        <div class="row" style="margin-top:10px">
+          <div class="btn primary" style="flex:1" id="saveProfileBtn">저장</div>
+        </div>
+      </div>
+
+      <div class="divider"></div>
+      <div id="rankSections"></div>
+    </div>
+  </div>
+</div>
+
+<!-- Cardio entry overlay -->
+<div class="overlay" id="overlayCardio" aria-hidden="true">
+  <div class="drawer" role="dialog" aria-modal="true" aria-label="유산소 입력">
+    <div class="drawer-head">
+      <div>
+        <div class="drawer-title" id="cardioTitle">유산소 입력</div>
+        <div class="drawer-sub" id="cardioSub">-</div>
+      </div>
+      <div class="btn ghost small" id="closeCardio">닫기</div>
+    </div>
+    <div class="drawer-body">
+      <div class="center">
+        <div class="muted">시간</div>
+        <div class="big"><span id="cardioMinVal">0</span> min</div>
+      </div>
+
+      <div class="kbd" style="margin-top:10px">
+        <div class="key" data-cm="1">1</div><div class="key" data-cm="2">2</div><div class="key" data-cm="3">3</div>
+        <div class="key" data-cm="4">4</div><div class="key" data-cm="5">5</div><div class="key" data-cm="6">6</div>
+        <div class="key" data-cm="7">7</div><div class="key" data-cm="8">8</div><div class="key" data-cm="9">9</div>
+        <div class="key" id="cardioClear">C</div><div class="key" data-cm="0">0</div><div class="key" id="cardioBack">←</div>
+      </div>
+
+      <div class="row" style="margin-top:14px">
+        <div class="btn primary" style="flex:1;padding:16px" id="saveCardioBtn">완료</div>
+      </div>
+      <div class="muted center" style="margin-top:10px">거리/칼로리는 다음 단계에서.</div>
+    </div>
+  </div>
+</div>
+
 <script>
-  const STORAGE_KEY="health_rank_today_v6";
+  // ===== Storage =====
+  const STORAGE_KEYS = ["health_rank_today_v7", "health_rank_today_v6"];
+  const STORAGE_KEY_OUT = "health_rank_today_v7";
+
   const qs=(s,el=document)=>el.querySelector(s);
   const qsa=(s,el=document)=>[...el.querySelectorAll(s)];
   const pad=n=>String(n).padStart(2,'0');
   const safeParse=s=>{try{return JSON.parse(s)}catch{return null}};
-  const fmtKg=x=>(+x||0).toFixed(2).replace(/\.00$/,".0");
-  const fmtHMS=ms=>{
-    ms=Math.max(0,ms);
-    const s=Math.floor(ms/1000);
-    const h=Math.floor(s/3600), m=Math.floor((s%3600)/60), ss=s%60;
-    return `${pad(h)}:${pad(m)}:${pad(ss)}`;
+
+  const KG_PER_LB = 0.45359237;
+  const LB_PER_KG = 1 / KG_PER_LB;
+
+  const state = {
+    selectedPart: null,
+    exercises: [],
+    weightMode: "inc",
+    unit: "kg", // "kg" | "lb"
+    profile: { region: "서울", gym: "OO짐", user: "jaeyang" },
+    rankCache: {}
   };
 
-  const state={ selectedPart:null, exercises:[], weightMode:"inc" };
+  function todayStr(){ return new Date().toISOString().slice(0,10); }
+
   function saveState(){
-    localStorage.setItem(STORAGE_KEY, JSON.stringify({
-      selectedPart:state.selectedPart, exercises:state.exercises, weightMode:state.weightMode
+    localStorage.setItem(STORAGE_KEY_OUT, JSON.stringify({
+      selectedPart: state.selectedPart,
+      exercises: state.exercises,
+      weightMode: state.weightMode,
+      unit: state.unit,
+      profile: state.profile,
+      rankCache: state.rankCache
     }));
   }
-  function loadState(){
-    const snap=safeParse(localStorage.getItem(STORAGE_KEY));
-    if(!snap) return;
-    if(typeof snap.selectedPart==="string") state.selectedPart=snap.selectedPart;
-    if(Array.isArray(snap.exercises)) state.exercises=snap.exercises;
-    if(snap.weightMode==="inc"||snap.weightMode==="dec") state.weightMode=snap.weightMode;
-  }
-  loadState();
 
-  // Navigation
+  function loadState(){
+    let snap=null;
+    for(const k of STORAGE_KEYS){
+      const s = safeParse(localStorage.getItem(k));
+      if(s){ snap=s; break; }
+    }
+    if(!snap) return;
+
+    if(typeof snap.selectedPart==="string") state.selectedPart = snap.selectedPart;
+    if(Array.isArray(snap.exercises)) state.exercises = snap.exercises;
+    if(snap.weightMode==="inc"||snap.weightMode==="dec") state.weightMode = snap.weightMode;
+    if(snap.unit==="kg"||snap.unit==="lb") state.unit = snap.unit;
+    if(snap.profile && typeof snap.profile==="object"){
+      state.profile = {
+        region: String(snap.profile.region||state.profile.region),
+        gym: String(snap.profile.gym||state.profile.gym),
+        user: String(snap.profile.user||state.profile.user)
+      };
+    }
+    if(snap.rankCache && typeof snap.rankCache==="object") state.rankCache = snap.rankCache;
+  }
+
+  function ensureShapes(){
+    state.exercises.forEach(ex=>{
+      if(!ex || typeof ex!=="object") return;
+      if(!ex.type) ex.type = (ex.part==="유산소") ? "cardio" : "strength";
+      if(!Array.isArray(ex.sets)) ex.sets = [];
+      if(!Array.isArray(ex.cardio)) ex.cardio = [];
+      if(typeof ex.completed!=="boolean") ex.completed = false;
+      if(typeof ex.completedAt!=="number") ex.completedAt = null;
+
+      if(typeof ex.weightKg!=="number") ex.weightKg = 0.0;
+      if(!Array.isArray(ex.weightHist)) ex.weightHist = [];
+      if(typeof ex.barUsed!=="boolean") ex.barUsed = false;
+
+      // normalize old set weight fields -> kg stored in s.w
+      ex.sets = ex.sets.map(s=>{
+        if(!s || typeof s!=="object") return {w:0,r:0,ts:Date.now()};
+        const w = (typeof s.w==="number") ? s.w : (typeof s.wKg==="number" ? s.wKg : 0);
+        const r = (typeof s.r==="number") ? s.r : 0;
+        return { w, r, ts: (typeof s.ts==="number") ? s.ts : Date.now() };
+      });
+
+      if(!ex.prevWorkoutRecord) ex.prevWorkoutRecord = null;
+    });
+  }
+
+  loadState();
+  ensureShapes();
+
+  // ===== Units =====
+  const fmtTrim=(num,dec)=>{
+    const n = +num || 0;
+    let s = n.toFixed(dec);
+    s = s.replace(/(\.\d*[1-9])0+$/,"$1").replace(/\.0+$/,".0");
+    return s;
+  };
+  const unitLabel=()=> (state.unit==="kg" ? "kg" : "lb");
+  const weightToUnit=(kg)=> (state.unit==="kg" ? (+kg||0) : (+kg||0)*LB_PER_KG);
+  const unitToKg=(u)=> (state.unit==="kg" ? (+u||0) : (+u||0)*KG_PER_LB);
+  const fmtWeightVal=(kg)=> fmtTrim(weightToUnit(kg), state.unit==="kg" ? 2 : 1);
+  const fmtWeightInline=(kg)=> `${fmtWeightVal(kg)}${unitLabel()}`;
+  const fmtVolumeInline=(volKg)=>{
+    const v = (state.unit==="kg") ? (+volKg||0) : (+volKg||0)*LB_PER_KG;
+    const u = unitLabel();
+    return `${Math.round(v).toLocaleString()}${u}`;
+  };
+
+  function toggleUnit(){
+    state.unit = (state.unit==="kg") ? "lb" : "kg";
+    saveState();
+    syncUnitBadges();
+    renderExercises();
+    updateTicker();
+    // if set overlay open, refresh
+    const ex = state.exercises.find(e=>e.id===currentExId);
+    if(ex) updateWeightUI(ex);
+  }
+
+  function syncUnitBadges(){
+    const t = (state.unit==="kg") ? "KG" : "LB";
+    const headerUnitPill = qs('#headerUnitPill');
+    const unitPill = qs('#unitPill');
+    const setWeightUnit = qs('#setWeightUnit');
+    if(headerUnitPill) headerUnitPill.textContent = t;
+    if(unitPill) unitPill.textContent = t;
+    if(setWeightUnit) setWeightUnit.textContent = unitLabel();
+  }
+
+  // ===== UI navigation =====
   const partCard=qs('#partCard'), workCard=qs('#workCard');
   const selectedPartEl=qs('#selectedPart'), todaySmall=qs('#todaySmall'), exerciseList=qs('#exerciseList');
   const backBtn=qs('#backBtn'), addPartBtn=qs('#addPartBtn'), addExerciseBtn=qs('#addExerciseBtn');
+  const headerUnitPill=qs('#headerUnitPill');
 
-  function showPartPicker(){ state.selectedPart=null; saveState(); partCard.style.display=""; workCard.style.display="none"; }
+  function showPartPicker(){
+    state.selectedPart=null;
+    saveState();
+    partCard.style.display="";
+    workCard.style.display="none";
+  }
+
   function showWork(part){
-    state.selectedPart=part; saveState();
+    state.selectedPart=part;
+    saveState();
     selectedPartEl.textContent=part;
-    todaySmall.textContent=new Date().toISOString().slice(0,10);
-    partCard.style.display="none"; workCard.style.display="";
+    todaySmall.textContent=todayStr();
+    partCard.style.display="none";
+    workCard.style.display="";
     renderExercises();
   }
+
   qsa('#partGrid .btn').forEach(b=>b.addEventListener('click',()=>showWork(b.dataset.part)));
   backBtn.addEventListener('click',showPartPicker);
   addPartBtn.addEventListener('click',showPartPicker);
+  if(headerUnitPill) headerUnitPill.addEventListener('click', toggleUnit);
 
-  // Examples + previous workout record (NOT today's last set)
+  // ===== Examples =====
   const EXAMPLES={
     "가슴":["벤치프레스","인클라인 벤치프레스","체스트프레스","딥스","푸쉬업"],
     "등":["랫풀다운","시티드로우","바벨로우","풀업","페이스풀"],
@@ -319,24 +499,25 @@
     "어깨":["오버헤드프레스","사이드레터럴레이즈","숄더프레스","리어델트플라이"],
     "팔":["바벨컬","덤벨컬","해머컬","푸시다운","스컬크러셔"],
     "복근":["크런치","행잉 레그레이즈","플랭크","케이블 크런치"],
-    "유산소":["러닝","사이클","계단"]
+    "유산소":["러닝","사이클","계단","로잉"]
   };
+
   function seedPrevWorkoutRecord(ex){
     if(ex.prevWorkoutRecord) return;
     const d=new Date(Date.now()-86400000*3);
     const ds=d.toISOString().slice(0,10);
     const base={"스쿼트":{w:60,r:8},"레그프레스":{w:120,r:10},"벤치프레스":{w:40,r:10},"랫풀다운":{w:50,r:10},"오버헤드프레스":{w:25,r:8}};
     const b=base[ex.name]||{w:20,r:10};
-    ex.prevWorkoutRecord={date:ds,w:b.w,r:b.r}; // "마지막으로 했을 때" (데모)
+    ex.prevWorkoutRecord={date:ds,w:b.w,r:b.r};
   }
 
-  // Add exercise overlay
+  // ===== Add exercise overlay =====
   const overlayPrompt=qs('#overlayPrompt'), closePrompt=qs('#closePrompt'), promptSub=qs('#promptSub');
   const exerciseName=qs('#exerciseName'), confirmAdd=qs('#confirmAdd'), exerciseChips=qs('#exerciseChips');
 
   function openPrompt(){
     if(!state.selectedPart) return;
-    promptSub.textContent=`선택 부위: ${state.selectedPart}`;
+    promptSub.textContent=`선택: ${state.selectedPart}`;
     exerciseName.value="";
     exerciseChips.innerHTML="";
     (EXAMPLES[state.selectedPart]||[]).forEach(n=>{
@@ -353,7 +534,44 @@
   closePrompt.addEventListener('click',closePromptFn);
   overlayPrompt.addEventListener('click',e=>{if(e.target===overlayPrompt) closePromptFn();});
 
-  // Start overlay
+  function addExercise(name){
+    const id = (crypto.randomUUID?crypto.randomUUID():String(Date.now())+Math.random());
+    const isCardio = (state.selectedPart==="유산소");
+    const ex={
+      id,
+      part: state.selectedPart,
+      name,
+      type: isCardio ? "cardio" : "strength",
+      createdAt: Date.now(),
+      completed: false,
+      completedAt: null,
+
+      // strength
+      weightKg: 0.0,
+      barUsed: false,
+      weightHist: [],
+      sets: [],
+
+      // cardio
+      cardio: [],
+
+      prevWorkoutRecord: null
+    };
+
+    if(!isCardio) seedPrevWorkoutRecord(ex);
+
+    state.exercises.push(ex);
+    saveState();
+    closePromptFn();
+    renderExercises();
+
+    if(!isCardio) openStart(ex);
+  }
+
+  confirmAdd.addEventListener('click',()=>{const n=(exerciseName.value||"").trim(); if(n) addExercise(n);});
+  exerciseName.addEventListener('keydown',e=>{if(e.key==="Enter") confirmAdd.click();});
+
+  // ===== Start overlay =====
   const overlayStart=qs('#overlayStart'), closeStart=qs('#closeStart'), startSub=qs('#startSub'), startCount=qs('#startCount');
   let startTimer=null;
   function openStart(ex){
@@ -375,57 +593,43 @@
   closeStart.addEventListener('click',closeStartFn);
   overlayStart.addEventListener('click',e=>{if(e.target===overlayStart) closeStartFn();});
 
-  function addExercise(name){
-    const id=crypto.randomUUID?crypto.randomUUID():String(Date.now())+Math.random();
-    const ex={
-      id, part:state.selectedPart, name,
-      createdAt:Date.now(), paused:false, pauseAt:null, pausedMs:0,
-      completed:false, activeMs:0,
-      weightKg:0.0, barUsed:false, weightHist:[],
-      sets:[],
-      prevWorkoutRecord:null
-    };
-    seedPrevWorkoutRecord(ex);
-    state.exercises.push(ex);
-    saveState();
-    closePromptFn();
-    renderExercises();
-    openStart(ex);
-  }
-  confirmAdd.addEventListener('click',()=>{const n=(exerciseName.value||"").trim(); if(n) addExercise(n);});
-  exerciseName.addEventListener('keydown',e=>{if(e.key==="Enter") confirmAdd.click();});
-
-  // Set overlay
+  // ===== Strength set overlay =====
   const overlaySet=qs('#overlaySet'), closeSet=qs('#closeSet'), setTitle=qs('#setTitle'), setSub=qs('#setSub');
   const weightStage=qs('#weightStage'), repsStage=qs('#repsStage'), prevStageBtn=qs('#prevStageBtn'), setWeightSummary=qs('#setWeightSummary');
   const setWeightVal=qs('#setWeightVal'), setRepsVal=qs('#setRepsVal'), incBtn=qs('#incBtn'), decBtn=qs('#decBtn');
   const barKey=qs('#barKey'), backKey=qs('#backKey'), repsClear=qs('#repsClear'), repsBack=qs('#repsBack'), saveSetBtn=qs('#saveSetBtn');
+  const unitPill=qs('#unitPill');
 
   let currentExId=null, currentReps=0;
   let pressTimer=null, repsPress=null;
-
   let entryStage='weight';
+
   function updateWeightUI(ex){
-    setWeightVal.textContent=fmtKg(ex.weightKg);
-    if(setWeightSummary) setWeightSummary.textContent=fmtKg(ex.weightKg);
+    setWeightVal.textContent = fmtWeightVal(ex.weightKg);
+    setWeightSummary.textContent = fmtWeightVal(ex.weightKg);
+    const setWeightUnit = qs('#setWeightUnit');
+    if(setWeightUnit) setWeightUnit.textContent = unitLabel();
   }
+
   function setEntryStage(stage){
     entryStage=stage;
     if(stage==='weight'){
-      if(weightStage) weightStage.style.display='';
-      if(repsStage) repsStage.style.display='none';
-      if(prevStageBtn) prevStageBtn.style.display='none';
-      if(saveSetBtn) saveSetBtn.textContent='완료';
+      weightStage.style.display='';
+      repsStage.style.display='none';
+      prevStageBtn.style.display='none';
+      saveSetBtn.textContent='완료';
     }else{
-      if(weightStage) weightStage.style.display='none';
-      if(repsStage) repsStage.style.display='';
-      if(prevStageBtn) prevStageBtn.style.display='';
-      if(saveSetBtn) saveSetBtn.textContent='완료';
+      weightStage.style.display='none';
+      repsStage.style.display='';
+      prevStageBtn.style.display='';
+      saveSetBtn.textContent='완료';
       const ex=state.exercises.find(e=>e.id===currentExId);
       if(ex) updateWeightUI(ex);
     }
   }
-  if(prevStageBtn) prevStageBtn.addEventListener('click',()=>setEntryStage('weight'));
+
+  prevStageBtn.addEventListener('click',()=>setEntryStage('weight'));
+  if(unitPill) unitPill.addEventListener('click', toggleUnit);
 
   function setMode(mode){
     state.weightMode=mode; saveState();
@@ -439,65 +643,99 @@
   decBtn.addEventListener('click',()=>setMode("dec"));
 
   function openSetEntry(ex){
+    if(ex.completed) return;
     currentExId=ex.id;
+
     const nextNo=(ex.sets?.length||0)+1;
+
     // 2세트부터는 직전 세트 무게 자동
     if(nextNo>=2){
       const last=ex.sets[ex.sets.length-1];
       if(last && typeof last.w==="number"){
-        ex.weightKg=last.w; ex.weightHist=[]; ex.barUsed=false;
+        ex.weightKg=last.w;
+        ex.weightHist=[];
+        ex.barUsed=false;
       }
     }
+
     setTitle.textContent=`${nextNo}세트 입력`;
     setSub.textContent=`${ex.part} · ${ex.name}`;
     updateWeightUI(ex);
-    currentReps=0; setRepsVal.textContent="0";
+    currentReps=0;
+    setRepsVal.textContent="0";
     setEntryStage('weight');
     barKey.classList.toggle('disabled',!!ex.barUsed);
-    overlaySet.classList.add('show'); overlaySet.setAttribute('aria-hidden','false');
+
+    overlaySet.classList.add('show');
+    overlaySet.setAttribute('aria-hidden','false');
     saveState();
   }
+
   function closeSetFn(){
-    overlaySet.classList.remove('show'); overlaySet.setAttribute('aria-hidden','true');
+    overlaySet.classList.remove('show');
+    overlaySet.setAttribute('aria-hidden','true');
     currentExId=null; currentReps=0;
     setEntryStage('weight');
   }
+
   closeSet.addEventListener('click',closeSetFn);
   overlaySet.addEventListener('click',e=>{if(e.target===overlaySet) closeSetFn();});
 
-  function applyDelta(ex, delta, meta={bar:false}){
-    const signed=(state.weightMode==="inc")?delta:-delta;
-    ex.weightKg=Math.max(0, +(ex.weightKg + signed).toFixed(2));
-    ex.weightHist.push({delta:signed, bar:!!meta.bar});
+  function applyDelta(ex, deltaUnit, meta={bar:false}){
+    const deltaKg = unitToKg(deltaUnit);
+    const signedKg = (state.weightMode==="inc") ? deltaKg : -deltaKg;
+    ex.weightKg = Math.max(0, +(ex.weightKg + signedKg).toFixed(4));
+    ex.weightHist.push({ deltaKg: signedKg, bar: !!meta.bar });
     updateWeightUI(ex);
     saveState();
   }
+
   qsa('#overlaySet .key[data-d]').forEach(k=>k.addEventListener('click',()=>{
-    const ex=state.exercises.find(e=>e.id===currentExId); if(!ex) return;
+    const ex=state.exercises.find(e=>e.id===currentExId);
+    if(!ex) return;
     applyDelta(ex, parseFloat(k.dataset.d));
   }));
+
   barKey.addEventListener('click',()=>{
-    const ex=state.exercises.find(e=>e.id===currentExId); if(!ex||ex.barUsed) return;
-    applyDelta(ex,20,{bar:true}); ex.barUsed=true; barKey.classList.add('disabled'); saveState();
+    const ex=state.exercises.find(e=>e.id===currentExId);
+    if(!ex || ex.barUsed) return;
+    const barDelta = (state.unit==="kg") ? 20 : 45;
+    applyDelta(ex, barDelta, {bar:true});
+    ex.barUsed=true;
+    barKey.classList.add('disabled');
+    saveState();
   });
+
   function undoLast(ex){
-    const last=ex.weightHist.pop(); if(!last) return;
-    ex.weightKg=Math.max(0, +(ex.weightKg - last.delta).toFixed(2));
-    if(last.bar){ex.barUsed=false; barKey.classList.remove('disabled');}
-    updateWeightUI(ex); saveState();
+    const last=ex.weightHist.pop();
+    if(!last) return;
+    ex.weightKg = Math.max(0, +(ex.weightKg - last.deltaKg).toFixed(4));
+    if(last.bar){ ex.barUsed=false; barKey.classList.remove('disabled'); }
+    updateWeightUI(ex);
+    saveState();
   }
+
   function clearAll(ex){
-    ex.weightKg=0; ex.weightHist=[]; ex.barUsed=false;
-    updateWeightUI(ex); barKey.classList.remove('disabled'); saveState();
+    ex.weightKg=0;
+    ex.weightHist=[];
+    ex.barUsed=false;
+    barKey.classList.remove('disabled');
+    updateWeightUI(ex);
+    saveState();
   }
+
   backKey.addEventListener('pointerdown',()=>{
-    const ex=state.exercises.find(e=>e.id===currentExId); if(!ex) return;
+    const ex=state.exercises.find(e=>e.id===currentExId);
+    if(!ex) return;
     pressTimer=setTimeout(()=>clearAll(ex),650);
   });
+
   backKey.addEventListener('pointerup',()=>{
-    const ex=state.exercises.find(e=>e.id===currentExId); if(!ex) return;
+    const ex=state.exercises.find(e=>e.id===currentExId);
+    if(!ex) return;
     if(pressTimer){clearTimeout(pressTimer); pressTimer=null; undoLast(ex);}
   });
+
   backKey.addEventListener('pointerleave',()=>{if(pressTimer){clearTimeout(pressTimer); pressTimer=null;}});
 
   function setRepsFromDigit(d){
@@ -508,6 +746,7 @@
   }
   qsa('#overlaySet .key[data-n]').forEach(k=>k.addEventListener('click',()=>setRepsFromDigit(k.dataset.n)));
   repsClear.addEventListener('click',()=>{currentReps=0; setRepsVal.textContent="0";});
+
   function repsUndo(){
     const s=String(currentReps);
     if(s.length<=1){currentReps=0; setRepsVal.textContent="0"; return;}
@@ -515,47 +754,117 @@
     setRepsVal.textContent=String(currentReps);
   }
   function repsClearAll(){currentReps=0; setRepsVal.textContent="0";}
+
   repsBack.addEventListener('pointerdown',()=>{repsPress=setTimeout(()=>repsClearAll(),650);});
   repsBack.addEventListener('pointerup',()=>{if(repsPress){clearTimeout(repsPress); repsPress=null; repsUndo();}});
   repsBack.addEventListener('pointerleave',()=>{if(repsPress){clearTimeout(repsPress); repsPress=null;}});
 
   function saveOneSet(ex){
     if(currentReps<=0) return false;
-    const w=+ex.weightKg||0;
-    ex.sets.push({w,r:currentReps,ts:Date.now()});
+    const wKg=+ex.weightKg||0;
+    ex.sets.push({ w:wKg, r:currentReps, ts:Date.now() });
     saveState();
     return true;
   }
+
   saveSetBtn.addEventListener('click',()=>{
-    const ex=state.exercises.find(e=>e.id===currentExId); if(!ex) return;
+    const ex=state.exercises.find(e=>e.id===currentExId);
+    if(!ex) return;
 
-    // 1) 무게 입력 화면에서는 다음(횟수 입력)으로만 전환
-    if(entryStage==='weight'){
-      setEntryStage('reps');
-      return;
-    }
+    // 무게 화면 -> 횟수 화면
+    if(entryStage==='weight'){ setEntryStage('reps'); return; }
 
-    // 2) 횟수 입력 화면에서만 저장
+    // 횟수 화면에서만 저장
     if(!saveOneSet(ex)) return;
     closeSetFn();
     renderExercises();
+    updateTicker();
   });
 
-  // Delete set
+  // ===== Cardio overlay =====
+  const overlayCardio = qs('#overlayCardio');
+  const closeCardio = qs('#closeCardio');
+  const cardioTitle = qs('#cardioTitle');
+  const cardioSub = qs('#cardioSub');
+  const cardioMinVal = qs('#cardioMinVal');
+  const cardioClear = qs('#cardioClear');
+  const cardioBack = qs('#cardioBack');
+  const saveCardioBtn = qs('#saveCardioBtn');
+
+  let currentCardioId = null;
+  let cardioMin = 0;
+  let cardioPress = null;
+
+  function openCardioEntry(ex){
+    if(ex.completed) return;
+    currentCardioId = ex.id;
+    cardioMin = 0;
+    cardioMinVal.textContent = "0";
+    cardioTitle.textContent = "유산소 입력";
+    cardioSub.textContent = `${ex.part} · ${ex.name}`;
+    overlayCardio.classList.add('show');
+    overlayCardio.setAttribute('aria-hidden','false');
+  }
+
+  function closeCardioFn(){
+    overlayCardio.classList.remove('show');
+    overlayCardio.setAttribute('aria-hidden','true');
+    currentCardioId = null;
+    cardioMin = 0;
+  }
+
+  closeCardio.addEventListener('click', closeCardioFn);
+  overlayCardio.addEventListener('click', e=>{ if(e.target===overlayCardio) closeCardioFn(); });
+
+  function cardioDigit(d){
+    const s = (String(cardioMin)==="0") ? "" : String(cardioMin);
+    const next = (s + String(d)).slice(0,3);
+    cardioMin = next==="" ? 0 : parseInt(next,10);
+    cardioMinVal.textContent = String(cardioMin);
+  }
+
+  qsa('#overlayCardio .key[data-cm]').forEach(k=>k.addEventListener('click',()=>cardioDigit(k.dataset.cm)));
+  cardioClear.addEventListener('click',()=>{cardioMin=0; cardioMinVal.textContent="0";});
+
+  function cardioUndo(){
+    const s=String(cardioMin);
+    if(s.length<=1){cardioMin=0; cardioMinVal.textContent="0"; return;}
+    cardioMin=parseInt(s.slice(0,-1),10);
+    cardioMinVal.textContent=String(cardioMin);
+  }
+  function cardioClearAll(){cardioMin=0; cardioMinVal.textContent="0";}
+  cardioBack.addEventListener('pointerdown',()=>{cardioPress=setTimeout(()=>cardioClearAll(),650);});
+  cardioBack.addEventListener('pointerup',()=>{if(cardioPress){clearTimeout(cardioPress); cardioPress=null; cardioUndo();}});
+  cardioBack.addEventListener('pointerleave',()=>{if(cardioPress){clearTimeout(cardioPress); cardioPress=null;}});
+
+  saveCardioBtn.addEventListener('click',()=>{
+    const ex = state.exercises.find(e=>e.id===currentCardioId);
+    if(!ex) return;
+    if(cardioMin<=0) return;
+    ex.cardio = ex.cardio || [];
+    ex.cardio.push({ min: cardioMin, ts: Date.now() });
+    saveState();
+    closeCardioFn();
+    renderExercises();
+    updateTicker();
+  });
+
+  // ===== Swipe + delete for strength sets =====
   function deleteSet(ex, idx){
     if(idx<0||idx>=ex.sets.length) return;
     ex.sets.splice(idx,1);
     saveState();
     renderExercises();
+    updateTicker();
   }
 
-  // Swipe
   const SWIPE_OPEN_X=-86;
   function closeAllSwipes(root){ qsa('.swipe.open', root||document).forEach(el=>el.classList.remove('open')); }
+
   function attachSwipeHandlers(container){
     const swipes=qsa('.swipe', container);
     swipes.forEach(el=>{
-      let startX=0,startY=0,dragging=false, moved=false, openAtStart=false;
+      let startX=0,startY=0,dragging=false,moved=false,openAtStart=false;
       const front=qs('.swipe-front', el);
       if(!front) return;
 
@@ -616,110 +925,389 @@
     }, {passive:true});
   }
 
-  // Render
-  const totalVolume=ex=>(ex.sets||[]).reduce((a,s)=>a+(s.w*s.r),0);
+  // ===== Metrics =====
+  const totalVolumeKg=(ex)=>(ex.sets||[]).reduce((a,s)=>a+((+s.w||0)*(+s.r||0)),0);
+  const totalCardioMin=(ex)=>(ex.cardio||[]).reduce((a,s)=>a+(+s.min||0),0);
 
-  function renderExercises(full=true){
-    const list=state.exercises.filter(e=>e.part===state.selectedPart);
-    if(full) exerciseList.innerHTML="";
+  function partsToday(){
+    // "오늘 운동하는 부위" = 오늘 리스트에 있는 부위 전부
+    const parts = [...new Set(state.exercises.map(e=>e.part).filter(Boolean))];
+    return parts;
+  }
 
-    if(state.selectedPart==="유산소"){
-      if(full){
-        const box=document.createElement('div');
-        box.className="card";
-        box.innerHTML=`<div class="row between"><div class="ex-title">유산소</div><div class="pill">야외 · 실내 (추후)</div></div>
-          <div class="divider"></div><div class="muted">유산소 입력은 다음 단계에서.</div>`;
-        exerciseList.appendChild(box);
+  // ===== Rank cache + deterministic random =====
+  function hashStr(str){
+    let h=2166136261;
+    for(let i=0;i<str.length;i++){
+      h ^= str.charCodeAt(i);
+      h = Math.imul(h, 16777619);
+    }
+    return (h>>>0);
+  }
+  function rng(seed){
+    let x = seed>>>0;
+    return ()=>{
+      x = (x*1664525 + 1013904223)>>>0;
+      return x / 4294967296;
+    };
+  }
+
+  function getRankForPart(part){
+    const key = `${todayStr()}|${part}`;
+    if(!state.rankCache) state.rankCache={};
+    if(typeof state.rankCache[key] !== "number"){
+      const seed = hashStr(key + "|" + (state.profile.user||"") + "|" + (state.profile.gym||"") + "|" + (state.profile.region||""));
+      state.rankCache[key] = 1 + (seed % 999);
+      saveState();
+    }
+    return state.rankCache[key];
+  }
+
+  function userScoreForPart(part){
+    if(part==="유산소"){
+      const mins = state.exercises.filter(e=>e.part==="유산소").reduce((a,e)=>a+totalCardioMin(e),0);
+      return { type:"cardio", min: mins };
+    }
+    const volKg = state.exercises.filter(e=>e.part===part).reduce((a,e)=>a+totalVolumeKg(e),0);
+    return { type:"strength", volKg };
+  }
+
+  function generateTop10(part){
+    const seed = hashStr(`${todayStr()}|${part}|top10`);
+    const r = rng(seed);
+
+    const userRank = Math.min(10, 1 + Math.floor(r()*10));
+    const names = ["alpha","bravo","charlie","delta","echo","foxtrot","golf","hotel","india","juliet","kilo","lima"];
+    const gyms = ["OO짐","XX피트니스","리프팅랩","바디팩토리","짐박스","하이짐","스포츠센터"];
+    const regions = ["서울","경기","인천","대전","대구","부산","광주","울산","세종"];
+
+    const us = userScoreForPart(part);
+    const userScore = (us.type==="cardio") ? Math.max(0, us.min||0) : Math.max(0, us.volKg||0);
+
+    const rows=[];
+    for(let i=1;i<=10;i++){
+      if(i===userRank){
+        rows.push({
+          rank:i,
+          region: state.profile.region||"서울",
+          gym: state.profile.gym||"OO짐",
+          user: state.profile.user||"jaeyang",
+          score: userScore,
+          type: us.type,
+          isMe:true
+        });
+      }else{
+        const region = regions[Math.floor(r()*regions.length)];
+        const gym = gyms[Math.floor(r()*gyms.length)];
+        const user = names[Math.floor(r()*names.length)] + String(10+Math.floor(r()*90));
+
+        let score;
+        if(us.type==="cardio"){
+          const base = Math.max(10, userScore || 30);
+          score = Math.round(base * (0.6 + r()*0.9));
+        }else{
+          const base = Math.max(500, userScore || 3000);
+          score = Math.round(base * (0.6 + r()*0.9));
+        }
+
+        rows.push({rank:i, region, gym, user, score, type: us.type, isMe:false});
       }
+    }
+    return rows;
+  }
+
+  // ===== Ticker + rank overlay =====
+  const tickerWrap = qs('#tickerWrap');
+  const ticker = qs('#ticker');
+  const overlayRank = qs('#overlayRank');
+  const closeRank = qs('#closeRank');
+  const rankSections = qs('#rankSections');
+  const rankDate = qs('#rankDate');
+  const profileRegion = qs('#profileRegion');
+  const profileGym = qs('#profileGym');
+  const profileUser = qs('#profileUser');
+  const saveProfileBtn = qs('#saveProfileBtn');
+
+  function updateTicker(){
+    if(!ticker) return;
+    const parts = partsToday();
+
+    if(parts.length===0){
+      ticker.innerHTML = `<span>오늘 운동 기록이 아직 없어.</span>`;
       return;
     }
 
-    if(full && list.length===0){
+    const {region,gym,user} = state.profile;
+    const spans = parts.map(part=>{
+      const rk = getRankForPart(part);
+      const s = userScoreForPart(part);
+      const metric = (s.type==="cardio") ? `${s.min||0}min` : fmtVolumeInline(s.volKg||0);
+      return `<span>${part} #${rk}  ${region} · ${gym} · ${user}  ${metric}</span>`;
+    });
+
+    // duplicate for smooth marquee
+    ticker.innerHTML = spans.join("") + spans.join("");
+  }
+
+  function openRank(){
+    rankDate.textContent = todayStr();
+    profileRegion.value = state.profile.region||"";
+    profileGym.value = state.profile.gym||"";
+    profileUser.value = state.profile.user||"";
+
+    renderRankSections();
+    overlayRank.classList.add('show');
+    overlayRank.setAttribute('aria-hidden','false');
+  }
+
+  function closeRankFn(){
+    overlayRank.classList.remove('show');
+    overlayRank.setAttribute('aria-hidden','true');
+  }
+
+  function renderRankSections(){
+    const parts = partsToday();
+    if(parts.length===0){
+      rankSections.innerHTML = `<div class="muted center" style="padding:10px 0">오늘 운동 부위가 없어.</div>`;
+      return;
+    }
+
+    rankSections.innerHTML = parts.map(part=>{
+      const top = generateTop10(part);
+      const head = (part==="유산소") ? "기록(분)" : `기록(${unitLabel()})`;
+
+      const rows = top.map(r=>{
+        const scoreTxt = (r.type==="cardio")
+          ? `${r.score||0}min`
+          : fmtVolumeInline(r.score||0);
+        return `
+          <div class="rank-row" style="${r.isMe?'background:rgba(76,92,255,.10)':''}">
+            <div class="rank-cell rank-r">${r.rank}</div>
+            <div class="rank-cell rank-region">${r.region}</div>
+            <div class="rank-cell rank-gym">${r.gym}</div>
+            <div class="rank-cell rank-user">${r.user}</div>
+            <div class="rank-cell rank-score">${scoreTxt}</div>
+          </div>
+        `;
+      }).join("");
+
+      return `
+        <div class="card" style="padding:12px;margin-top:12px">
+          <div class="row between">
+            <div style="font-weight:900">${part}</div>
+            <div class="pill">순위표</div>
+          </div>
+          <div class="rank-table">
+            <div class="rank-row head">
+              <div class="rank-cell rank-r">순위</div>
+              <div class="rank-cell rank-region">지역</div>
+              <div class="rank-cell rank-gym">헬스장</div>
+              <div class="rank-cell rank-user">유저</div>
+              <div class="rank-cell rank-score">${head}</div>
+            </div>
+            ${rows}
+          </div>
+        </div>
+      `;
+    }).join("");
+  }
+
+  if(tickerWrap) tickerWrap.addEventListener('click', openRank);
+  closeRank.addEventListener('click', closeRankFn);
+  overlayRank.addEventListener('click', e=>{ if(e.target===overlayRank) closeRankFn(); });
+
+  saveProfileBtn.addEventListener('click', ()=>{
+    state.profile.region = (profileRegion.value||"").trim() || "서울";
+    state.profile.gym = (profileGym.value||"").trim() || "OO짐";
+    state.profile.user = (profileUser.value||"").trim() || "jaeyang";
+    saveState();
+    updateTicker();
+    renderRankSections();
+  });
+
+  // ===== Rendering =====
+  function toggleExerciseDone(ex){
+    ex.completed = !ex.completed;
+    ex.completedAt = ex.completed ? Date.now() : null;
+    saveState();
+    renderExercises();
+  }
+
+  function renderStrengthCard(ex){
+    const sets=ex.sets||[];
+    const volKg=totalVolumeKg(ex);
+    const nextNo=sets.length+1;
+
+    const setRows = sets.map((s,i)=>`
+      <div class="swipe" data-idx="${i}">
+        <div class="swipe-actions">
+          <div class="btn danger small" data-action="del" data-idx="${i}">삭제</div>
+        </div>
+        <div class="swipe-front">
+          <div class="set-row">
+            <div class="set-left">
+              <div class="set-no">${i+1}세트</div>
+              <div class="set-val">${fmtWeightInline(s.w)} × ${s.r} reps</div>
+            </div>
+            <div class="set-vol">${fmtVolumeInline((+s.w||0)*(+s.r||0))}</div>
+          </div>
+        </div>
+      </div>
+    `).join("");
+
+    const prev=ex.prevWorkoutRecord;
+    const ghost=prev?`${prev.date}  ${fmtWeightInline(prev.w)} × ${prev.r} reps`:`이전 기록 없음`;
+
+    const setBtnCls = ex.completed ? "btn ghost small disabled" : "btn ghost small";
+    const liveRow = `
+      <div class="set-row" style="padding:10px 10px;border:1px dashed rgba(42,48,64,.7);border-radius:12px">
+        <div class="set-left">
+          <div class="set-no">${nextNo}세트</div>
+          <div class="set-val ghosttext">${ghost}</div>
+        </div>
+        <div class="${setBtnCls}" data-action="set">완료</div>
+      </div>
+    `;
+
+    const doneBtn = ex.completed
+      ? `<div class="btn small ghost" data-action="done">완료됨</div>`
+      : `<div class="btn small primary" data-action="done">종목 완료</div>`;
+
+    const card=document.createElement('div');
+    card.className="card";
+    card.dataset.id=ex.id;
+
+    card.innerHTML=`
+      <div class="row between">
+        <div>
+          <div class="muted">${ex.part}</div>
+          <div class="ex-title">${ex.name}</div>
+        </div>
+        ${doneBtn}
+      </div>
+
+      <div class="sets">
+        ${setRows}
+        ${liveRow}
+        <div class="row between" style="padding-top:10px">
+          <div class="muted">종목 볼륨</div>
+          <div class="muted">${fmtVolumeInline(volKg)}</div>
+        </div>
+      </div>
+    `;
+
+    card.addEventListener('click',(ev)=>{
+      const a=ev.target.closest('[data-action]');
+      if(!a) return;
+      ev.preventDefault(); ev.stopPropagation();
+
+      const action=a.dataset.action;
+      if(action==="set") openSetEntry(ex);
+      if(action==="del") deleteSet(ex, parseInt(a.dataset.idx,10));
+      if(action==="done") toggleExerciseDone(ex);
+    });
+
+    attachSwipeHandlers(card);
+    return card;
+  }
+
+  function renderCardioCard(ex){
+    const sessions = ex.cardio || [];
+    const totalMin = totalCardioMin(ex);
+
+    const rows = sessions.map((s,i)=>`
+      <div class="set-row" style="padding:10px 10px;border:1px dashed rgba(42,48,64,.7);border-radius:12px;margin-top:6px">
+        <div class="set-left">
+          <div class="set-no">${i+1}회</div>
+          <div class="set-val">${(+s.min||0)} min</div>
+        </div>
+        <div class="set-vol">${new Date(s.ts||Date.now()).toTimeString().slice(0,5)}</div>
+      </div>
+    `).join("");
+
+    const addBtnCls = ex.completed ? "btn ghost small disabled" : "btn ghost small";
+    const liveRow = `
+      <div class="set-row" style="padding:10px 10px;border:1px dashed rgba(42,48,64,.7);border-radius:12px;margin-top:6px">
+        <div class="set-left">
+          <div class="set-no">추가</div>
+          <div class="set-val ghosttext">시간(분) 입력</div>
+        </div>
+        <div class="${addBtnCls}" data-action="cardio">완료</div>
+      </div>
+    `;
+
+    const doneBtn = ex.completed
+      ? `<div class="btn small ghost" data-action="done">완료됨</div>`
+      : `<div class="btn small primary" data-action="done">종목 완료</div>`;
+
+    const card=document.createElement('div');
+    card.className="card";
+    card.dataset.id=ex.id;
+
+    card.innerHTML=`
+      <div class="row between">
+        <div>
+          <div class="muted">${ex.part}</div>
+          <div class="ex-title">${ex.name}</div>
+        </div>
+        ${doneBtn}
+      </div>
+      <div class="sets">
+        ${rows}
+        ${liveRow}
+        <div class="row between" style="padding-top:10px">
+          <div class="muted">총 시간</div>
+          <div class="muted">${totalMin} min</div>
+        </div>
+      </div>
+    `;
+
+    card.addEventListener('click',(ev)=>{
+      const a=ev.target.closest('[data-action]');
+      if(!a) return;
+      ev.preventDefault(); ev.stopPropagation();
+
+      const action=a.dataset.action;
+      if(action==="cardio") openCardioEntry(ex);
+      if(action==="done") toggleExerciseDone(ex);
+    });
+
+    return card;
+  }
+
+  function renderExercises(){
+    if(!state.selectedPart){ exerciseList.innerHTML=""; return; }
+
+    // update unit badges (header + set overlay)
+    syncUnitBadges();
+
+    const list=state.exercises.filter(e=>e.part===state.selectedPart);
+
+    exerciseList.innerHTML="";
+
+    if(list.length===0){
       const empty=document.createElement('div');
-      empty.className="muted"; empty.style.padding="6px 2px";
+      empty.className="muted";
+      empty.style.padding="6px 2px";
       empty.textContent="종목을 추가해줘.";
       exerciseList.appendChild(empty);
       return;
     }
-    if(!full) return;
 
     list.forEach(ex=>{
-      const card=document.createElement('div');
-      card.className="card";
-      card.dataset.id=ex.id;
-
-      const sets=ex.sets||[];
-      const vol=totalVolume(ex);
-      const nextNo=sets.length+1;
-
-      const setRows = sets.map((s,i)=>`
-        <div class="swipe" data-idx="${i}">
-          <div class="swipe-actions">
-            <div class="btn danger small" data-action="del" data-idx="${i}">삭제</div>
-          </div>
-          <div class="swipe-front">
-            <div class="set-row">
-              <div class="set-left">
-                <div class="set-no">${i+1}세트</div>
-                <div class="set-val">${fmtKg(s.w)}kg × ${s.r} reps</div>
-              </div>
-              <div class="set-vol">${(s.w*s.r).toLocaleString()}kg</div>
-            </div>
-          </div>
-        </div>
-      `).join("");
-
-      const prev=ex.prevWorkoutRecord;
-      const ghost=prev?`${prev.date}  ${fmtKg(prev.w)}kg × ${prev.r} reps`:`이전 기록 없음`;
-      const liveRow = `
-        <div class="set-row" style="padding:10px 10px;border:1px dashed rgba(42,48,64,.7);border-radius:12px">
-          <div class="set-left">
-            <div class="set-no">${nextNo}세트</div>
-            <div class="set-val ghosttext">${ghost}</div>
-          </div>
-          <div class="btn ghost small" data-action="set">완료</div>
-        </div>
-      `;
-
-      card.innerHTML=`
-        <div class="row between">
-          <div>
-            <div class="muted">${ex.part}</div>
-            <div class="ex-title">${ex.name}</div>
-          </div>
-        </div>
-
-        <div class="sets">
-          ${setRows}
-          ${liveRow}
-          <div class="row between" style="padding-top:10px">
-            <div class="muted">종목 볼륨</div>
-            <div class="muted">${vol.toLocaleString()}kg</div>
-          </div>
-        </div>
-      `;
-
-      card.addEventListener('click',(ev)=>{
-        const a=ev.target.closest('[data-action]');
-        if(!a) return;
-        ev.preventDefault(); ev.stopPropagation();
-        const action=a.dataset.action;
-        if(action==="set") openSetEntry(ex);
-        if(action==="del"){
-          const idx=parseInt(a.dataset.idx,10);
-          deleteSet(ex, idx);
-        }
-      });
-
-      exerciseList.appendChild(card);
-      attachSwipeHandlers(card);
+      ensureShapes();
+      if(ex.type==="cardio") exerciseList.appendChild(renderCardioCard(ex));
+      else exerciseList.appendChild(renderStrengthCard(ex));
     });
   }
 
-  // Init route
+  // ===== Init =====
   if(state.selectedPart) showWork(state.selectedPart);
   else showPartPicker();
+
+  syncUnitBadges();
   renderExercises();
+  updateTicker();
 </script>
 </body>
 </html>
