@@ -405,7 +405,12 @@ function normalizeNick(s) {
 function isBadNick(nick) {
   const t = normalizeNick(nick);
   if (!t) return false;
-  return BAD_WORDS.some(w => t.includes(normalizeNick(w)));
+
+  return BAD_WORDS.some(w => {
+    const bw = normalizeNick(w);
+    if (!bw) return false;
+    return t.includes(bw);
+  });
 }
 
 function fmtNumber(n) {
