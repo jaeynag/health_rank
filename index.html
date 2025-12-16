@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no"/>
-<title>Health Rank - Today (Step2.2)</title>
+<title>Health Rank - Today (Step2.3)</title>
 <style>
   :root{
     --bg:#0f1115; --card:#141826; --card2:#1b1f2a; --line:#2a3040;
@@ -36,7 +36,7 @@
   .btn.primary{background:var(--accent);border-color:var(--accent)}
   .btn.ghost{background:var(--card);border-color:var(--line)}
   .btn.small{padding:8px 10px;border-radius:12px}
-  .btn.danger{background:rgba(255,76,106,.12);border-color:rgba(255,76,106,.35);color:#ffd0d8}
+  .btn.danger{background:rgba(255,76,106,.14);border-color:rgba(255,76,106,.40);color:#ffd0d8}
   .pill{padding:6px 10px;border-radius:999px;border:1px solid var(--line);user-select:none}
   .pill.tap{cursor:pointer}
   .divider{height:1px;background:var(--line);margin:10px 0;opacity:.8}
@@ -50,13 +50,48 @@
   .collapse{display:none}
 
   .sets{margin-top:10px;border-top:1px dashed var(--line);padding-top:8px}
-  .set-row{display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px dashed rgba(42,48,64,.7);gap:8px}
+
+  /* Swipe row */
+  .swipe{
+    position:relative;
+    overflow:hidden;
+    border-bottom:1px dashed rgba(42,48,64,.7);
+    border-radius:12px;
+    margin:6px 0;
+    background:rgba(0,0,0,.0);
+    touch-action: pan-y;
+  }
+  .swipe-actions{
+    position:absolute;
+    top:0; right:0; bottom:0;
+    width:86px;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    padding:8px;
+    background:rgba(255,76,106,.12);
+    border-left:1px solid rgba(255,76,106,.25);
+  }
+  .swipe-front{
+    position:relative;
+    transform:translateX(0px);
+    transition:transform 140ms ease-out;
+    will-change:transform;
+    background:transparent;
+    padding:8px 6px;
+  }
+  .swipe.open .swipe-front{
+    transform:translateX(-86px);
+  }
+  .set-row{
+    display:flex;justify-content:space-between;align-items:center;gap:8px;
+  }
   .set-left{display:flex;gap:10px;align-items:center;min-width:0;flex:1}
   .set-no{color:var(--mut);width:52px;flex:0 0 auto}
   .set-val{font-variant-numeric:tabular-nums;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   .set-vol{color:var(--mut);font-size:12px;flex:0 0 auto}
   .ghosttext{color:rgba(142,147,181,.85)}
-  .live{color:var(--accent2)}
+
   .chipline{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}
   .chip{padding:8px 10px;border-radius:999px;border:1px solid var(--line);background:var(--card2);color:#fff;user-select:none;cursor:pointer;font-size:13px}
 
@@ -93,7 +128,6 @@
     </div>
   </div>
 
-  <!-- Part picker -->
   <div class="section card" id="partCard">
     <div class="row between">
       <div>
@@ -113,7 +147,6 @@
     </div>
   </div>
 
-  <!-- Work -->
   <div class="section card" id="workCard" style="display:none">
     <div class="row between">
       <div class="row" style="gap:10px">
@@ -174,7 +207,7 @@
   </div>
 </div>
 
-<!-- Start overlay (auto close) -->
+<!-- Start overlay -->
 <div class="overlay" id="overlayStart" aria-hidden="true">
   <div class="drawer" role="dialog" aria-modal="true" aria-label="운동 시작 안내">
     <div class="drawer-head">
@@ -194,17 +227,16 @@
   </div>
 </div>
 
-<!-- Set entry overlay (combined) -->
+<!-- Set entry overlay -->
 <div class="overlay" id="overlaySet" aria-hidden="true">
-  <div class="drawer" role="dialog" aria-modal="true" aria-label="세트 기록">
+  <div class="drawer" role="dialog" aria-modal="true" aria-label="세트 입력">
     <div class="drawer-head">
       <div>
-        <div class="drawer-title" id="setTitle">1세트 기록</div>
+        <div class="drawer-title" id="setTitle">1세트 입력</div>
         <div class="drawer-sub" id="setSub">-</div>
       </div>
       <div class="btn ghost small" id="closeSet">닫기</div>
     </div>
-
     <div class="drawer-body">
       <div class="center">
         <div class="muted">무게</div>
@@ -247,7 +279,7 @@
 </div>
 
 <script>
-  const STORAGE_KEY="health_rank_today_v4";
+  const STORAGE_KEY="health_rank_today_v5";
   const qs=(s,el=document)=>el.querySelector(s);
   const qsa=(s,el=document)=>[...el.querySelectorAll(s)];
   const pad=n=>String(n).padStart(2,'0');
@@ -263,11 +295,7 @@
     return v.toFixed(2).replace(/\.00$/,".0");
   };
 
-  const state={
-    selectedPart:null,
-    exercises:[],
-    weightMode:"inc",
-  };
+  const state={ selectedPart:null, exercises:[], weightMode:"inc" };
 
   function saveState(){
     localStorage.setItem(STORAGE_KEY, JSON.stringify({
@@ -306,12 +334,10 @@
   function openTop10(){
     top10Title.textContent=`Top 10 · ${(state.selectedPart||"하체")}(오늘)`;
     renderTop10();
-    app.classList.add('paused');
     overlayTop10.classList.add('show'); overlayTop10.setAttribute('aria-hidden','false');
   }
   function closeTop10Fn(){
     overlayTop10.classList.remove('show'); overlayTop10.setAttribute('aria-hidden','true');
-    app.classList.remove('paused');
   }
   tickerWrap.addEventListener('click',openTop10);
   closeTop10.addEventListener('click',closeTop10Fn);
@@ -347,38 +373,27 @@
     "복근":["크런치","행잉 레그레이즈","플랭크","케이블 크런치"],
     "유산소":["러닝","사이클","계단"]
   };
-
   function seedLastRecord(ex){
-    // 데모용: 최초 생성 시 이전 기록 1개를 만들어준다 (나중에 진짜 데이터로 교체)
     if(ex.lastRecord) return;
-    const d=new Date(Date.now()-86400000*1); // 어제
+    const d=new Date(Date.now()-86400000);
     const ds=d.toISOString().slice(0,10);
-    // 종목별 적당히 그럴듯한 수치
-    const base = {
-      "스쿼트":{w:60,r:8},
-      "레그프레스":{w:120,r:10},
-      "벤치프레스":{w:40,r:10},
-      "랫풀다운":{w:50,r:10},
-      "오버헤드프레스":{w:25,r:8},
-    };
-    const b=base[ex.name] || {w:20,r:10};
-    ex.lastRecord = {date:ds, w:b.w, r:b.r};
+    const base={"스쿼트":{w:60,r:8},"레그프레스":{w:120,r:10},"벤치프레스":{w:40,r:10},"랫풀다운":{w:50,r:10},"오버헤드프레스":{w:25,r:8}};
+    const b=base[ex.name]||{w:20,r:10};
+    ex.lastRecord={date:ds,w:b.w,r:b.r};
   }
 
   // Add exercise overlay
   const overlayPrompt=qs('#overlayPrompt'), closePrompt=qs('#closePrompt'), promptSub=qs('#promptSub');
   const exerciseName=qs('#exerciseName'), confirmAdd=qs('#confirmAdd'), exerciseChips=qs('#exerciseChips');
-
   function openPrompt(){
     if(!state.selectedPart) return;
     promptSub.textContent=`선택 부위: ${state.selectedPart}`;
     exerciseName.value="";
-    const list=EXAMPLES[state.selectedPart] || [];
     exerciseChips.innerHTML="";
-    list.forEach(n=>{
+    (EXAMPLES[state.selectedPart]||[]).forEach(n=>{
       const c=document.createElement('div');
       c.className="chip"; c.textContent=n;
-      c.addEventListener('click',()=>{ exerciseName.value=n; exerciseName.focus(); });
+      c.addEventListener('click',()=>{exerciseName.value=n; exerciseName.focus();});
       exerciseChips.appendChild(c);
     });
     overlayPrompt.classList.add('show'); overlayPrompt.setAttribute('aria-hidden','false');
@@ -389,33 +404,27 @@
   closePrompt.addEventListener('click',closePromptFn);
   overlayPrompt.addEventListener('click',e=>{if(e.target===overlayPrompt) closePromptFn();});
 
-  // Start overlay (10s auto close)
-  const overlayStart=qs('#overlayStart');
-  const closeStart=qs('#closeStart');
-  const startSub=qs('#startSub');
-  const startCount=qs('#startCount');
+  // Start overlay
+  const overlayStart=qs('#overlayStart'), closeStart=qs('#closeStart'), startSub=qs('#startSub'), startCount=qs('#startCount');
   let startTimer=null;
   function openStart(ex){
-    startSub.textContent = `${ex.part} · ${ex.name}`;
+    startSub.textContent=`${ex.part} · ${ex.name}`;
     overlayStart.classList.add('show'); overlayStart.setAttribute('aria-hidden','false');
     let left=10;
-    startCount.textContent = `${left}초 후 자동으로 닫힙니다.`;
+    startCount.textContent=`${left}초 후 자동으로 닫힙니다.`;
     if(startTimer) clearInterval(startTimer);
     startTimer=setInterval(()=>{
-      left -= 1;
-      if(left<=0){
-        closeStartFn();
-      }else{
-        startCount.textContent = `${left}초 후 자동으로 닫힙니다.`;
-      }
+      left-=1;
+      if(left<=0) closeStartFn();
+      else startCount.textContent=`${left}초 후 자동으로 닫힙니다.`;
     },1000);
   }
   function closeStartFn(){
-    if(startTimer){ clearInterval(startTimer); startTimer=null; }
+    if(startTimer){clearInterval(startTimer); startTimer=null;}
     overlayStart.classList.remove('show'); overlayStart.setAttribute('aria-hidden','true');
   }
   closeStart.addEventListener('click',closeStartFn);
-  overlayStart.addEventListener('click',e=>{ if(e.target===overlayStart) closeStartFn(); });
+  overlayStart.addEventListener('click',e=>{if(e.target===overlayStart) closeStartFn();});
 
   function addExercise(name){
     const id=crypto.randomUUID?crypto.randomUUID():String(Date.now())+Math.random();
@@ -424,53 +433,34 @@
       createdAt:Date.now(), paused:false, pauseAt:null, pausedMs:0,
       completed:false, activeMs:0,
       weightKg:0.0, barUsed:false, weightHist:[],
-      sets:[],
-      lastRecord:null
+      sets:[], lastRecord:null
     };
     seedLastRecord(ex);
     state.exercises.push(ex);
     saveState();
     closePromptFn();
     renderExercises();
-    // 종목 추가 직후: "바로 시작" 팝업 (자동 닫힘)
     openStart(ex);
   }
-
-  confirmAdd.addEventListener('click',()=>{
-    const name=(exerciseName.value||"").trim(); if(!name) return;
-    addExercise(name);
-  });
+  confirmAdd.addEventListener('click',()=>{const n=(exerciseName.value||"").trim(); if(n) addExercise(n);});
   exerciseName.addEventListener('keydown',e=>{if(e.key==="Enter") confirmAdd.click();});
 
-  // Timers
+  // Timers + volume
   function getActiveMs(ex){
     if(ex.completed) return ex.activeMs;
     const now=Date.now();
     const pausedNow=ex.paused ? (now - ex.pauseAt) : 0;
     return (now - ex.createdAt) - ex.pausedMs - pausedNow;
   }
-  function totalVolume(ex){ return (ex.sets||[]).reduce((a,s)=>a+(s.w*s.r),0); }
+  const totalVolume=ex=>(ex.sets||[]).reduce((a,s)=>a+(s.w*s.r),0);
 
-  // Set entry overlay
-  const overlaySet=qs('#overlaySet');
-  const closeSet=qs('#closeSet');
-  const setTitle=qs('#setTitle');
-  const setSub=qs('#setSub');
-  const setWeightVal=qs('#setWeightVal');
-  const setRepsVal=qs('#setRepsVal');
-  const incBtn=qs('#incBtn');
-  const decBtn=qs('#decBtn');
-  const barKey=qs('#barKey');
-  const backKey=qs('#backKey');
-  const repsClear=qs('#repsClear');
-  const repsBack=qs('#repsBack');
-  const saveSetBtn=qs('#saveSetBtn');
+  // Set overlay
+  const overlaySet=qs('#overlaySet'), closeSet=qs('#closeSet'), setTitle=qs('#setTitle'), setSub=qs('#setSub');
+  const setWeightVal=qs('#setWeightVal'), setRepsVal=qs('#setRepsVal'), incBtn=qs('#incBtn'), decBtn=qs('#decBtn');
+  const barKey=qs('#barKey'), backKey=qs('#backKey'), repsClear=qs('#repsClear'), repsBack=qs('#repsBack'), saveSetBtn=qs('#saveSetBtn');
 
-  let currentExId=null;
-  let currentReps=0;
-  let pressTimer=null;
-  let repsPress=null;
-  let targetSetIndex=1; // 1-based
+  let currentExId=null, currentReps=0, targetSetIndex=1;
+  let pressTimer=null, repsPress=null;
 
   function setMode(mode){
     state.weightMode=mode; saveState();
@@ -480,45 +470,33 @@
     decBtn.style.color=(mode==="dec")?"var(--accent2)":"var(--txt)";
   }
   setMode(state.weightMode);
+  incBtn.addEventListener('click',()=>setMode("inc"));
+  decBtn.addEventListener('click',()=>setMode("dec"));
 
   function openSetEntry(ex){
     currentExId=ex.id;
     const nextNo=(ex.sets?.length||0)+1;
-    targetSetIndex = nextNo;
-
-    // 2세트부터는 앞 세트 무게 자동 적용
+    targetSetIndex=nextNo;
     if(nextNo>=2){
       const last=ex.sets[ex.sets.length-1];
       if(last && typeof last.w==="number"){
-        ex.weightKg = last.w;
-        ex.weightHist = [];
-        ex.barUsed = false;
+        ex.weightKg=last.w; ex.weightHist=[]; ex.barUsed=false;
       }
     }
-
     setTitle.textContent=`${nextNo}세트 입력`;
     setSub.textContent=`${ex.part} · ${ex.name}`;
     setWeightVal.textContent=fmtKg(ex.weightKg);
-    currentReps=0;
-    setRepsVal.textContent="0";
-    barKey.classList.toggle('disabled', !!ex.barUsed);
-
-    overlaySet.classList.add('show');
-    overlaySet.setAttribute('aria-hidden','false');
+    currentReps=0; setRepsVal.textContent="0";
+    barKey.classList.toggle('disabled',!!ex.barUsed);
+    overlaySet.classList.add('show'); overlaySet.setAttribute('aria-hidden','false');
     saveState();
   }
   function closeSetFn(){
-    overlaySet.classList.remove('show');
-    overlaySet.setAttribute('aria-hidden','true');
-    currentExId=null;
-    currentReps=0;
-    targetSetIndex=1;
+    overlaySet.classList.remove('show'); overlaySet.setAttribute('aria-hidden','true');
+    currentExId=null; currentReps=0; targetSetIndex=1;
   }
   closeSet.addEventListener('click',closeSetFn);
-  overlaySet.addEventListener('click',e=>{ if(e.target===overlaySet) closeSetFn(); });
-
-  incBtn.addEventListener('click',()=>setMode("inc"));
-  decBtn.addEventListener('click',()=>setMode("dec"));
+  overlaySet.addEventListener('click',e=>{if(e.target===overlaySet) closeSetFn();});
 
   function applyDelta(ex, delta, meta={bar:false}){
     const signed=(state.weightMode==="inc")?delta:-delta;
@@ -530,43 +508,35 @@
   qsa('#overlaySet .key[data-d]').forEach(k=>k.addEventListener('click',()=>{
     const ex=state.exercises.find(e=>e.id===currentExId); if(!ex) return;
     applyDelta(ex, parseFloat(k.dataset.d));
-    renderExercises(false);
   }));
   barKey.addEventListener('click',()=>{
     const ex=state.exercises.find(e=>e.id===currentExId); if(!ex||ex.barUsed) return;
-    applyDelta(ex,20,{bar:true});
-    ex.barUsed=true;
-    barKey.classList.add('disabled');
-    saveState(); renderExercises(false);
+    applyDelta(ex,20,{bar:true}); ex.barUsed=true; barKey.classList.add('disabled'); saveState();
   });
-
   function undoLast(ex){
     const last=ex.weightHist.pop(); if(!last) return;
     ex.weightKg=Math.max(0, +(ex.weightKg - last.delta).toFixed(2));
-    if(last.bar){ ex.barUsed=false; barKey.classList.remove('disabled'); }
-    setWeightVal.textContent=fmtKg(ex.weightKg);
-    saveState();
+    if(last.bar){ex.barUsed=false; barKey.classList.remove('disabled');}
+    setWeightVal.textContent=fmtKg(ex.weightKg); saveState();
   }
   function clearAll(ex){
     ex.weightKg=0; ex.weightHist=[]; ex.barUsed=false;
-    setWeightVal.textContent="0.0"; barKey.classList.remove('disabled');
-    saveState();
+    setWeightVal.textContent="0.0"; barKey.classList.remove('disabled'); saveState();
   }
   backKey.addEventListener('pointerdown',()=>{
     const ex=state.exercises.find(e=>e.id===currentExId); if(!ex) return;
-    pressTimer=setTimeout(()=>{clearAll(ex); renderExercises(false);},650);
+    pressTimer=setTimeout(()=>clearAll(ex),650);
   });
   backKey.addEventListener('pointerup',()=>{
     const ex=state.exercises.find(e=>e.id===currentExId); if(!ex) return;
-    if(pressTimer){ clearTimeout(pressTimer); pressTimer=null; undoLast(ex); renderExercises(false); }
+    if(pressTimer){clearTimeout(pressTimer); pressTimer=null; undoLast(ex);}
   });
-  backKey.addEventListener('pointerleave',()=>{ if(pressTimer){clearTimeout(pressTimer); pressTimer=null;} });
+  backKey.addEventListener('pointerleave',()=>{if(pressTimer){clearTimeout(pressTimer); pressTimer=null;}});
 
-  // reps input
   function setRepsFromDigit(d){
     const s=(String(currentReps)==="0")?"":String(currentReps);
     const next=(s+String(d)).slice(0,3);
-    currentReps = next===""?0:parseInt(next,10);
+    currentReps=next===""?0:parseInt(next,10);
     setRepsVal.textContent=String(currentReps);
   }
   qsa('#overlaySet .key[data-n]').forEach(k=>k.addEventListener('click',()=>setRepsFromDigit(k.dataset.n)));
@@ -578,25 +548,21 @@
     setRepsVal.textContent=String(currentReps);
   }
   function repsClearAll(){currentReps=0; setRepsVal.textContent="0";}
-  repsBack.addEventListener('pointerdown',()=>{ repsPress=setTimeout(()=>{repsClearAll();},650); });
-  repsBack.addEventListener('pointerup',()=>{
-    if(repsPress){ clearTimeout(repsPress); repsPress=null; repsUndo(); }
-  });
-  repsBack.addEventListener('pointerleave',()=>{ if(repsPress){clearTimeout(repsPress); repsPress=null;} });
+  repsBack.addEventListener('pointerdown',()=>{repsPress=setTimeout(()=>repsClearAll(),650);});
+  repsBack.addEventListener('pointerup',()=>{if(repsPress){clearTimeout(repsPress); repsPress=null; repsUndo();}});
+  repsBack.addEventListener('pointerleave',()=>{if(repsPress){clearTimeout(repsPress); repsPress=null;}});
 
   function saveOneSet(ex){
     if(currentReps<=0) return false;
     const w=+ex.weightKg||0;
-    ex.sets.push({w, r:currentReps, ts:Date.now()});
-    // 입력된 세트가 "이전 기록"이 되도록 업데이트(데모)
+    ex.sets.push({w,r:currentReps,ts:Date.now()});
     const ds=new Date().toISOString().slice(0,10);
-    ex.lastRecord = {date:ds, w, r:currentReps};
+    ex.lastRecord={date:ds,w,r:currentReps};
     saveState();
     return true;
   }
   saveSetBtn.addEventListener('click',()=>{
-    const ex=state.exercises.find(e=>e.id===currentExId);
-    if(!ex) return;
+    const ex=state.exercises.find(e=>e.id===currentExId); if(!ex) return;
     if(!saveOneSet(ex)) return;
     closeSetFn();
     renderExercises();
@@ -604,10 +570,102 @@
 
   // Delete set
   function deleteSet(ex, idx){
-    if(idx<0 || idx>=ex.sets.length) return;
+    if(idx<0||idx>=ex.sets.length) return;
     ex.sets.splice(idx,1);
     saveState();
     renderExercises();
+  }
+
+  // Swipe handling
+  const SWIPE_OPEN_X = -86;
+  function closeAllSwipes(root){
+    qsa('.swipe.open', root||document).forEach(el=>el.classList.remove('open'));
+  }
+  function attachSwipeHandlers(container){
+    const swipes = qsa('.swipe', container);
+    swipes.forEach(el=>{
+      let startX=0, startY=0, dragging=false, moved=false, openAtStart=false;
+      const front = qs('.swipe-front', el);
+      if(!front) return;
+
+      el.addEventListener('pointerdown', (e)=>{
+        if(e.pointerType === "mouse" && e.button !== 0) return;
+        startX = e.clientX; startY = e.clientY;
+        dragging = true; moved=false;
+        openAtStart = el.classList.contains('open');
+        el.setPointerCapture(e.pointerId);
+      });
+
+      el.addEventListener('pointermove', (e)=>{
+        if(!dragging) return;
+        const dx = e.clientX - startX;
+        const dy = e.clientY - startY;
+
+        // if vertical scroll dominates, abort swipe
+        if(!moved && Math.abs(dy) > Math.abs(dx) && Math.abs(dy) > 8){
+          dragging=false;
+          front.style.transition="transform 140ms ease-out";
+          front.style.transform = openAtStart ? `translateX(${SWIPE_OPEN_X}px)` : "translateX(0px)";
+          return;
+        }
+
+        if(Math.abs(dx) > 6) moved=true;
+
+        // Only left swipe
+        let x = dx;
+        if(x > 0) x = 0;
+        if(x < SWIPE_OPEN_X) x = SWIPE_OPEN_X;
+        front.style.transition="none";
+        front.style.transform = `translateX(${x}px)`;
+        e.preventDefault();
+      }, {passive:false});
+
+      el.addEventListener('pointerup', (e)=>{
+        if(!dragging) return;
+        dragging=false;
+        front.style.transition="transform 140ms ease-out";
+        const m = /translateX\((-?\d+(?:\.\d+)?)px\)/.exec(front.style.transform||"");
+        const cur = m ? parseFloat(m[1]) : (el.classList.contains('open')?SWIPE_OPEN_X:0);
+        const shouldOpen = cur < (SWIPE_OPEN_X/2); // more than half open
+        if(shouldOpen){
+          closeAllSwipes(container); // only one open at a time
+          el.classList.add('open');
+          front.style.transform = `translateX(${SWIPE_OPEN_X}px)`;
+        }else{
+          el.classList.remove('open');
+          front.style.transform = "translateX(0px)";
+        }
+      });
+
+      el.addEventListener('pointercancel', ()=>{
+        dragging=false;
+        front.style.transition="transform 140ms ease-out";
+        front.style.transform = el.classList.contains('open')?`translateX(${SWIPE_OPEN_X}px)`:"translateX(0px)";
+      });
+
+      // Tap outside to close others
+      el.addEventListener('click', (e)=>{
+        const delBtn = e.target.closest('[data-action="del"]');
+        if(delBtn) return;
+        const setBtn = e.target.closest('[data-action="set"]');
+        if(setBtn) return;
+        // if open and user taps row, close it
+        if(el.classList.contains('open')){
+          el.classList.remove('open');
+          front.style.transition="transform 140ms ease-out";
+          front.style.transform="translateX(0px)";
+          e.stopPropagation();
+        }else{
+          closeAllSwipes(container);
+        }
+      }, true);
+    });
+
+    // close swipes when scrolling / touching elsewhere
+    container.addEventListener('touchstart', (e)=>{
+      const inside = e.target.closest('.swipe');
+      if(!inside) closeAllSwipes(container);
+    }, {passive:true});
   }
 
   // Render exercises
@@ -620,12 +678,11 @@
         const box=document.createElement('div');
         box.className="card";
         box.innerHTML=`<div class="row between"><div class="ex-title">유산소</div><div class="pill">야외 · 실내 (추후)</div></div>
-          <div class="divider"></div><div class="muted">유산소 입력은 다음 단계에서 붙일게.</div>`;
+          <div class="divider"></div><div class="muted">유산소 입력은 다음 단계에서.</div>`;
         exerciseList.appendChild(box);
       }
       return;
     }
-
     if(full && list.length===0){
       const empty=document.createElement('div');
       empty.className="muted"; empty.style.padding="6px 2px";
@@ -646,23 +703,26 @@
       const nextNo=sets.length+1;
 
       const setRows = sets.map((s,i)=>`
-        <div class="set-row">
-          <div class="set-left">
-            <div class="set-no">${i+1}세트</div>
-            <div class="set-val">${fmtKg(s.w)}kg × ${s.r} reps</div>
+        <div class="swipe" data-idx="${i}">
+          <div class="swipe-actions">
+            <div class="btn danger small" data-action="del" data-idx="${i}">삭제</div>
           </div>
-          <div class="row" style="gap:6px">
-            <div class="set-vol">${(s.w*s.r).toLocaleString()}kg</div>
-            <div class="btn danger small" data-action="del" data-idx="${i}" title="세트 삭제">지움</div>
+          <div class="swipe-front">
+            <div class="set-row">
+              <div class="set-left">
+                <div class="set-no">${i+1}세트</div>
+                <div class="set-val">${fmtKg(s.w)}kg × ${s.r} reps</div>
+              </div>
+              <div class="set-vol">${(s.w*s.r).toLocaleString()}kg</div>
+            </div>
           </div>
         </div>
       `).join("");
 
-      // 진행중 세트 줄: 여기 자리에 "이전 기록"을 회색으로 보여줌
-      const last = ex.lastRecord;
-      const ghost = last ? `${last.date}  ${fmtKg(last.w)}kg × ${last.r} reps` : `이전 기록 없음`;
+      const last=ex.lastRecord;
+      const ghost=last?`${last.date}  ${fmtKg(last.w)}kg × ${last.r} reps`:`이전 기록 없음`;
       const liveRow = `
-        <div class="set-row">
+        <div class="set-row" style="padding:8px 6px;border-bottom:1px dashed rgba(42,48,64,.7)">
           <div class="set-left">
             <div class="set-no">${nextNo}세트</div>
             <div class="set-val ghosttext">${ghost}</div>
@@ -677,7 +737,7 @@
             <div class="muted">${ex.part}</div>
             <div class="ex-title">${ex.name}</div>
           </div>
-          <div class="pill tap timer ${ex.paused?"paused":""}" data-action="timer" title="탭: 일시정지/재개">
+          <div class="pill tap timer ${ex.paused?"paused":""}" data-action="timer">
             ⏱ <span class="timer-val">${t}</span> ${ex.paused?"⏸":""}
           </div>
         </div>
@@ -754,6 +814,9 @@
       });
 
       exerciseList.appendChild(card);
+
+      // attach swipe gestures inside this card
+      attachSwipeHandlers(card);
     });
   }
 
@@ -770,13 +833,11 @@
     }
   }, 250);
 
-  // End placeholder
   endBtn.addEventListener('click',()=>{
-    if(!confirm("오늘 운동을 종료할까? (요약 화면은 다음 단계)")) return;
+    if(!confirm("오늘 운동을 종료할까? (요약은 다음 단계)")) return;
     alert("다음 단계에서 오늘 요약 화면 붙일게.");
   });
 
-  // Initial route
   if(state.selectedPart) showWork(state.selectedPart);
   else showPartPicker();
   renderExercises();
