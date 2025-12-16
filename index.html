@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1"/>
-<title>Health Rank - Today (Step1.1)</title>
+<title>Health Rank - Today (Step1.2)</title>
 <style>
   :root{
     --bg:#0f1115; --card:#141826; --card2:#1b1f2a; --line:#2a3040;
@@ -101,7 +101,6 @@
         <div class="muted">오늘 운동</div>
         <div style="font-weight:800;margin-top:2px">부위 선택</div>
       </div>
-      <div class="pill">기본: 웨이트</div>
     </div>
     <div class="divider"></div>
     <div class="grid" id="partGrid">
@@ -214,6 +213,25 @@
 </div>
 
 <script>
+  // --- persistence
+  const STORAGE_KEY = "health_rank_today_v1";
+  function safeParse(s){ try{return JSON.parse(s)}catch{return null} }
+  function saveState(){
+    const snapshot = {
+      selectedPart: state.selectedPart,
+      exercises: state.exercises,
+      weightMode: state.weightMode,
+    };
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(snapshot));
+  }
+  function loadState(){
+    const snap = safeParse(localStorage.getItem(STORAGE_KEY));
+    if(!snap) return;
+    if(typeof snap.selectedPart === "string") state.selectedPart = snap.selectedPart;
+    if(Array.isArray(snap.exercises)) state.exercises = snap.exercises;
+    if(snap.weightMode==="inc" || snap.weightMode==="dec") state.weightMode = snap.weightMode;
+  }
+
   const qs=(s,el=document)=>el.querySelector(s);
   const qsa=(s,el=document)=>[...el.querySelectorAll(s)];
   const pad=n=>String(n).padStart(2,'0');
@@ -228,9 +246,10 @@
 
   const state = {
     selectedPart:null,
-    exercises:[], // {id, part, name, createdAt, paused, pauseAt, pausedMs, completed, activeMs, weightKg, barUsed, weightHist:[]}
-    weightMode: "inc",
+    exercises:[], // {id, part, name, createdAt, paused, pauseAt, pausedMs, completed, activeMs, weightKg, barUsed, weightHist}
+    weightMode:"inc",
   };
+  loadState();
 
   // Top10
   const app = qs('#app');
@@ -284,11 +303,13 @@
 
   function showPartPicker(){
     state.selectedPart=null;
+    saveState();
     partCard.style.display="";
     workCard.style.display="none";
   }
   function showWork(part){
     state.selectedPart=part;
+    saveState();
     selectedPartEl.textContent=part;
     todaySmall.textContent=new Date().toISOString().slice(0,10);
     partCard.style.display="none";
@@ -330,6 +351,7 @@
       completed:false, activeMs:0,
       weightKg:0.0, barUsed:false, weightHist:[]
     });
+    saveState();
     renderExercises();
   }
   confirmAdd.addEventListener('click', ()=>{
@@ -354,18 +376,19 @@
 
   function setMode(mode){
     state.weightMode = mode;
+    saveState();
     incBtn.style.borderColor = (mode==="inc") ? "var(--accent)" : "var(--line)";
     decBtn.style.borderColor = (mode==="dec") ? "var(--accent)" : "var(--line)";
     incBtn.style.color = (mode==="inc") ? "var(--accent2)" : "var(--txt)";
     decBtn.style.color = (mode==="dec") ? "var(--accent2)" : "var(--txt)";
   }
-  setMode("inc");
+  setMode(state.weightMode || "inc");
 
   function openWeight(ex){
     currentExId = ex.id;
     weightSub.textContent = `${ex.part} · ${ex.name}`;
     weightVal.textContent = ex.weightKg.toFixed(2).replace(/\.00$/,".0");
-    barKey.classList.toggle('disabled', ex.barUsed);
+    barKey.classList.toggle('disabled', !!ex.barUsed);
     overlayWeight.classList.add('show');
     overlayWeight.setAttribute('aria-hidden','false');
   }
@@ -380,11 +403,12 @@
   incBtn.addEventListener('click', ()=>setMode("inc"));
   decBtn.addEventListener('click', ()=>setMode("dec"));
 
-  function applyDelta(ex, delta){
+  function applyDelta(ex, delta, meta={bar:false}){
     const signed = (state.weightMode==="inc") ? delta : -delta;
     ex.weightKg = Math.max(0, +(ex.weightKg + signed).toFixed(2));
-    ex.weightHist.push({delta:signed, bar:false});
+    ex.weightHist.push({delta:signed, bar:!!meta.bar});
     weightVal.textContent = ex.weightKg.toFixed(2).replace(/\.00$/,".0");
+    saveState();
   }
 
   qsa('.key[data-d]').forEach(k=>{
@@ -399,10 +423,10 @@
   barKey.addEventListener('click', ()=>{
     const ex = state.exercises.find(e=>e.id===currentExId);
     if(!ex || ex.barUsed) return;
-    // BAR only once
-    applyDelta(ex, 20);
+    applyDelta(ex, 20, {bar:true});
     ex.barUsed = true;
     barKey.classList.add('disabled');
+    saveState();
     renderExercises(false);
   });
 
@@ -412,13 +436,12 @@
     const last = ex.weightHist.pop();
     if(!last) return;
     ex.weightKg = Math.max(0, +(ex.weightKg - last.delta).toFixed(2));
-    // if last came from BAR, allow BAR again. we don't store bar marker separately now, but detect if abs(delta)==20 and barUsed
-    if(Math.abs(last.delta)===20 && ex.barUsed){
-      // If current weightHist contains any 20-from-bar? Hard to know; for prototype allow re-enable when we undo the first BAR press.
+    if(last.bar){
       ex.barUsed = false;
       barKey.classList.remove('disabled');
     }
     weightVal.textContent = ex.weightKg.toFixed(2).replace(/\.00$/,".0");
+    saveState();
   }
   function clearAll(ex){
     ex.weightKg = 0;
@@ -426,6 +449,7 @@
     ex.barUsed = false;
     weightVal.textContent = "0.0";
     barKey.classList.remove('disabled');
+    saveState();
   }
 
   backKey.addEventListener('pointerdown', ()=>{
@@ -499,7 +523,7 @@
           </div>
 
           <div class="details">
-            <div class="sets-placeholder">STEP1.1: 무게 입력 키패드만 먼저 붙였어. (세트 저장은 다음 단계)</div>
+            <div class="sets-placeholder">새로고침해도 안 날아가게 저장해놨어. (세트 저장은 다음 단계)</div>
             <div class="row" style="margin-top:10px">
               <div class="btn ghost" style="flex:1" data-action="weight">무게 입력</div>
               <div class="btn ghost" style="flex:1" data-action="complete">종목 완료</div>
@@ -528,6 +552,7 @@
               if(ex.completed) return;
               if(!ex.paused){ ex.paused=true; ex.pauseAt=Date.now(); }
               else { ex.paused=false; ex.pausedMs += (Date.now()-ex.pauseAt); ex.pauseAt=null; }
+              saveState();
               renderExercises();
             }
             if(action==="weight"){
@@ -540,25 +565,24 @@
               ex.activeMs = (now - ex.createdAt) - ex.pausedMs - pausedExtra;
               ex.completed=true;
               ex.paused=false; ex.pauseAt=null;
+              saveState();
               renderExercises();
             }
             return;
           }
-          // click collapsed to reopen (prototype)
           if(ex.completed){
+            // reopen (prototype)
             ex.completed=false;
             const now=Date.now();
             ex.createdAt = now - ex.activeMs;
             ex.pausedMs = 0; ex.activeMs = 0;
+            saveState();
             renderExercises();
           }
         });
 
         exerciseList.appendChild(card);
       }
-    } else {
-      // lightweight updates (weights)
-      // no-op; the UI will reflect on next render or close
     }
   }
 
@@ -577,10 +601,15 @@
 
   endBtn.addEventListener('click', ()=>{
     if(!confirm("오늘 운동을 종료할까? (요약 화면은 다음 단계에서)")) return;
-    alert("STEP1.1에서는 아직 '오늘 요약 화면'이 붙기 전이야. 다음 단계에서 붙일게.");
+    alert("STEP1.2에서는 아직 '오늘 요약 화면'이 붙기 전이야. 다음 단계에서 붙일게.");
   });
 
-  showPartPicker();
+  // Initial route (restore selected part if any)
+  if(state.selectedPart){
+    showWork(state.selectedPart);
+  } else {
+    showPartPicker();
+  }
 </script>
 </body>
 </html>
