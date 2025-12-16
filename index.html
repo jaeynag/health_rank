@@ -398,11 +398,15 @@ const REGION = {
 };
 
 // 비속어 필터(최소). 완벽하지 않음.
-const BAD_WORDS = []; // disabled (MVP)
+const BAD_WORDS = ["시발","씨발","ㅅㅂ","병신","ㅂㅅ","ㅅㅐㄲㅣ","새끼","좆","ㅈㄷ","ㅈ같","fuck","fuk","shit"];
 function normalizeNick(s) {
   return (s||"").toLowerCase().replace(/\s+/g,"").replace(/[^a-z0-9가-힣]/g,"");
 }
-function isBadNick(nick) { return false; }
+function isBadNick(nick) {
+  const t = normalizeNick(nick);
+  if (!t) return false;
+  return BAD_WORDS.some(w => t.includes(normalizeNick(w)));
+}
 
 function fmtNumber(n) {
   if (!isFinite(n)) return "-";
@@ -654,7 +658,7 @@ function bindProfileInputs() {
     const val = n.value.trim();
     if (!val) { nickHint.textContent = ""; return; }
     if (isBadNick(val)) {
-      nickHint.textContent = "";
+      nickHint.textContent = "비속어/부적절한 닉네임은 사용 불가.";
       nickHint.className = "small warn";
     } else {
       nickHint.textContent = "";
@@ -681,7 +685,7 @@ async function saveProfile() {
   const weight_kg = Number(document.getElementById("inpWeight").value.trim());
 
   if (!nickname) return alert("닉네임을 입력해.");
-  if (isBadNick(nickname)) return alert("");
+  if (isBadNick(nickname)) return alert("비속어/부적절한 닉네임은 사용 불가.");
   if (!isFinite(weight_kg) || weight_kg <= 0) return alert("몸무게(kg)를 제대로 입력해.");
 
   const weight_class = computeWeightClass(weight_kg);
