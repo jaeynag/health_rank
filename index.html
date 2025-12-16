@@ -3,11 +3,12 @@
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no"/>
-<title>Health Rank - Today (Step2.1)</title>
+<title>Health Rank - Today (Step2.2)</title>
 <style>
   :root{
     --bg:#0f1115; --card:#141826; --card2:#1b1f2a; --line:#2a3040;
     --txt:#eaeaf0; --mut:#8e93b5; --accent:#4c5cff; --accent2:#cfd3ff;
+    --danger:#ff4c6a;
   }
   *{box-sizing:border-box}
   body{margin:0;font-family:-apple-system,BlinkMacSystemFont,system-ui,Segoe UI,Roboto,Apple SD Gothic Neo,Noto Sans KR,sans-serif;background:var(--bg);color:var(--txt)}
@@ -35,7 +36,7 @@
   .btn.primary{background:var(--accent);border-color:var(--accent)}
   .btn.ghost{background:var(--card);border-color:var(--line)}
   .btn.small{padding:8px 10px;border-radius:12px}
-  .btn.disabled{opacity:.45;pointer-events:none}
+  .btn.danger{background:rgba(255,76,106,.12);border-color:rgba(255,76,106,.35);color:#ffd0d8}
   .pill{padding:6px 10px;border-radius:999px;border:1px solid var(--line);user-select:none}
   .pill.tap{cursor:pointer}
   .divider{height:1px;background:var(--line);margin:10px 0;opacity:.8}
@@ -49,11 +50,12 @@
   .collapse{display:none}
 
   .sets{margin-top:10px;border-top:1px dashed var(--line);padding-top:8px}
-  .set-row{display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px dashed rgba(42,48,64,.7)}
-  .set-left{display:flex;gap:10px;align-items:center;min-width:0}
-  .set-no{color:var(--mut);width:52px}
+  .set-row{display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px dashed rgba(42,48,64,.7);gap:8px}
+  .set-left{display:flex;gap:10px;align-items:center;min-width:0;flex:1}
+  .set-no{color:var(--mut);width:52px;flex:0 0 auto}
   .set-val{font-variant-numeric:tabular-nums;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-  .set-vol{color:var(--mut);font-size:12px}
+  .set-vol{color:var(--mut);font-size:12px;flex:0 0 auto}
+  .ghosttext{color:rgba(142,147,181,.85)}
   .live{color:var(--accent2)}
   .chipline{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}
   .chip{padding:8px 10px;border-radius:999px;border:1px solid var(--line);background:var(--card2);color:#fff;user-select:none;cursor:pointer;font-size:13px}
@@ -65,7 +67,7 @@
   .drawer-head{display:flex;align-items:center;justify-content:space-between;padding:12px;border-bottom:1px solid var(--line)}
   .drawer-title{font-weight:900}
   .drawer-sub{color:var(--mut);font-size:12px;margin-top:2px}
-  .drawer-body{max-height:82vh;overflow:auto}
+  .drawer-body{max-height:82vh;overflow:auto;padding:12px}
 
   .kbd{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
   .key{padding:14px;border-radius:12px;background:var(--card2);border:1px solid var(--line);text-align:center;user-select:none}
@@ -74,14 +76,8 @@
   .center{text-align:center}
 
   input[type="text"]{
-    width:100%;
-    padding:12px;
-    border-radius:12px;
-    border:1px solid var(--line);
-    background:#0c0e13;
-    color:var(--txt);
-    outline:none;
-    font-size:16px; /* iOS zoom 방지 핵심 */
+    width:100%;padding:12px;border-radius:12px;border:1px solid var(--line);
+    background:#0c0e13;color:var(--txt);outline:none;font-size:16px;
   }
 </style>
 </head>
@@ -154,7 +150,7 @@
       </div>
       <div class="btn ghost small" id="closeTop10">닫기</div>
     </div>
-    <div class="drawer-body" id="top10Body"></div>
+    <div class="drawer-body" id="top10Body" style="padding:0"></div>
   </div>
 </div>
 
@@ -168,11 +164,31 @@
       </div>
       <div class="btn ghost small" id="closePrompt">닫기</div>
     </div>
-    <div class="drawer-body" style="padding:12px">
+    <div class="drawer-body">
       <input type="text" id="exerciseName" placeholder="예) 스쿼트"/>
       <div class="chipline" id="exerciseChips"></div>
       <div class="row" style="margin-top:12px">
         <div class="btn primary" style="flex:1" id="confirmAdd">추가</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Start overlay (auto close) -->
+<div class="overlay" id="overlayStart" aria-hidden="true">
+  <div class="drawer" role="dialog" aria-modal="true" aria-label="운동 시작 안내">
+    <div class="drawer-head">
+      <div>
+        <div class="drawer-title">바로 운동 시작</div>
+        <div class="drawer-sub" id="startSub">-</div>
+      </div>
+      <div class="btn ghost small" id="closeStart">닫기</div>
+    </div>
+    <div class="drawer-body">
+      <div class="card" style="padding:12px">
+        <div style="font-weight:900" id="startCount">10초 후 자동으로 닫힙니다.</div>
+        <div class="muted" style="margin-top:8px">바로 운동을 시작하세요.</div>
+        <div class="muted" style="margin-top:6px">- 무게 및 랩스는 진행 완료 후 입력 -</div>
       </div>
     </div>
   </div>
@@ -189,7 +205,7 @@
       <div class="btn ghost small" id="closeSet">닫기</div>
     </div>
 
-    <div class="drawer-body" style="padding:12px">
+    <div class="drawer-body">
       <div class="center">
         <div class="muted">무게</div>
         <div class="big"><span id="setWeightVal">0.0</span> <span class="pill">KG</span></div>
@@ -231,7 +247,7 @@
 </div>
 
 <script>
-  const STORAGE_KEY="health_rank_today_v3";
+  const STORAGE_KEY="health_rank_today_v4";
   const qs=(s,el=document)=>el.querySelector(s);
   const qsa=(s,el=document)=>[...el.querySelectorAll(s)];
   const pad=n=>String(n).padStart(2,'0');
@@ -249,7 +265,7 @@
 
   const state={
     selectedPart:null,
-    exercises:[], // {id,part,name,createdAt,paused,pauseAt,pausedMs,completed,activeMs,weightKg,barUsed,weightHist,sets:[{w,r,ts}]}
+    exercises:[],
     weightMode:"inc",
   };
 
@@ -281,8 +297,9 @@
     top10Body.innerHTML="";
     sampleTop10.forEach(r=>{
       const row=document.createElement('div');
-      row.className="rank-row";
-      row.innerHTML=`<div class="rank-left"><div class="rank-badge">${r.rank}</div><div class="rank-name">${r.name}</div></div><div class="rank-val">${r.vol}</div>`;
+      row.className="set-row";
+      row.style.padding="10px 12px";
+      row.innerHTML=`<div class="set-left"><div class="set-no">${r.rank}</div><div class="set-val">${r.name}</div></div><div class="set-vol">${r.vol}</div>`;
       top10Body.appendChild(row);
     });
   }
@@ -320,7 +337,7 @@
   backBtn.addEventListener('click',showPartPicker);
   addPartBtn.addEventListener('click',showPartPicker);
 
-  // Exercise chips (대표 종목)
+  // Examples + last record seed
   const EXAMPLES={
     "가슴":["벤치프레스","인클라인 벤치프레스","체스트프레스","딥스","푸쉬업"],
     "등":["랫풀다운","시티드로우","바벨로우","풀업","페이스풀"],
@@ -331,6 +348,23 @@
     "유산소":["러닝","사이클","계단"]
   };
 
+  function seedLastRecord(ex){
+    // 데모용: 최초 생성 시 이전 기록 1개를 만들어준다 (나중에 진짜 데이터로 교체)
+    if(ex.lastRecord) return;
+    const d=new Date(Date.now()-86400000*1); // 어제
+    const ds=d.toISOString().slice(0,10);
+    // 종목별 적당히 그럴듯한 수치
+    const base = {
+      "스쿼트":{w:60,r:8},
+      "레그프레스":{w:120,r:10},
+      "벤치프레스":{w:40,r:10},
+      "랫풀다운":{w:50,r:10},
+      "오버헤드프레스":{w:25,r:8},
+    };
+    const b=base[ex.name] || {w:20,r:10};
+    ex.lastRecord = {date:ds, w:b.w, r:b.r};
+  }
+
   // Add exercise overlay
   const overlayPrompt=qs('#overlayPrompt'), closePrompt=qs('#closePrompt'), promptSub=qs('#promptSub');
   const exerciseName=qs('#exerciseName'), confirmAdd=qs('#confirmAdd'), exerciseChips=qs('#exerciseChips');
@@ -339,7 +373,6 @@
     if(!state.selectedPart) return;
     promptSub.textContent=`선택 부위: ${state.selectedPart}`;
     exerciseName.value="";
-    // render chips
     const list=EXAMPLES[state.selectedPart] || [];
     exerciseChips.innerHTML="";
     list.forEach(n=>{
@@ -356,6 +389,34 @@
   closePrompt.addEventListener('click',closePromptFn);
   overlayPrompt.addEventListener('click',e=>{if(e.target===overlayPrompt) closePromptFn();});
 
+  // Start overlay (10s auto close)
+  const overlayStart=qs('#overlayStart');
+  const closeStart=qs('#closeStart');
+  const startSub=qs('#startSub');
+  const startCount=qs('#startCount');
+  let startTimer=null;
+  function openStart(ex){
+    startSub.textContent = `${ex.part} · ${ex.name}`;
+    overlayStart.classList.add('show'); overlayStart.setAttribute('aria-hidden','false');
+    let left=10;
+    startCount.textContent = `${left}초 후 자동으로 닫힙니다.`;
+    if(startTimer) clearInterval(startTimer);
+    startTimer=setInterval(()=>{
+      left -= 1;
+      if(left<=0){
+        closeStartFn();
+      }else{
+        startCount.textContent = `${left}초 후 자동으로 닫힙니다.`;
+      }
+    },1000);
+  }
+  function closeStartFn(){
+    if(startTimer){ clearInterval(startTimer); startTimer=null; }
+    overlayStart.classList.remove('show'); overlayStart.setAttribute('aria-hidden','true');
+  }
+  closeStart.addEventListener('click',closeStartFn);
+  overlayStart.addEventListener('click',e=>{ if(e.target===overlayStart) closeStartFn(); });
+
   function addExercise(name){
     const id=crypto.randomUUID?crypto.randomUUID():String(Date.now())+Math.random();
     const ex={
@@ -363,14 +424,16 @@
       createdAt:Date.now(), paused:false, pauseAt:null, pausedMs:0,
       completed:false, activeMs:0,
       weightKg:0.0, barUsed:false, weightHist:[],
-      sets:[]
+      sets:[],
+      lastRecord:null
     };
+    seedLastRecord(ex);
     state.exercises.push(ex);
     saveState();
     closePromptFn();
     renderExercises();
-    // 종목 추가 직후: 1세트 기록 팝업 자동 오픈
-    openSetEntry(ex);
+    // 종목 추가 직후: "바로 시작" 팝업 (자동 닫힘)
+    openStart(ex);
   }
 
   confirmAdd.addEventListener('click',()=>{
@@ -388,7 +451,7 @@
   }
   function totalVolume(ex){ return (ex.sets||[]).reduce((a,s)=>a+(s.w*s.r),0); }
 
-  // Set entry overlay (combined)
+  // Set entry overlay
   const overlaySet=qs('#overlaySet');
   const closeSet=qs('#closeSet');
   const setTitle=qs('#setTitle');
@@ -407,6 +470,7 @@
   let currentReps=0;
   let pressTimer=null;
   let repsPress=null;
+  let targetSetIndex=1; // 1-based
 
   function setMode(mode){
     state.weightMode=mode; saveState();
@@ -420,7 +484,19 @@
   function openSetEntry(ex){
     currentExId=ex.id;
     const nextNo=(ex.sets?.length||0)+1;
-    setTitle.textContent=`${nextNo}세트 기록`;
+    targetSetIndex = nextNo;
+
+    // 2세트부터는 앞 세트 무게 자동 적용
+    if(nextNo>=2){
+      const last=ex.sets[ex.sets.length-1];
+      if(last && typeof last.w==="number"){
+        ex.weightKg = last.w;
+        ex.weightHist = [];
+        ex.barUsed = false;
+      }
+    }
+
+    setTitle.textContent=`${nextNo}세트 입력`;
     setSub.textContent=`${ex.part} · ${ex.name}`;
     setWeightVal.textContent=fmtKg(ex.weightKg);
     currentReps=0;
@@ -429,12 +505,14 @@
 
     overlaySet.classList.add('show');
     overlaySet.setAttribute('aria-hidden','false');
+    saveState();
   }
   function closeSetFn(){
     overlaySet.classList.remove('show');
     overlaySet.setAttribute('aria-hidden','true');
     currentExId=null;
     currentReps=0;
+    targetSetIndex=1;
   }
   closeSet.addEventListener('click',closeSetFn);
   overlaySet.addEventListener('click',e=>{ if(e.target===overlaySet) closeSetFn(); });
@@ -510,16 +588,27 @@
     if(currentReps<=0) return false;
     const w=+ex.weightKg||0;
     ex.sets.push({w, r:currentReps, ts:Date.now()});
+    // 입력된 세트가 "이전 기록"이 되도록 업데이트(데모)
+    const ds=new Date().toISOString().slice(0,10);
+    ex.lastRecord = {date:ds, w, r:currentReps};
     saveState();
     return true;
   }
   saveSetBtn.addEventListener('click',()=>{
     const ex=state.exercises.find(e=>e.id===currentExId);
     if(!ex) return;
-    if(!saveOneSet(ex)) return; // reps 0이면 그냥 무시
+    if(!saveOneSet(ex)) return;
     closeSetFn();
     renderExercises();
   });
+
+  // Delete set
+  function deleteSet(ex, idx){
+    if(idx<0 || idx>=ex.sets.length) return;
+    ex.sets.splice(idx,1);
+    saveState();
+    renderExercises();
+  }
 
   // Render exercises
   function renderExercises(full=true){
@@ -562,18 +651,23 @@
             <div class="set-no">${i+1}세트</div>
             <div class="set-val">${fmtKg(s.w)}kg × ${s.r} reps</div>
           </div>
-          <div class="set-vol">${(s.w*s.r).toLocaleString()}kg</div>
+          <div class="row" style="gap:6px">
+            <div class="set-vol">${(s.w*s.r).toLocaleString()}kg</div>
+            <div class="btn danger small" data-action="del" data-idx="${i}" title="세트 삭제">지움</div>
+          </div>
         </div>
       `).join("");
 
-      // 진행중(대기) 세트 줄
+      // 진행중 세트 줄: 여기 자리에 "이전 기록"을 회색으로 보여줌
+      const last = ex.lastRecord;
+      const ghost = last ? `${last.date}  ${fmtKg(last.w)}kg × ${last.r} reps` : `이전 기록 없음`;
       const liveRow = `
         <div class="set-row">
           <div class="set-left">
             <div class="set-no">${nextNo}세트</div>
-            <div class="set-val live">진행중 · 운동 끝나고 입력</div>
+            <div class="set-val ghosttext">${ghost}</div>
           </div>
-          <div class="btn ghost small" data-action="set">기록</div>
+          <div class="btn ghost small" data-action="set">완료</div>
         </div>
       `;
 
@@ -634,6 +728,11 @@
             openSetEntry(ex);
           }
 
+          if(action==="del"){
+            const idx=parseInt(a.dataset.idx,10);
+            deleteSet(ex, idx);
+          }
+
           if(action==="complete"){
             if(ex.completed) return;
             const now=Date.now();
@@ -646,7 +745,6 @@
         }
 
         if(ex.completed){
-          // reopen(continue)
           ex.completed=false;
           const now=Date.now();
           ex.createdAt = now - ex.activeMs;
@@ -672,7 +770,7 @@
     }
   }, 250);
 
-  // End (placeholder)
+  // End placeholder
   endBtn.addEventListener('click',()=>{
     if(!confirm("오늘 운동을 종료할까? (요약 화면은 다음 단계)")) return;
     alert("다음 단계에서 오늘 요약 화면 붙일게.");
