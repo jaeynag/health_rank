@@ -2,8 +2,8 @@
 <html lang="ko">
 <head>
 <meta charset="utf-8"/>
-<meta name="viewport" content="width=device-width, initial-scale=1"/>
-<title>Health Rank - Today (Step2)</title>
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no"/>
+<title>Health Rank - Today (Step2.1)</title>
 <style>
   :root{
     --bg:#0f1115; --card:#141826; --card2:#1b1f2a; --line:#2a3040;
@@ -47,12 +47,16 @@
   .ex-card.completed .details{display:none}
   .ex-card.completed .collapse{display:block}
   .collapse{display:none}
+
   .sets{margin-top:10px;border-top:1px dashed var(--line);padding-top:8px}
   .set-row{display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px dashed rgba(42,48,64,.7)}
-  .set-left{display:flex;gap:10px;align-items:center}
-  .set-no{color:var(--mut);width:44px}
-  .set-val{font-variant-numeric:tabular-nums}
+  .set-left{display:flex;gap:10px;align-items:center;min-width:0}
+  .set-no{color:var(--mut);width:52px}
+  .set-val{font-variant-numeric:tabular-nums;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   .set-vol{color:var(--mut);font-size:12px}
+  .live{color:var(--accent2)}
+  .chipline{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}
+  .chip{padding:8px 10px;border-radius:999px;border:1px solid var(--line);background:var(--card2);color:#fff;user-select:none;cursor:pointer;font-size:13px}
 
   /* Overlays */
   .overlay{position:fixed;inset:0;background:rgba(0,0,0,.55);display:none;align-items:flex-start;justify-content:center;padding:12px;z-index:60}
@@ -61,16 +65,23 @@
   .drawer-head{display:flex;align-items:center;justify-content:space-between;padding:12px;border-bottom:1px solid var(--line)}
   .drawer-title{font-weight:900}
   .drawer-sub{color:var(--mut);font-size:12px;margin-top:2px}
-  .drawer-body{max-height:75vh;overflow:auto}
+  .drawer-body{max-height:82vh;overflow:auto}
 
   .kbd{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
   .key{padding:14px;border-radius:12px;background:var(--card2);border:1px solid var(--line);text-align:center;user-select:none}
   .key.disabled{opacity:.4;pointer-events:none}
   .big{font-size:28px;letter-spacing:.08em;font-variant-numeric:tabular-nums}
   .center{text-align:center}
+
   input[type="text"]{
-    width:100%;padding:12px;border-radius:12px;border:1px solid var(--line);
-    background:#0c0e13;color:var(--txt);outline:none;
+    width:100%;
+    padding:12px;
+    border-radius:12px;
+    border:1px solid var(--line);
+    background:#0c0e13;
+    color:var(--txt);
+    outline:none;
+    font-size:16px; /* iOS zoom 방지 핵심 */
   }
 </style>
 </head>
@@ -118,9 +129,8 @@
       </div>
       <div class="muted" id="todaySmall"></div>
     </div>
-    <div class="divider"></div>
 
-    <div id="exerciseList"></div>
+    <div id="exerciseList" style="margin-top:10px"></div>
 
     <div class="divider"></div>
     <div class="row">
@@ -160,6 +170,7 @@
     </div>
     <div class="drawer-body" style="padding:12px">
       <input type="text" id="exerciseName" placeholder="예) 스쿼트"/>
+      <div class="chipline" id="exerciseChips"></div>
       <div class="row" style="margin-top:12px">
         <div class="btn primary" style="flex:1" id="confirmAdd">추가</div>
       </div>
@@ -167,20 +178,21 @@
   </div>
 </div>
 
-<!-- Weight overlay -->
-<div class="overlay" id="overlayWeight" aria-hidden="true">
-  <div class="drawer" role="dialog" aria-modal="true" aria-label="무게 입력">
+<!-- Set entry overlay (combined) -->
+<div class="overlay" id="overlaySet" aria-hidden="true">
+  <div class="drawer" role="dialog" aria-modal="true" aria-label="세트 기록">
     <div class="drawer-head">
       <div>
-        <div class="drawer-title">무게 입력</div>
-        <div class="drawer-sub" id="weightSub">-</div>
+        <div class="drawer-title" id="setTitle">1세트 기록</div>
+        <div class="drawer-sub" id="setSub">-</div>
       </div>
-      <div class="btn ghost small" id="closeWeight">닫기</div>
+      <div class="btn ghost small" id="closeSet">닫기</div>
     </div>
+
     <div class="drawer-body" style="padding:12px">
       <div class="center">
-        <div class="muted">현재 무게</div>
-        <div class="big"><span id="weightVal">0.0</span> <span class="pill">KG</span></div>
+        <div class="muted">무게</div>
+        <div class="big"><span id="setWeightVal">0.0</span> <span class="pill">KG</span></div>
       </div>
       <div class="row" style="justify-content:center;margin:10px 0">
         <div class="pill tap" id="incBtn">증</div>
@@ -197,25 +209,12 @@
         <div class="key" data-d="20">20</div>
         <div class="key" id="backKey">←</div>
       </div>
-      <div class="muted" style="margin-top:10px">← 길게: 전체취소</div>
-    </div>
-  </div>
-</div>
 
-<!-- Reps overlay -->
-<div class="overlay" id="overlayReps" aria-hidden="true">
-  <div class="drawer" role="dialog" aria-modal="true" aria-label="횟수 입력">
-    <div class="drawer-head">
-      <div>
-        <div class="drawer-title">횟수 입력</div>
-        <div class="drawer-sub" id="repsSub">-</div>
-      </div>
-      <div class="btn ghost small" id="closeReps">닫기</div>
-    </div>
-    <div class="drawer-body" style="padding:12px">
+      <div class="divider"></div>
+
       <div class="center">
-        <div class="muted">현재 횟수</div>
-        <div class="big"><span id="repsVal">0</span> reps</div>
+        <div class="muted">횟수</div>
+        <div class="big"><span id="setRepsVal">0</span> reps</div>
       </div>
       <div class="kbd" style="margin-top:10px">
         <div class="key" data-n="1">1</div><div class="key" data-n="2">2</div><div class="key" data-n="3">3</div>
@@ -223,13 +222,16 @@
         <div class="key" data-n="7">7</div><div class="key" data-n="8">8</div><div class="key" data-n="9">9</div>
         <div class="key" id="repsClear">C</div><div class="key" data-n="0">0</div><div class="key" id="repsBack">←</div>
       </div>
-      <div class="muted" style="margin-top:10px">← 길게: 전체취소</div>
+
+      <div class="row" style="margin-top:14px">
+        <div class="btn primary" style="flex:1;padding:16px" id="saveSetBtn">입력</div>
+      </div>
     </div>
   </div>
 </div>
 
 <script>
-  const STORAGE_KEY="health_rank_today_v2";
+  const STORAGE_KEY="health_rank_today_v3";
   const qs=(s,el=document)=>el.querySelector(s);
   const qsa=(s,el=document)=>[...el.querySelectorAll(s)];
   const pad=n=>String(n).padStart(2,'0');
@@ -242,14 +244,13 @@
   };
   const fmtKg=x=>{
     const v=(+x||0);
-    return v.toFixed(2).replace(/\.00$/,".0").replace(/\.0$/,".0");
+    return v.toFixed(2).replace(/\.00$/,".0");
   };
 
   const state={
     selectedPart:null,
     exercises:[], // {id,part,name,createdAt,paused,pauseAt,pausedMs,completed,activeMs,weightKg,barUsed,weightHist,sets:[{w,r,ts}]}
     weightMode:"inc",
-    draftReps:0,
   };
 
   function saveState(){
@@ -319,13 +320,34 @@
   backBtn.addEventListener('click',showPartPicker);
   addPartBtn.addEventListener('click',showPartPicker);
 
+  // Exercise chips (대표 종목)
+  const EXAMPLES={
+    "가슴":["벤치프레스","인클라인 벤치프레스","체스트프레스","딥스","푸쉬업"],
+    "등":["랫풀다운","시티드로우","바벨로우","풀업","페이스풀"],
+    "하체":["스쿼트","레그프레스","런지","힙쓰러스트","레그익스텐션","레그컬","카프레이즈"],
+    "어깨":["오버헤드프레스","사이드레터럴레이즈","숄더프레스","리어델트플라이"],
+    "팔":["바벨컬","덤벨컬","해머컬","푸시다운","스컬크러셔"],
+    "복근":["크런치","행잉 레그레이즈","플랭크","케이블 크런치"],
+    "유산소":["러닝","사이클","계단"]
+  };
+
   // Add exercise overlay
   const overlayPrompt=qs('#overlayPrompt'), closePrompt=qs('#closePrompt'), promptSub=qs('#promptSub');
-  const exerciseName=qs('#exerciseName'), confirmAdd=qs('#confirmAdd');
+  const exerciseName=qs('#exerciseName'), confirmAdd=qs('#confirmAdd'), exerciseChips=qs('#exerciseChips');
+
   function openPrompt(){
     if(!state.selectedPart) return;
     promptSub.textContent=`선택 부위: ${state.selectedPart}`;
     exerciseName.value="";
+    // render chips
+    const list=EXAMPLES[state.selectedPart] || [];
+    exerciseChips.innerHTML="";
+    list.forEach(n=>{
+      const c=document.createElement('div');
+      c.className="chip"; c.textContent=n;
+      c.addEventListener('click',()=>{ exerciseName.value=n; exerciseName.focus(); });
+      exerciseChips.appendChild(c);
+    });
     overlayPrompt.classList.add('show'); overlayPrompt.setAttribute('aria-hidden','false');
     setTimeout(()=>exerciseName.focus(),50);
   }
@@ -333,26 +355,58 @@
   addExerciseBtn.addEventListener('click',openPrompt);
   closePrompt.addEventListener('click',closePromptFn);
   overlayPrompt.addEventListener('click',e=>{if(e.target===overlayPrompt) closePromptFn();});
-  confirmAdd.addEventListener('click',()=>{
-    const name=(exerciseName.value||"").trim(); if(!name) return;
+
+  function addExercise(name){
     const id=crypto.randomUUID?crypto.randomUUID():String(Date.now())+Math.random();
-    state.exercises.push({
+    const ex={
       id, part:state.selectedPart, name,
       createdAt:Date.now(), paused:false, pauseAt:null, pausedMs:0,
       completed:false, activeMs:0,
       weightKg:0.0, barUsed:false, weightHist:[],
       sets:[]
-    });
+    };
+    state.exercises.push(ex);
     saveState();
     closePromptFn();
     renderExercises();
+    // 종목 추가 직후: 1세트 기록 팝업 자동 오픈
+    openSetEntry(ex);
+  }
+
+  confirmAdd.addEventListener('click',()=>{
+    const name=(exerciseName.value||"").trim(); if(!name) return;
+    addExercise(name);
   });
   exerciseName.addEventListener('keydown',e=>{if(e.key==="Enter") confirmAdd.click();});
 
-  // Weight overlay
-  const overlayWeight=qs('#overlayWeight'), closeWeight=qs('#closeWeight'), weightSub=qs('#weightSub'), weightVal=qs('#weightVal');
-  const incBtn=qs('#incBtn'), decBtn=qs('#decBtn'), barKey=qs('#barKey'), backKey=qs('#backKey');
+  // Timers
+  function getActiveMs(ex){
+    if(ex.completed) return ex.activeMs;
+    const now=Date.now();
+    const pausedNow=ex.paused ? (now - ex.pauseAt) : 0;
+    return (now - ex.createdAt) - ex.pausedMs - pausedNow;
+  }
+  function totalVolume(ex){ return (ex.sets||[]).reduce((a,s)=>a+(s.w*s.r),0); }
+
+  // Set entry overlay (combined)
+  const overlaySet=qs('#overlaySet');
+  const closeSet=qs('#closeSet');
+  const setTitle=qs('#setTitle');
+  const setSub=qs('#setSub');
+  const setWeightVal=qs('#setWeightVal');
+  const setRepsVal=qs('#setRepsVal');
+  const incBtn=qs('#incBtn');
+  const decBtn=qs('#decBtn');
+  const barKey=qs('#barKey');
+  const backKey=qs('#backKey');
+  const repsClear=qs('#repsClear');
+  const repsBack=qs('#repsBack');
+  const saveSetBtn=qs('#saveSetBtn');
+
   let currentExId=null;
+  let currentReps=0;
+  let pressTimer=null;
+  let repsPress=null;
 
   function setMode(mode){
     state.weightMode=mode; saveState();
@@ -363,16 +417,28 @@
   }
   setMode(state.weightMode);
 
-  function openWeight(ex){
+  function openSetEntry(ex){
     currentExId=ex.id;
-    weightSub.textContent=`${ex.part} · ${ex.name}`;
-    weightVal.textContent=fmtKg(ex.weightKg);
-    barKey.classList.toggle('disabled',!!ex.barUsed);
-    overlayWeight.classList.add('show'); overlayWeight.setAttribute('aria-hidden','false');
+    const nextNo=(ex.sets?.length||0)+1;
+    setTitle.textContent=`${nextNo}세트 기록`;
+    setSub.textContent=`${ex.part} · ${ex.name}`;
+    setWeightVal.textContent=fmtKg(ex.weightKg);
+    currentReps=0;
+    setRepsVal.textContent="0";
+    barKey.classList.toggle('disabled', !!ex.barUsed);
+
+    overlaySet.classList.add('show');
+    overlaySet.setAttribute('aria-hidden','false');
   }
-  function closeWeightFn(){ overlayWeight.classList.remove('show'); overlayWeight.setAttribute('aria-hidden','true'); currentExId=null; }
-  closeWeight.addEventListener('click',closeWeightFn);
-  overlayWeight.addEventListener('click',e=>{if(e.target===overlayWeight) closeWeightFn();});
+  function closeSetFn(){
+    overlaySet.classList.remove('show');
+    overlaySet.setAttribute('aria-hidden','true');
+    currentExId=null;
+    currentReps=0;
+  }
+  closeSet.addEventListener('click',closeSetFn);
+  overlaySet.addEventListener('click',e=>{ if(e.target===overlaySet) closeSetFn(); });
+
   incBtn.addEventListener('click',()=>setMode("inc"));
   decBtn.addEventListener('click',()=>setMode("dec"));
 
@@ -380,10 +446,10 @@
     const signed=(state.weightMode==="inc")?delta:-delta;
     ex.weightKg=Math.max(0, +(ex.weightKg + signed).toFixed(2));
     ex.weightHist.push({delta:signed, bar:!!meta.bar});
-    weightVal.textContent=fmtKg(ex.weightKg);
+    setWeightVal.textContent=fmtKg(ex.weightKg);
     saveState();
   }
-  qsa('#overlayWeight .key[data-d]').forEach(k=>k.addEventListener('click',()=>{
+  qsa('#overlaySet .key[data-d]').forEach(k=>k.addEventListener('click',()=>{
     const ex=state.exercises.find(e=>e.id===currentExId); if(!ex) return;
     applyDelta(ex, parseFloat(k.dataset.d));
     renderExercises(false);
@@ -391,92 +457,71 @@
   barKey.addEventListener('click',()=>{
     const ex=state.exercises.find(e=>e.id===currentExId); if(!ex||ex.barUsed) return;
     applyDelta(ex,20,{bar:true});
-    ex.barUsed=true; barKey.classList.add('disabled');
+    ex.barUsed=true;
+    barKey.classList.add('disabled');
     saveState(); renderExercises(false);
   });
 
-  let wPress=null;
   function undoLast(ex){
     const last=ex.weightHist.pop(); if(!last) return;
     ex.weightKg=Math.max(0, +(ex.weightKg - last.delta).toFixed(2));
     if(last.bar){ ex.barUsed=false; barKey.classList.remove('disabled'); }
-    weightVal.textContent=fmtKg(ex.weightKg);
+    setWeightVal.textContent=fmtKg(ex.weightKg);
     saveState();
   }
   function clearAll(ex){
     ex.weightKg=0; ex.weightHist=[]; ex.barUsed=false;
-    weightVal.textContent="0.0"; barKey.classList.remove('disabled');
+    setWeightVal.textContent="0.0"; barKey.classList.remove('disabled');
     saveState();
   }
   backKey.addEventListener('pointerdown',()=>{
     const ex=state.exercises.find(e=>e.id===currentExId); if(!ex) return;
-    wPress=setTimeout(()=>{clearAll(ex); renderExercises(false);},650);
+    pressTimer=setTimeout(()=>{clearAll(ex); renderExercises(false);},650);
   });
   backKey.addEventListener('pointerup',()=>{
     const ex=state.exercises.find(e=>e.id===currentExId); if(!ex) return;
-    if(wPress){ clearTimeout(wPress); wPress=null; undoLast(ex); renderExercises(false); }
+    if(pressTimer){ clearTimeout(pressTimer); pressTimer=null; undoLast(ex); renderExercises(false); }
   });
-  backKey.addEventListener('pointerleave',()=>{ if(wPress){clearTimeout(wPress); wPress=null;} });
+  backKey.addEventListener('pointerleave',()=>{ if(pressTimer){clearTimeout(pressTimer); pressTimer=null;} });
 
-  // Reps overlay
-  const overlayReps=qs('#overlayReps'), closeReps=qs('#closeReps'), repsSub=qs('#repsSub'), repsVal=qs('#repsVal');
-  const repsClear=qs('#repsClear'), repsBack=qs('#repsBack');
-  let repsPress=null;
-  let currentReps=0;
-
-  function openReps(ex){
-    currentExId=ex.id;
-    repsSub.textContent=`${ex.part} · ${ex.name}`;
-    currentReps = 0;
-    repsVal.textContent = String(currentReps);
-    overlayReps.classList.add('show'); overlayReps.setAttribute('aria-hidden','false');
-  }
-  function closeRepsFn(){ overlayReps.classList.remove('show'); overlayReps.setAttribute('aria-hidden','true'); }
-  closeReps.addEventListener('click',closeRepsFn);
-  overlayReps.addEventListener('click',e=>{if(e.target===overlayReps) closeRepsFn();});
-
+  // reps input
   function setRepsFromDigit(d){
-    // build up to 3 digits max
-    const s=(String(currentReps) === "0") ? "" : String(currentReps);
-    const next=(s + String(d)).slice(0,3);
+    const s=(String(currentReps)==="0")?"":String(currentReps);
+    const next=(s+String(d)).slice(0,3);
     currentReps = next===""?0:parseInt(next,10);
-    repsVal.textContent=String(currentReps);
+    setRepsVal.textContent=String(currentReps);
   }
-  qsa('#overlayReps .key[data-n]').forEach(k=>k.addEventListener('click',()=>setRepsFromDigit(k.dataset.n)));
-  repsClear.addEventListener('click',()=>{ currentReps=0; repsVal.textContent="0"; });
+  qsa('#overlaySet .key[data-n]').forEach(k=>k.addEventListener('click',()=>setRepsFromDigit(k.dataset.n)));
+  repsClear.addEventListener('click',()=>{currentReps=0; setRepsVal.textContent="0";});
   function repsUndo(){
     const s=String(currentReps);
-    if(s.length<=1){ currentReps=0; repsVal.textContent="0"; return; }
+    if(s.length<=1){currentReps=0; setRepsVal.textContent="0"; return;}
     currentReps=parseInt(s.slice(0,-1),10);
-    repsVal.textContent=String(currentReps);
+    setRepsVal.textContent=String(currentReps);
   }
-  function repsClearAll(){ currentReps=0; repsVal.textContent="0"; }
+  function repsClearAll(){currentReps=0; setRepsVal.textContent="0";}
   repsBack.addEventListener('pointerdown',()=>{ repsPress=setTimeout(()=>{repsClearAll();},650); });
   repsBack.addEventListener('pointerup',()=>{
     if(repsPress){ clearTimeout(repsPress); repsPress=null; repsUndo(); }
   });
   repsBack.addEventListener('pointerleave',()=>{ if(repsPress){clearTimeout(repsPress); repsPress=null;} });
 
-  // Timers
-  function getActiveMs(ex){
-    if(ex.completed) return ex.activeMs;
-    const now=Date.now();
-    const pausedNow=ex.paused ? (now - ex.pauseAt) : 0;
-    return (now - ex.createdAt) - ex.pausedMs - pausedNow;
-  }
-  function totalVolume(ex){
-    return (ex.sets||[]).reduce((a,s)=>a + (s.w*s.r),0);
-  }
-
-  function saveSet(ex, reps){
-    if(!reps || reps<=0) return false;
-    const w=+ex.weightKg || 0;
-    ex.sets.push({w, r:reps, ts:Date.now()});
+  function saveOneSet(ex){
+    if(currentReps<=0) return false;
+    const w=+ex.weightKg||0;
+    ex.sets.push({w, r:currentReps, ts:Date.now()});
     saveState();
     return true;
   }
+  saveSetBtn.addEventListener('click',()=>{
+    const ex=state.exercises.find(e=>e.id===currentExId);
+    if(!ex) return;
+    if(!saveOneSet(ex)) return; // reps 0이면 그냥 무시
+    closeSetFn();
+    renderExercises();
+  });
 
-  // Render
+  // Render exercises
   function renderExercises(full=true){
     const list=state.exercises.filter(e=>e.part===state.selectedPart);
     if(full) exerciseList.innerHTML="";
@@ -499,7 +544,6 @@
       exerciseList.appendChild(empty);
       return;
     }
-
     if(!full) return;
 
     list.forEach(ex=>{
@@ -510,6 +554,28 @@
       const t=fmtHMS(ex.completed?ex.activeMs:getActiveMs(ex));
       const sets=ex.sets||[];
       const vol=totalVolume(ex);
+      const nextNo=sets.length+1;
+
+      const setRows = sets.map((s,i)=>`
+        <div class="set-row">
+          <div class="set-left">
+            <div class="set-no">${i+1}세트</div>
+            <div class="set-val">${fmtKg(s.w)}kg × ${s.r} reps</div>
+          </div>
+          <div class="set-vol">${(s.w*s.r).toLocaleString()}kg</div>
+        </div>
+      `).join("");
+
+      // 진행중(대기) 세트 줄
+      const liveRow = `
+        <div class="set-row">
+          <div class="set-left">
+            <div class="set-no">${nextNo}세트</div>
+            <div class="set-val live">진행중 · 운동 끝나고 입력</div>
+          </div>
+          <div class="btn ghost small" data-action="set">기록</div>
+        </div>
+      `;
 
       card.innerHTML=`
         <div class="row between">
@@ -524,29 +590,15 @@
 
         <div class="details">
           <div class="sets">
-            ${sets.length===0 ? `<div class="muted">세트 저장하면 여기 쌓인다.</div>` : sets.map((s,i)=>`
-              <div class="set-row">
-                <div class="set-left">
-                  <div class="set-no">${i+1}세트</div>
-                  <div class="set-val">${fmtKg(s.w)}kg × ${s.r} reps</div>
-                </div>
-                <div class="set-vol">${(s.w*s.r).toLocaleString()}kg</div>
-              </div>
-            `).join("")}
-            ${sets.length>0 ? `<div class="row between" style="padding-top:8px">
-              <div class="muted">종목 볼륨</div><div class="muted">${vol.toLocaleString()}kg</div>
-            </div>` : ``}
+            ${setRows}
+            ${liveRow}
+            <div class="row between" style="padding-top:10px">
+              <div class="muted">종목 볼륨</div>
+              <div class="muted">${vol.toLocaleString()}kg</div>
+            </div>
           </div>
 
           <div class="row" style="margin-top:10px">
-            <div class="btn ghost" style="flex:1" data-action="weight">무게</div>
-            <div class="btn ghost" style="flex:1" data-action="reps">횟수</div>
-          </div>
-          <div class="row" style="margin-top:8px">
-            <div class="btn ghost ${sets.length===0?"disabled":""}" style="flex:1" data-action="copy">이전 세트 복사</div>
-            <div class="btn primary" style="flex:1" data-action="save">세트 저장</div>
-          </div>
-          <div class="row" style="margin-top:8px">
             <div class="btn ghost" style="flex:1" data-action="complete">종목 완료</div>
           </div>
         </div>
@@ -565,7 +617,7 @@
         </div>
       `;
 
-      card.addEventListener('click', (ev)=>{
+      card.addEventListener('click',(ev)=>{
         const a=ev.target.closest('[data-action]');
         if(a){
           ev.preventDefault(); ev.stopPropagation();
@@ -578,34 +630,8 @@
             saveState(); renderExercises();
           }
 
-          if(action==="weight") openWeight(ex);
-
-          if(action==="reps") openReps(ex);
-
-          if(action==="copy"){
-            if((ex.sets||[]).length===0) return;
-            const last=ex.sets[ex.sets.length-1];
-            // copy last set values
-            ex.weightKg = last.w;
-            ex.weightHist = []; // keep simple
-            ex.barUsed = false; // user can press BAR again if they want; safer for copy.
-            saveState();
-            renderExercises();
-          }
-
-          if(action==="save"){
-            // save with currentReps via quick prompt overlay if not open: open reps first
-            // Here: if reps overlay is open, we don't use it. We'll use currentReps buffer: if 0 -> open reps
-            if(currentReps<=0){
-              openReps(ex);
-              return;
-            }
-            if(saveSet(ex, currentReps)){
-              currentReps=0; // reset after save
-              repsVal.textContent="0";
-              saveState();
-              renderExercises();
-            }
+          if(action==="set"){
+            openSetEntry(ex);
           }
 
           if(action==="complete"){
@@ -619,8 +645,8 @@
           return;
         }
 
-        // tap collapsed to reopen (continue)
         if(ex.completed){
+          // reopen(continue)
           ex.completed=false;
           const now=Date.now();
           ex.createdAt = now - ex.activeMs;
@@ -633,7 +659,7 @@
     });
   }
 
-  // timer tick
+  // timer tick update
   setInterval(()=>{
     if(!state.selectedPart) return;
     const list=state.exercises.filter(e=>e.part===state.selectedPart && !e.completed);
@@ -646,31 +672,16 @@
     }
   }, 250);
 
-  // save reps when closing overlay? We keep buffer only.
-  // When reps overlay is open, user sets currentReps; closing keeps buffer.
-  closeReps.addEventListener('click', ()=>{ closeRepsFn(); });
-  function closeRepsFn(){ overlayReps.classList.remove('show'); overlayReps.setAttribute('aria-hidden','true'); }
-
-  // end button (still placeholder)
-  endBtn.addEventListener('click', ()=>{
+  // End (placeholder)
+  endBtn.addEventListener('click',()=>{
     if(!confirm("오늘 운동을 종료할까? (요약 화면은 다음 단계)")) return;
     alert("다음 단계에서 오늘 요약 화면 붙일게.");
   });
 
-  // initial route
+  // Initial route
   if(state.selectedPart) showWork(state.selectedPart);
   else showPartPicker();
-
-  // first render
-  function init(){
-    if(state.selectedPart){
-      selectedPartEl.textContent=state.selectedPart;
-      todaySmall.textContent=new Date().toISOString().slice(0,10);
-      partCard.style.display="none"; workCard.style.display="";
-      renderExercises();
-    }
-  }
-  init();
+  renderExercises();
 </script>
 </body>
 </html>
