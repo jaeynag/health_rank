@@ -3,13 +3,32 @@
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1"/>
-<title>Health Rank - Today</title>
+<title>Health Rank - Today (Ticker)</title>
 <style>
   body{margin:0;font-family:-apple-system,BlinkMacSystemFont,system-ui,Segoe UI,Roboto,Apple SD Gothic Neo,Noto Sans KR,sans-serif;background:#0f1115;color:#eaeaf0}
   .page{max-width:480px;margin:0 auto;padding:12px}
-  .header{position:sticky;top:0;background:#0f1115;padding:8px 0;border-bottom:1px solid #1f2430;z-index:5}
-  .ticker{height:28px;overflow:hidden;color:#cfd3ff;font-size:14px}
-  .ticker .item{height:28px;display:flex;align-items:center;opacity:.9}
+  .header{position:sticky;top:0;background:#0f1115;padding:6px 0;border-bottom:1px solid #1f2430;z-index:5}
+  .ticker-wrap{overflow:hidden;white-space:nowrap}
+  .ticker{
+    display:inline-block;
+    padding-left:100%;
+    animation: marquee 18s linear infinite;
+  }
+  .ticker span{
+    display:inline-block;
+    margin-right:24px;
+    color:#cfd3ff;
+    animation:pulse 1.6s ease-in-out infinite;
+  }
+  @keyframes marquee{
+    0%{transform:translateX(0)}
+    100%{transform:translateX(-100%)}
+  }
+  @keyframes pulse{
+    0%,100%{opacity:.85;text-shadow:none}
+    50%{opacity:1;text-shadow:0 0 6px rgba(120,140,255,.6)}
+  }
+
   .section{margin:12px 0}
   .grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
   .btn{background:#1b1f2a;border:1px solid #2a3040;color:#fff;border-radius:10px;padding:12px;text-align:center}
@@ -28,10 +47,12 @@
 <body>
 <div class="page">
   <div class="header">
-    <div class="ticker" id="ticker">
-      <div class="item">하체 🥇 jaeyang 8,420kg</div>
-      <div class="item">하체 🥈 userB 7,980kg</div>
-      <div class="item">하체 🥉 userC 7,450kg</div>
+    <div class="ticker-wrap">
+      <div class="ticker">
+        <span>하체 🥇 jaeyang 8,420kg</span>
+        <span>하체 🥈 userB 7,980kg</span>
+        <span>하체 🥉 userC 7,450kg</span>
+      </div>
     </div>
   </div>
 
@@ -86,14 +107,5 @@
     <div class="btn">운동 종료</div>
   </div>
 </div>
-
-<script>
-  const ticker=document.getElementById('ticker');
-  let idx=0;
-  setInterval(()=>{
-    idx=(idx+1)%ticker.children.length;
-    ticker.scrollTo({top:28*idx,behavior:'smooth'});
-  },1800);
-</script>
 </body>
 </html>
