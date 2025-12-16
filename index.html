@@ -3,11 +3,16 @@
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1"/>
-<title>Health Rank - Today (Ticker + Top10)</title>
+<title>Health Rank - Today (Step1)</title>
 <style>
-  body{margin:0;font-family:-apple-system,BlinkMacSystemFont,system-ui,Segoe UI,Roboto,Apple SD Gothic Neo,Noto Sans KR,sans-serif;background:#0f1115;color:#eaeaf0}
-  .page{max-width:480px;margin:0 auto;padding:12px}
-  .header{position:sticky;top:0;background:#0f1115;padding:6px 0;border-bottom:1px solid #1f2430;z-index:5}
+  :root{
+    --bg:#0f1115; --card:#141826; --card2:#1b1f2a; --line:#2a3040;
+    --txt:#eaeaf0; --mut:#8e93b5; --accent:#4c5cff; --accent2:#cfd3ff;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font-family:-apple-system,BlinkMacSystemFont,system-ui,Segoe UI,Roboto,Apple SD Gothic Neo,Noto Sans KR,sans-serif;background:var(--bg);color:var(--txt)}
+  .page{max-width:480px;margin:0 auto;padding:12px;padding-bottom:24px}
+  .header{position:sticky;top:0;background:var(--bg);padding:6px 0;border-bottom:1px solid #1f2430;z-index:20}
 
   /* Ticker */
   .ticker-wrap{overflow:hidden;white-space:nowrap;border-radius:10px}
@@ -21,49 +26,60 @@
   .ticker span{
     display:inline-block;
     margin-right:24px;
-    color:#cfd3ff;
+    color:var(--accent2);
     animation:pulse 1.6s ease-in-out infinite;
   }
   .paused .ticker{animation-play-state:paused}
   .paused .ticker span{animation-play-state:paused}
-
-  @keyframes marquee{
-    0%{transform:translateX(0)}
-    100%{transform:translateX(-100%)}
-  }
-  @keyframes pulse{
-    0%,100%{opacity:.85;text-shadow:none}
-    50%{opacity:1;text-shadow:0 0 6px rgba(120,140,255,.6)}
-  }
+  @keyframes marquee{0%{transform:translateX(0)}100%{transform:translateX(-100%)}}
+  @keyframes pulse{0%,100%{opacity:.85;text-shadow:none}50%{opacity:1;text-shadow:0 0 6px rgba(120,140,255,.6)}}
 
   /* UI */
   .section{margin:12px 0}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:12px}
+  .row{display:flex;gap:8px;align-items:center}
+  .row.between{justify-content:space-between}
+  .muted{color:var(--mut);font-size:12px}
   .grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
-  .btn{background:#1b1f2a;border:1px solid #2a3040;color:#fff;border-radius:10px;padding:12px;text-align:center;user-select:none}
-  .btn.primary{background:#4c5cff;border-color:#4c5cff}
-  .btn.ghost{background:#141826}
-  .row{display:flex;gap:8px}
-  .card{background:#141826;border:1px solid #2a3040;border-radius:14px;padding:12px}
-  .muted{color:#8e93b5;font-size:12px}
-  .big{font-size:28px;letter-spacing:.08em}
-  .kbd{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
-  .kbd .key{padding:14px;border-radius:12px;background:#1b1f2a;border:1px solid #2a3040;text-align:center}
-  .pill{padding:6px 10px;border-radius:999px;border:1px solid #2a3040}
-  .set{display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px dashed #2a3040}
+  .btn{background:var(--card2);border:1px solid var(--line);color:#fff;border-radius:10px;padding:12px;text-align:center;user-select:none}
+  .btn.primary{background:var(--accent);border-color:var(--accent)}
+  .btn.ghost{background:var(--card);border-color:var(--line)}
+  .btn.small{padding:8px 10px;border-radius:12px}
+  .btn.disabled{opacity:.45;pointer-events:none}
+  .pill{padding:6px 10px;border-radius:999px;border:1px solid var(--line);user-select:none}
+  .pill.tap{cursor:pointer}
+  .divider{height:1px;background:var(--line);margin:10px 0;opacity:.8}
 
-  /* Top10 drawer */
-  .overlay{position:fixed;inset:0;background:rgba(0,0,0,.55);display:none;align-items:flex-start;justify-content:center;padding:12px;z-index:50}
+  /* Exercise card */
+  .ex-title{font-weight:700}
+  .timer{font-variant-numeric:tabular-nums;letter-spacing:.06em}
+  .timer.paused{opacity:.85}
+  .hint{font-size:12px;color:var(--mut)}
+  .collapse{display:none}
+  .ex-card.completed .details{display:none}
+  .ex-card.completed .collapse{display:block}
+  .sets-placeholder{margin-top:8px;border-top:1px dashed var(--line);padding-top:8px;color:var(--mut);font-size:12px}
+
+  /* Overlay (Top10 + Prompt) */
+  .overlay{position:fixed;inset:0;background:rgba(0,0,0,.55);display:none;align-items:flex-start;justify-content:center;padding:12px;z-index:60}
   .overlay.show{display:flex}
-  .drawer{width:min(480px,100%);margin-top:56px;background:#141826;border:1px solid #2a3040;border-radius:16px;overflow:hidden}
-  .drawer-head{display:flex;align-items:center;justify-content:space-between;padding:12px;border-bottom:1px solid #2a3040}
-  .drawer-title{font-weight:700}
-  .drawer-sub{color:#8e93b5;font-size:12px;margin-top:2px}
+  .drawer{width:min(480px,100%);margin-top:56px;background:var(--card);border:1px solid var(--line);border-radius:16px;overflow:hidden}
+  .drawer-head{display:flex;align-items:center;justify-content:space-between;padding:12px;border-bottom:1px solid var(--line)}
+  .drawer-title{font-weight:800}
+  .drawer-sub{color:var(--mut);font-size:12px;margin-top:2px}
   .drawer-body{max-height:60vh;overflow:auto}
-  .rank-row{display:flex;gap:10px;align-items:center;justify-content:space-between;padding:10px 12px;border-bottom:1px dashed #2a3040}
+  .rank-row{display:flex;gap:10px;align-items:center;justify-content:space-between;padding:10px 12px;border-bottom:1px dashed var(--line)}
   .rank-left{display:flex;gap:10px;align-items:center;min-width:0}
-  .rank-badge{width:28px;text-align:center;color:#cfd3ff}
+  .rank-badge{width:28px;text-align:center;color:var(--accent2)}
   .rank-name{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-  .rank-val{color:#eaeaf0}
+  .rank-val{color:var(--txt)}
+  .prompt-body{padding:12px}
+  input[type="text"]{
+    width:100%;padding:12px;border-radius:12px;border:1px solid var(--line);
+    background:#0c0e13;color:var(--txt);outline:none;
+  }
+  .chips{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}
+  .chip{padding:8px 10px;border-radius:999px;border:1px solid var(--line);background:var(--card2);color:#fff;user-select:none;cursor:pointer;font-size:13px}
 </style>
 </head>
 <body>
@@ -71,89 +87,154 @@
   <div class="header">
     <div class="ticker-wrap ticker-touch" id="tickerWrap" title="누르면 Top10">
       <div class="ticker" id="ticker">
-        <span>하체 🥇 jaeyang 8,420kg</span>
-        <span>하체 🥈 userB 7,980kg</span>
-        <span>하체 🥉 userC 7,450kg</span>
+        <span id="t1">하체 🥇 jaeyang 8,420kg</span>
+        <span id="t2">하체 🥈 userB 7,980kg</span>
+        <span id="t3">하체 🥉 userC 7,450kg</span>
       </div>
     </div>
   </div>
 
-  <div class="section card">
-    <div class="grid">
-      <div class="btn">가슴</div><div class="btn">등</div><div class="btn">하체</div>
-      <div class="btn">어깨</div><div class="btn">팔</div><div class="btn">복근</div>
-      <div class="btn primary">유산소</div>
+  <!-- Part picker -->
+  <div class="section card" id="partCard">
+    <div class="row between">
+      <div>
+        <div class="muted">오늘 운동</div>
+        <div style="font-weight:800;margin-top:2px">부위 선택</div>
+      </div>
+      <div class="pill">기본: 웨이트</div>
+    </div>
+    <div class="divider"></div>
+    <div class="grid" id="partGrid">
+      <div class="btn" data-part="가슴">가슴</div>
+      <div class="btn" data-part="등">등</div>
+      <div class="btn" data-part="하체">하체</div>
+      <div class="btn" data-part="어깨">어깨</div>
+      <div class="btn" data-part="팔">팔</div>
+      <div class="btn" data-part="복근">복근</div>
+      <div class="btn primary" data-part="유산소">유산소</div>
     </div>
   </div>
 
-  <div class="section card">
-    <div class="row" style="justify-content:space-between;align-items:center">
-      <div class="muted">벤치프레스</div>
-      <div class="pill">⏱ 00:12:34</div>
+  <!-- Selected part + exercises -->
+  <div class="section card" id="workCard" style="display:none">
+    <div class="row between">
+      <div class="row" style="gap:10px">
+        <div class="btn small ghost" id="backBtn" title="부위 다시 선택">←</div>
+        <div>
+          <div class="muted">선택 부위</div>
+          <div style="font-weight:900" id="selectedPart">-</div>
+        </div>
+      </div>
+      <div class="muted" id="todaySmall"></div>
     </div>
-    <div style="margin:8px 0;text-align:center">
-      <div class="muted">현재 무게</div>
-      <div class="big">60.0 <span class="pill">KG</span></div>
-    </div>
-    <div class="row" style="justify-content:center;margin-bottom:8px">
-      <div class="pill">증</div><div class="pill">감</div>
-    </div>
-    <div class="kbd">
-      <div class="key">BAR</div><div class="key">0.25</div><div class="key">0.5</div>
-      <div class="key">1</div><div class="key">2.5</div><div class="key">5</div>
-      <div class="key">10</div><div class="key">20</div><div class="key">←</div>
-    </div>
-    <div class="row" style="margin-top:10px">
-      <div class="btn ghost" style="flex:1">⎘ 이전 세트 복사</div>
-      <div class="btn primary" style="flex:1">세트 저장</div>
-    </div>
+    <div class="divider"></div>
 
-    <div class="section">
-      <div class="set"><span>1세트</span><span>60kg × 8</span></div>
-      <div class="set"><span>2세트</span><span>60kg × 7</span></div>
-    </div>
+    <div id="exerciseList"></div>
 
+    <div class="divider"></div>
     <div class="row">
-      <div class="btn ghost" style="flex:1">종목 완료</div>
-    </div>
-  </div>
-
-  <div class="section card">
-    <div class="row">
-      <div class="btn ghost" style="flex:1">+ 부위 추가</div>
-      <div class="btn ghost" style="flex:1">+ 종목 추가</div>
+      <div class="btn ghost" style="flex:1" id="addPartBtn">+ 부위 추가</div>
+      <div class="btn ghost" style="flex:1" id="addExerciseBtn">+ 종목 추가</div>
     </div>
   </div>
 
   <div class="section">
-    <div class="btn">운동 종료</div>
+    <div class="btn" id="endBtn">운동 종료</div>
   </div>
 </div>
 
-<!-- Top10 Overlay -->
-<div class="overlay" id="overlay" aria-hidden="true">
+<!-- Top10 overlay -->
+<div class="overlay" id="overlayTop10" aria-hidden="true">
   <div class="drawer" role="dialog" aria-modal="true" aria-label="Top10">
     <div class="drawer-head">
       <div>
-        <div class="drawer-title">Top 10 · 하체(오늘)</div>
+        <div class="drawer-title" id="top10Title">Top 10 · 하체(오늘)</div>
         <div class="drawer-sub">같은 체급 · 성별 · 부위 기준</div>
       </div>
-      <div class="btn ghost" id="closeBtn" style="padding:8px 10px;border-radius:12px">닫기</div>
+      <div class="btn ghost small" id="closeTop10">닫기</div>
     </div>
-    <div class="drawer-body" id="top10">
-      <!-- rows inserted by JS -->
+    <div class="drawer-body" id="top10Body"></div>
+  </div>
+</div>
+
+<!-- Add exercise prompt -->
+<div class="overlay" id="overlayPrompt" aria-hidden="true">
+  <div class="drawer" role="dialog" aria-modal="true" aria-label="종목 추가">
+    <div class="drawer-head">
+      <div>
+        <div class="drawer-title">종목 추가</div>
+        <div class="drawer-sub" id="promptSub">선택 부위에 종목을 추가해</div>
+      </div>
+      <div class="btn ghost small" id="closePrompt">닫기</div>
+    </div>
+    <div class="prompt-body">
+      <input type="text" id="exerciseName" placeholder="예) 벤치프레스"/>
+      <div class="chips" id="chips"></div>
+      <div class="row" style="margin-top:12px">
+        <div class="btn primary" style="flex:1" id="confirmAdd">추가</div>
+      </div>
+      <div class="hint" style="margin-top:10px">종목 추가 순간에 타이머가 시작되고, 시계를 탭하면 일시정지/재개돼.</div>
     </div>
   </div>
 </div>
 
 <script>
-  const app = document.getElementById('app');
-  const tickerWrap = document.getElementById('tickerWrap');
-  const overlay = document.getElementById('overlay');
-  const closeBtn = document.getElementById('closeBtn');
-  const top10 = document.getElementById('top10');
+  // ---- helpers
+  const qs=(s,el=document)=>el.querySelector(s);
+  const qsa=(s,el=document)=>[...el.querySelectorAll(s)];
+  const pad=n=>String(n).padStart(2,'0');
+  function fmtHMS(ms){
+    ms=Math.max(0,ms);
+    const s=Math.floor(ms/1000);
+    const h=Math.floor(s/3600);
+    const m=Math.floor((s%3600)/60);
+    const ss=s%60;
+    return `${pad(h)}:${pad(m)}:${pad(ss)}`;
+  }
 
-  const sample = [
+  // ---- state
+  const state = {
+    selectedPart: null,
+    exercises: [], // {id, part, name, createdAt, paused:false, pauseAt:null, pausedMs:0, completed:false, completedAt:null, activeMs:0}
+    recentByPart: {
+      "가슴":["벤치프레스","인클라인 벤치프레스","체스트프레스","푸쉬업"],
+      "등":["랫풀다운","바벨로우","시티드로우","풀업"],
+      "하체":["스쿼트","레그프레스","레그익스텐션","레그컬"],
+      "어깨":["오버헤드프레스","사이드레터럴레이즈","숄더프레스"],
+      "팔":["바벨컬","덤벨컬","트라이셉스푸시다운","딥스"],
+      "복근":["크런치","행잉레그레이즈","플랭크"],
+      "유산소":["러닝","사이클","계단"]
+    }
+  };
+
+  // ---- elements
+  const app = qs('#app');
+  const tickerWrap = qs('#tickerWrap');
+  const overlayTop10 = qs('#overlayTop10');
+  const closeTop10 = qs('#closeTop10');
+  const top10Body = qs('#top10Body');
+  const top10Title = qs('#top10Title');
+
+  const partCard = qs('#partCard');
+  const workCard = qs('#workCard');
+  const selectedPartEl = qs('#selectedPart');
+  const todaySmall = qs('#todaySmall');
+  const exerciseList = qs('#exerciseList');
+  const backBtn = qs('#backBtn');
+  const addPartBtn = qs('#addPartBtn');
+  const addExerciseBtn = qs('#addExerciseBtn');
+
+  const overlayPrompt = qs('#overlayPrompt');
+  const closePrompt = qs('#closePrompt');
+  const promptSub = qs('#promptSub');
+  const exerciseName = qs('#exerciseName');
+  const chips = qs('#chips');
+  const confirmAdd = qs('#confirmAdd');
+
+  const endBtn = qs('#endBtn');
+
+  // ---- ticker top10 (sample data)
+  const sampleTop10 = [
     {rank:1,name:"jaeyang",vol:"8,420kg"},
     {rank:2,name:"userB",vol:"7,980kg"},
     {rank:3,name:"userC",vol:"7,450kg"},
@@ -165,12 +246,11 @@
     {rank:9,name:"userI",vol:"6,320kg"},
     {rank:10,name:"userJ",vol:"6,100kg"},
   ];
-
   function renderTop10(){
-    top10.innerHTML = "";
-    for(const r of sample){
-      const row = document.createElement('div');
-      row.className = "rank-row";
+    top10Body.innerHTML="";
+    for(const r of sampleTop10){
+      const row=document.createElement('div');
+      row.className="rank-row";
       row.innerHTML = `
         <div class="rank-left">
           <div class="rank-badge">${r.rank}</div>
@@ -178,25 +258,262 @@
         </div>
         <div class="rank-val">${r.vol}</div>
       `;
-      top10.appendChild(row);
+      top10Body.appendChild(row);
+    }
+  }
+  function openTop10(){
+    const p = state.selectedPart || "하체";
+    top10Title.textContent = `Top 10 · ${p}(오늘)`;
+    renderTop10();
+    app.classList.add('paused');
+    overlayTop10.classList.add('show');
+    overlayTop10.setAttribute('aria-hidden','false');
+  }
+  function closeTop10Fn(){
+    overlayTop10.classList.remove('show');
+    overlayTop10.setAttribute('aria-hidden','true');
+    app.classList.remove('paused');
+  }
+  tickerWrap.addEventListener('click', openTop10);
+  closeTop10.addEventListener('click', closeTop10Fn);
+  overlayTop10.addEventListener('click', (e)=>{ if(e.target===overlayTop10) closeTop10Fn(); });
+
+  // ---- navigation
+  function showPartPicker(){
+    state.selectedPart = null;
+    partCard.style.display = "";
+    workCard.style.display = "none";
+  }
+  function showWork(part){
+    state.selectedPart = part;
+    selectedPartEl.textContent = part;
+    todaySmall.textContent = new Date().toISOString().slice(0,10);
+    partCard.style.display = "none";
+    workCard.style.display = "";
+    renderExercises();
+  }
+  qsa('#partGrid .btn').forEach(b=>{
+    b.addEventListener('click', ()=> showWork(b.dataset.part));
+  });
+  backBtn.addEventListener('click', showPartPicker);
+  addPartBtn.addEventListener('click', showPartPicker);
+
+  // ---- add exercise prompt
+  function openPrompt(){
+    if(!state.selectedPart){ return; }
+    promptSub.textContent = `선택 부위: ${state.selectedPart}`;
+    exerciseName.value = "";
+    const list = state.recentByPart[state.selectedPart] || [];
+    chips.innerHTML="";
+    list.forEach(name=>{
+      const c=document.createElement('div');
+      c.className="chip";
+      c.textContent=name;
+      c.addEventListener('click', ()=>{ exerciseName.value=name; exerciseName.focus(); });
+      chips.appendChild(c);
+    });
+    overlayPrompt.classList.add('show');
+    overlayPrompt.setAttribute('aria-hidden','false');
+    setTimeout(()=>exerciseName.focus(),50);
+  }
+  function closePromptFn(){
+    overlayPrompt.classList.remove('show');
+    overlayPrompt.setAttribute('aria-hidden','true');
+  }
+  addExerciseBtn.addEventListener('click', openPrompt);
+  closePrompt.addEventListener('click', closePromptFn);
+  overlayPrompt.addEventListener('click', (e)=>{ if(e.target===overlayPrompt) closePromptFn(); });
+
+  function addExercise(name){
+    const id = crypto.randomUUID ? crypto.randomUUID() : String(Date.now())+Math.random();
+    const ex = {
+      id, part: state.selectedPart, name,
+      createdAt: Date.now(),
+      paused:false, pauseAt:null, pausedMs:0,
+      completed:false, completedAt:null, activeMs:0,
+      sets: [] // step2
+    };
+    state.exercises.push(ex);
+
+    // remember recent (simple)
+    const arr = state.recentByPart[state.selectedPart] || (state.recentByPart[state.selectedPart]=[]);
+    if(name && !arr.includes(name)){
+      arr.unshift(name);
+      if(arr.length>8) arr.pop();
+    }
+    renderExercises();
+  }
+
+  confirmAdd.addEventListener('click', ()=>{
+    const name = (exerciseName.value || "").trim();
+    if(!name) return;
+    closePromptFn();
+    addExercise(name);
+  });
+  exerciseName.addEventListener('keydown', (e)=>{
+    if(e.key==="Enter"){ confirmAdd.click(); }
+  });
+
+  // ---- timers
+  function getActiveMs(ex){
+    if(ex.completed) return ex.activeMs;
+    let now = Date.now();
+    let paused = ex.paused ? (now - ex.pauseAt) : 0;
+    return (now - ex.createdAt) - ex.pausedMs - paused;
+  }
+  function togglePause(ex){
+    if(ex.completed) return;
+    if(!ex.paused){
+      ex.paused = True; // will be fixed below
     }
   }
 
-  function openTop10(){
-    renderTop10();
-    app.classList.add('paused');        // pause ticker + pulse
-    overlay.classList.add('show');
-    overlay.setAttribute('aria-hidden', 'false');
-  }
-  function closeTop10(){
-    overlay.classList.remove('show');
-    overlay.setAttribute('aria-hidden', 'true');
-    app.classList.remove('paused');     // resume
+  // ---- render
+  function renderExercises(){
+    const list = state.exercises.filter(e=>e.part===state.selectedPart);
+    exerciseList.innerHTML = "";
+
+    if(state.selectedPart === "유산소"){
+      const box=document.createElement('div');
+      box.className="card";
+      box.innerHTML = `
+        <div class="row between">
+          <div class="ex-title">유산소</div>
+          <div class="pill">야외 · 실내 (추후)</div>
+        </div>
+        <div class="divider"></div>
+        <div class="muted">STEP1에서는 종목 타이머부터 먼저 검증 중.</div>
+      `;
+      exerciseList.appendChild(box);
+      return;
+    }
+
+    if(list.length===0){
+      const empty=document.createElement('div');
+      empty.className="muted";
+      empty.style.padding="6px 2px";
+      empty.textContent="종목을 추가해줘.";
+      exerciseList.appendChild(empty);
+      return;
+    }
+
+    for(const ex of list){
+      const card=document.createElement('div');
+      card.className="card ex-card" + (ex.completed ? " completed":"");
+      card.dataset.id = ex.id;
+
+      const activeMs = ex.completed ? ex.activeMs : getActiveMs(ex);
+      const timeText = fmtHMS(activeMs);
+
+      card.innerHTML = `
+        <div class="row between">
+          <div>
+            <div class="muted">${ex.part}</div>
+            <div class="ex-title">${ex.name}</div>
+          </div>
+          <div class="pill tap timer ${ex.paused ? "paused":""}" data-action="timer" title="탭: 일시정지/재개">
+            ⏱ <span class="timer-val">${timeText}</span> ${ex.paused ? "⏸":""}
+          </div>
+        </div>
+
+        <div class="details">
+          <div class="sets-placeholder">세트/무게 입력은 다음 단계(STEP2)에서 붙일게. 지금은 타이머 동작부터 써봐.</div>
+          <div class="row" style="margin-top:10px">
+            <div class="btn ghost" style="flex:1" data-action="complete">종목 완료</div>
+          </div>
+        </div>
+
+        <div class="collapse">
+          <div class="divider"></div>
+          <div class="row between">
+            <div class="muted">요약</div>
+            <div class="muted">탭하면 펼쳐짐</div>
+          </div>
+          <div style="margin-top:6px">
+            <div class="row between"><div>훈련시간</div><div class="timer">${fmtHMS(ex.activeMs)}</div></div>
+            <div class="row between" style="margin-top:4px"><div class="muted">총 볼륨</div><div class="muted">- (STEP2)</div></div>
+          </div>
+        </div>
+      `;
+
+      card.addEventListener('click', (ev)=>{
+        const actionEl = ev.target.closest('[data-action]');
+        if(actionEl){
+          const action = actionEl.dataset.action;
+          if(action==="timer"){
+            ev.preventDefault();
+            ev.stopPropagation();
+            if(ex.completed) return;
+            // toggle pause/resume
+            if(!ex.paused){
+              ex.paused = true;
+              ex.pauseAt = Date.now();
+            } else {
+              ex.paused = false;
+              ex.pausedMs += (Date.now() - ex.pauseAt);
+              ex.pauseAt = null;
+            }
+            renderExercises();
+          }
+          if(action==="complete"){
+            ev.preventDefault();
+            ev.stopPropagation();
+            if(ex.completed) return;
+            // finalize active time
+            let now = Date.now();
+            let pausedExtra = ex.paused ? (now - ex.pauseAt) : 0;
+            ex.activeMs = (now - ex.createdAt) - ex.pausedMs - pausedExtra;
+            ex.completed = true;
+            ex.completedAt = now;
+            ex.paused = false;
+            ex.pauseAt = null;
+            renderExercises();
+          }
+          return;
+        }
+
+        // click on collapsed card -> expand (re-open details) (simple toggle)
+        if(ex.completed){
+          ex.completed = false;
+          // resume timer? no, keep completed time; restart from now as new session would be confusing.
+          // For STEP1, re-open means "continue" - we will treat it as resuming with same createdAt, keeping elapsed.
+          // We'll implement as: set createdAt = now - activeMs, pausedMs=0.
+          const now = Date.now();
+          ex.createdAt = now - ex.activeMs;
+          ex.pausedMs = 0;
+          ex.activeMs = 0;
+          ex.completedAt = null;
+          renderExercises();
+        }
+      });
+
+      exerciseList.appendChild(card);
+    }
   }
 
-  tickerWrap.addEventListener('click', openTop10);
-  closeBtn.addEventListener('click', closeTop10);
-  overlay.addEventListener('click', (e)=>{ if(e.target===overlay) closeTop10(); });
+  // ---- tick timers
+  setInterval(()=>{
+    if(!state.selectedPart) return;
+    const list = state.exercises.filter(e=>e.part===state.selectedPart && !e.completed);
+    if(list.length===0) return;
+    // update only visible timer values without full re-render
+    for(const ex of list){
+      const card = exerciseList.querySelector(`.ex-card[data-id="${ex.id}"]`);
+      if(!card) continue;
+      const v = card.querySelector('.timer-val');
+      if(!v) continue;
+      v.textContent = fmtHMS(getActiveMs(ex));
+    }
+  }, 250);
+
+  // ---- end button (step1: simple confirm)
+  endBtn.addEventListener('click', ()=>{
+    if(!confirm("오늘 운동을 종료할까? (STEP1: 요약 화면은 다음 단계에서)")) return;
+    alert("STEP1에서는 아직 '오늘 요약 화면'이 붙기 전이야. 다음 단계에서 붙일게.");
+  });
+
+  // start at part picker
+  showPartPicker();
 </script>
 </body>
 </html>
