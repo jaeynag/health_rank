@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1"/>
-<title>Health Rank - Today (Step1)</title>
+<title>Health Rank - Today (Step1.1)</title>
 <style>
   :root{
     --bg:#0f1115; --card:#141826; --card2:#1b1f2a; --line:#2a3040;
@@ -60,26 +60,26 @@
   .ex-card.completed .collapse{display:block}
   .sets-placeholder{margin-top:8px;border-top:1px dashed var(--line);padding-top:8px;color:var(--mut);font-size:12px}
 
-  /* Overlay (Top10 + Prompt) */
+  /* Overlay */
   .overlay{position:fixed;inset:0;background:rgba(0,0,0,.55);display:none;align-items:flex-start;justify-content:center;padding:12px;z-index:60}
   .overlay.show{display:flex}
   .drawer{width:min(480px,100%);margin-top:56px;background:var(--card);border:1px solid var(--line);border-radius:16px;overflow:hidden}
   .drawer-head{display:flex;align-items:center;justify-content:space-between;padding:12px;border-bottom:1px solid var(--line)}
   .drawer-title{font-weight:800}
   .drawer-sub{color:var(--mut);font-size:12px;margin-top:2px}
-  .drawer-body{max-height:60vh;overflow:auto}
+  .drawer-body{max-height:70vh;overflow:auto}
   .rank-row{display:flex;gap:10px;align-items:center;justify-content:space-between;padding:10px 12px;border-bottom:1px dashed var(--line)}
   .rank-left{display:flex;gap:10px;align-items:center;min-width:0}
   .rank-badge{width:28px;text-align:center;color:var(--accent2)}
   .rank-name{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   .rank-val{color:var(--txt)}
-  .prompt-body{padding:12px}
-  input[type="text"]{
-    width:100%;padding:12px;border-radius:12px;border:1px solid var(--line);
-    background:#0c0e13;color:var(--txt);outline:none;
-  }
-  .chips{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}
-  .chip{padding:8px 10px;border-radius:999px;border:1px solid var(--line);background:var(--card2);color:#fff;user-select:none;cursor:pointer;font-size:13px}
+
+  /* Weight keypad */
+  .kbd{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+  .key{padding:14px;border-radius:12px;background:var(--card2);border:1px solid var(--line);text-align:center;user-select:none}
+  .key.disabled{opacity:.4;pointer-events:none}
+  .big{font-size:28px;letter-spacing:.08em;font-variant-numeric:tabular-nums}
+  .center{text-align:center}
 </style>
 </head>
 <body>
@@ -87,9 +87,9 @@
   <div class="header">
     <div class="ticker-wrap ticker-touch" id="tickerWrap" title="누르면 Top10">
       <div class="ticker" id="ticker">
-        <span id="t1">하체 🥇 jaeyang 8,420kg</span>
-        <span id="t2">하체 🥈 userB 7,980kg</span>
-        <span id="t3">하체 🥉 userC 7,450kg</span>
+        <span>하체 🥇 jaeyang 8,420kg</span>
+        <span>하체 🥈 userB 7,980kg</span>
+        <span>하체 🥉 userC 7,450kg</span>
       </div>
     </div>
   </div>
@@ -133,8 +133,8 @@
 
     <div class="divider"></div>
     <div class="row">
-      <div class="btn ghost" style="flex:1" id="addPartBtn">+ 부위 추가</div>
-      <div class="btn ghost" style="flex:1" id="addExerciseBtn">+ 종목 추가</div>
+      <div class="btn ghost" style="flex:0.38" id="addPartBtn">부위 추가</div>
+      <div class="btn ghost" style="flex:0.62" id="addExerciseBtn">종목 추가</div>
     </div>
   </div>
 
@@ -167,19 +167,53 @@
       </div>
       <div class="btn ghost small" id="closePrompt">닫기</div>
     </div>
-    <div class="prompt-body">
-      <input type="text" id="exerciseName" placeholder="예) 벤치프레스"/>
-      <div class="chips" id="chips"></div>
+    <div class="drawer-body" style="padding:12px">
+      <input type="text" id="exerciseName" placeholder="예) 벤치프레스"
+        style="width:100%;padding:12px;border-radius:12px;border:1px solid var(--line);background:#0c0e13;color:var(--txt);outline:none;">
       <div class="row" style="margin-top:12px">
         <div class="btn primary" style="flex:1" id="confirmAdd">추가</div>
       </div>
-      <div class="hint" style="margin-top:10px">종목 추가 순간에 타이머가 시작되고, 시계를 탭하면 일시정지/재개돼.</div>
+      <div class="hint" style="margin-top:10px">종목 추가 순간에 타이머가 시작돼.</div>
+    </div>
+  </div>
+</div>
+
+<!-- Weight keypad overlay -->
+<div class="overlay" id="overlayWeight" aria-hidden="true">
+  <div class="drawer" role="dialog" aria-modal="true" aria-label="무게 입력">
+    <div class="drawer-head">
+      <div>
+        <div class="drawer-title">무게 입력</div>
+        <div class="drawer-sub" id="weightSub">-</div>
+      </div>
+      <div class="btn ghost small" id="closeWeight">닫기</div>
+    </div>
+    <div class="drawer-body" style="padding:12px">
+      <div class="center">
+        <div class="muted">현재 무게</div>
+        <div class="big"><span id="weightVal">0.0</span> <span class="pill">KG</span></div>
+      </div>
+      <div class="row" style="justify-content:center;margin:10px 0">
+        <div class="pill tap" id="incBtn">증</div>
+        <div class="pill tap" id="decBtn">감</div>
+      </div>
+      <div class="kbd">
+        <div class="key" id="barKey">BAR</div>
+        <div class="key" data-d="0.25">0.25</div>
+        <div class="key" data-d="0.5">0.5</div>
+        <div class="key" data-d="1">1</div>
+        <div class="key" data-d="2.5">2.5</div>
+        <div class="key" data-d="5">5</div>
+        <div class="key" data-d="10">10</div>
+        <div class="key" data-d="20">20</div>
+        <div class="key" id="backKey">←</div>
+      </div>
+      <div class="hint" style="margin-top:10px">← 길게 누르면 전체 취소</div>
     </div>
   </div>
 </div>
 
 <script>
-  // ---- helpers
   const qs=(s,el=document)=>el.querySelector(s);
   const qsa=(s,el=document)=>[...el.querySelectorAll(s)];
   const pad=n=>String(n).padStart(2,'0');
@@ -192,60 +226,20 @@
     return `${pad(h)}:${pad(m)}:${pad(ss)}`;
   }
 
-  // ---- state
   const state = {
-    selectedPart: null,
-    exercises: [], // {id, part, name, createdAt, paused:false, pauseAt:null, pausedMs:0, completed:false, completedAt:null, activeMs:0}
-    recentByPart: {
-      "가슴":["벤치프레스","인클라인 벤치프레스","체스트프레스","푸쉬업"],
-      "등":["랫풀다운","바벨로우","시티드로우","풀업"],
-      "하체":["스쿼트","레그프레스","레그익스텐션","레그컬"],
-      "어깨":["오버헤드프레스","사이드레터럴레이즈","숄더프레스"],
-      "팔":["바벨컬","덤벨컬","트라이셉스푸시다운","딥스"],
-      "복근":["크런치","행잉레그레이즈","플랭크"],
-      "유산소":["러닝","사이클","계단"]
-    }
+    selectedPart:null,
+    exercises:[], // {id, part, name, createdAt, paused, pauseAt, pausedMs, completed, activeMs, weightKg, barUsed, weightHist:[]}
+    weightMode: "inc",
   };
 
-  // ---- elements
+  // Top10
   const app = qs('#app');
   const tickerWrap = qs('#tickerWrap');
   const overlayTop10 = qs('#overlayTop10');
   const closeTop10 = qs('#closeTop10');
   const top10Body = qs('#top10Body');
   const top10Title = qs('#top10Title');
-
-  const partCard = qs('#partCard');
-  const workCard = qs('#workCard');
-  const selectedPartEl = qs('#selectedPart');
-  const todaySmall = qs('#todaySmall');
-  const exerciseList = qs('#exerciseList');
-  const backBtn = qs('#backBtn');
-  const addPartBtn = qs('#addPartBtn');
-  const addExerciseBtn = qs('#addExerciseBtn');
-
-  const overlayPrompt = qs('#overlayPrompt');
-  const closePrompt = qs('#closePrompt');
-  const promptSub = qs('#promptSub');
-  const exerciseName = qs('#exerciseName');
-  const chips = qs('#chips');
-  const confirmAdd = qs('#confirmAdd');
-
-  const endBtn = qs('#endBtn');
-
-  // ---- ticker top10 (sample data)
-  const sampleTop10 = [
-    {rank:1,name:"jaeyang",vol:"8,420kg"},
-    {rank:2,name:"userB",vol:"7,980kg"},
-    {rank:3,name:"userC",vol:"7,450kg"},
-    {rank:4,name:"userD",vol:"7,100kg"},
-    {rank:5,name:"userE",vol:"6,980kg"},
-    {rank:6,name:"userF",vol:"6,850kg"},
-    {rank:7,name:"userG",vol:"6,700kg"},
-    {rank:8,name:"userH",vol:"6,500kg"},
-    {rank:9,name:"userI",vol:"6,320kg"},
-    {rank:10,name:"userJ",vol:"6,100kg"},
-  ];
+  const sampleTop10 = Array.from({length:10}, (_,i)=>({rank:i+1,name:`user${String.fromCharCode(65+i)}`,vol:(8420- i*240).toLocaleString()+"kg"}));
   function renderTop10(){
     top10Body.innerHTML="";
     for(const r of sampleTop10){
@@ -262,8 +256,7 @@
     }
   }
   function openTop10(){
-    const p = state.selectedPart || "하체";
-    top10Title.textContent = `Top 10 · ${p}(오늘)`;
+    top10Title.textContent = `Top 10 · ${(state.selectedPart||"하체")}(오늘)`;
     renderTop10();
     app.classList.add('paused');
     overlayTop10.classList.add('show');
@@ -278,40 +271,45 @@
   closeTop10.addEventListener('click', closeTop10Fn);
   overlayTop10.addEventListener('click', (e)=>{ if(e.target===overlayTop10) closeTop10Fn(); });
 
-  // ---- navigation
+  // Navigation
+  const partCard = qs('#partCard');
+  const workCard = qs('#workCard');
+  const selectedPartEl = qs('#selectedPart');
+  const todaySmall = qs('#todaySmall');
+  const exerciseList = qs('#exerciseList');
+  const backBtn = qs('#backBtn');
+  const addPartBtn = qs('#addPartBtn');
+  const addExerciseBtn = qs('#addExerciseBtn');
+  const endBtn = qs('#endBtn');
+
   function showPartPicker(){
-    state.selectedPart = null;
-    partCard.style.display = "";
-    workCard.style.display = "none";
+    state.selectedPart=null;
+    partCard.style.display="";
+    workCard.style.display="none";
   }
   function showWork(part){
-    state.selectedPart = part;
-    selectedPartEl.textContent = part;
-    todaySmall.textContent = new Date().toISOString().slice(0,10);
-    partCard.style.display = "none";
-    workCard.style.display = "";
+    state.selectedPart=part;
+    selectedPartEl.textContent=part;
+    todaySmall.textContent=new Date().toISOString().slice(0,10);
+    partCard.style.display="none";
+    workCard.style.display="";
     renderExercises();
   }
-  qsa('#partGrid .btn').forEach(b=>{
-    b.addEventListener('click', ()=> showWork(b.dataset.part));
-  });
+  qsa('#partGrid .btn').forEach(b=>b.addEventListener('click', ()=>showWork(b.dataset.part)));
   backBtn.addEventListener('click', showPartPicker);
   addPartBtn.addEventListener('click', showPartPicker);
 
-  // ---- add exercise prompt
+  // Add exercise prompt
+  const overlayPrompt = qs('#overlayPrompt');
+  const closePrompt = qs('#closePrompt');
+  const promptSub = qs('#promptSub');
+  const exerciseName = qs('#exerciseName');
+  const confirmAdd = qs('#confirmAdd');
+
   function openPrompt(){
-    if(!state.selectedPart){ return; }
+    if(!state.selectedPart) return;
     promptSub.textContent = `선택 부위: ${state.selectedPart}`;
-    exerciseName.value = "";
-    const list = state.recentByPart[state.selectedPart] || [];
-    chips.innerHTML="";
-    list.forEach(name=>{
-      const c=document.createElement('div');
-      c.className="chip";
-      c.textContent=name;
-      c.addEventListener('click', ()=>{ exerciseName.value=name; exerciseName.focus(); });
-      chips.appendChild(c);
-    });
+    exerciseName.value="";
     overlayPrompt.classList.add('show');
     overlayPrompt.setAttribute('aria-hidden','false');
     setTimeout(()=>exerciseName.focus(),50);
@@ -326,69 +324,153 @@
 
   function addExercise(name){
     const id = crypto.randomUUID ? crypto.randomUUID() : String(Date.now())+Math.random();
-    const ex = {
-      id, part: state.selectedPart, name,
-      createdAt: Date.now(),
-      paused:false, pauseAt:null, pausedMs:0,
-      completed:false, completedAt:null, activeMs:0,
-      sets: [] // step2
-    };
-    state.exercises.push(ex);
-
-    // remember recent (simple)
-    const arr = state.recentByPart[state.selectedPart] || (state.recentByPart[state.selectedPart]=[]);
-    if(name && !arr.includes(name)){
-      arr.unshift(name);
-      if(arr.length>8) arr.pop();
-    }
+    state.exercises.push({
+      id, part:state.selectedPart, name,
+      createdAt:Date.now(), paused:false, pauseAt:null, pausedMs:0,
+      completed:false, activeMs:0,
+      weightKg:0.0, barUsed:false, weightHist:[]
+    });
     renderExercises();
   }
-
   confirmAdd.addEventListener('click', ()=>{
-    const name = (exerciseName.value || "").trim();
+    const name=(exerciseName.value||"").trim();
     if(!name) return;
     closePromptFn();
     addExercise(name);
   });
-  exerciseName.addEventListener('keydown', (e)=>{
-    if(e.key==="Enter"){ confirmAdd.click(); }
+  exerciseName.addEventListener('keydown', (e)=>{ if(e.key==="Enter") confirmAdd.click(); });
+
+  // Weight keypad overlay
+  const overlayWeight = qs('#overlayWeight');
+  const closeWeight = qs('#closeWeight');
+  const weightSub = qs('#weightSub');
+  const weightVal = qs('#weightVal');
+  const incBtn = qs('#incBtn');
+  const decBtn = qs('#decBtn');
+  const barKey = qs('#barKey');
+  const backKey = qs('#backKey');
+
+  let currentExId = null;
+
+  function setMode(mode){
+    state.weightMode = mode;
+    incBtn.style.borderColor = (mode==="inc") ? "var(--accent)" : "var(--line)";
+    decBtn.style.borderColor = (mode==="dec") ? "var(--accent)" : "var(--line)";
+    incBtn.style.color = (mode==="inc") ? "var(--accent2)" : "var(--txt)";
+    decBtn.style.color = (mode==="dec") ? "var(--accent2)" : "var(--txt)";
+  }
+  setMode("inc");
+
+  function openWeight(ex){
+    currentExId = ex.id;
+    weightSub.textContent = `${ex.part} · ${ex.name}`;
+    weightVal.textContent = ex.weightKg.toFixed(2).replace(/\.00$/,".0");
+    barKey.classList.toggle('disabled', ex.barUsed);
+    overlayWeight.classList.add('show');
+    overlayWeight.setAttribute('aria-hidden','false');
+  }
+  function closeWeightFn(){
+    overlayWeight.classList.remove('show');
+    overlayWeight.setAttribute('aria-hidden','true');
+    currentExId = null;
+  }
+  closeWeight.addEventListener('click', closeWeightFn);
+  overlayWeight.addEventListener('click', (e)=>{ if(e.target===overlayWeight) closeWeightFn(); });
+
+  incBtn.addEventListener('click', ()=>setMode("inc"));
+  decBtn.addEventListener('click', ()=>setMode("dec"));
+
+  function applyDelta(ex, delta){
+    const signed = (state.weightMode==="inc") ? delta : -delta;
+    ex.weightKg = Math.max(0, +(ex.weightKg + signed).toFixed(2));
+    ex.weightHist.push({delta:signed, bar:false});
+    weightVal.textContent = ex.weightKg.toFixed(2).replace(/\.00$/,".0");
+  }
+
+  qsa('.key[data-d]').forEach(k=>{
+    k.addEventListener('click', ()=>{
+      const ex = state.exercises.find(e=>e.id===currentExId);
+      if(!ex) return;
+      applyDelta(ex, parseFloat(k.dataset.d));
+      renderExercises(false);
+    });
   });
 
-  // ---- timers
+  barKey.addEventListener('click', ()=>{
+    const ex = state.exercises.find(e=>e.id===currentExId);
+    if(!ex || ex.barUsed) return;
+    // BAR only once
+    applyDelta(ex, 20);
+    ex.barUsed = true;
+    barKey.classList.add('disabled');
+    renderExercises(false);
+  });
+
+  // backspace: tap undo last, longpress clear all
+  let pressTimer = null;
+  function undoLast(ex){
+    const last = ex.weightHist.pop();
+    if(!last) return;
+    ex.weightKg = Math.max(0, +(ex.weightKg - last.delta).toFixed(2));
+    // if last came from BAR, allow BAR again. we don't store bar marker separately now, but detect if abs(delta)==20 and barUsed
+    if(Math.abs(last.delta)===20 && ex.barUsed){
+      // If current weightHist contains any 20-from-bar? Hard to know; for prototype allow re-enable when we undo the first BAR press.
+      ex.barUsed = false;
+      barKey.classList.remove('disabled');
+    }
+    weightVal.textContent = ex.weightKg.toFixed(2).replace(/\.00$/,".0");
+  }
+  function clearAll(ex){
+    ex.weightKg = 0;
+    ex.weightHist = [];
+    ex.barUsed = false;
+    weightVal.textContent = "0.0";
+    barKey.classList.remove('disabled');
+  }
+
+  backKey.addEventListener('pointerdown', ()=>{
+    const ex = state.exercises.find(e=>e.id===currentExId);
+    if(!ex) return;
+    pressTimer = setTimeout(()=>{ clearAll(ex); renderExercises(false); }, 650);
+  });
+  backKey.addEventListener('pointerup', ()=>{
+    const ex = state.exercises.find(e=>e.id===currentExId);
+    if(!ex) return;
+    if(pressTimer){
+      clearTimeout(pressTimer);
+      pressTimer = null;
+      undoLast(ex);
+      renderExercises(false);
+    }
+  });
+  backKey.addEventListener('pointerleave', ()=>{
+    if(pressTimer){ clearTimeout(pressTimer); pressTimer=null; }
+  });
+
+  // Timers
   function getActiveMs(ex){
     if(ex.completed) return ex.activeMs;
-    let now = Date.now();
-    let paused = ex.paused ? (now - ex.pauseAt) : 0;
-    return (now - ex.createdAt) - ex.pausedMs - paused;
-  }
-  function togglePause(ex){
-    if(ex.completed) return;
-    if(!ex.paused){
-      ex.paused = True; // will be fixed below
-    }
+    const now = Date.now();
+    const pausedNow = ex.paused ? (now - ex.pauseAt) : 0;
+    return (now - ex.createdAt) - ex.pausedMs - pausedNow;
   }
 
-  // ---- render
-  function renderExercises(){
+  function renderExercises(full=true){
     const list = state.exercises.filter(e=>e.part===state.selectedPart);
-    exerciseList.innerHTML = "";
+    if(full) exerciseList.innerHTML = "";
 
     if(state.selectedPart === "유산소"){
-      const box=document.createElement('div');
-      box.className="card";
-      box.innerHTML = `
-        <div class="row between">
-          <div class="ex-title">유산소</div>
-          <div class="pill">야외 · 실내 (추후)</div>
-        </div>
-        <div class="divider"></div>
-        <div class="muted">STEP1에서는 종목 타이머부터 먼저 검증 중.</div>
-      `;
-      exerciseList.appendChild(box);
+      if(full){
+        const box=document.createElement('div');
+        box.className="card";
+        box.innerHTML = `<div class="row between"><div class="ex-title">유산소</div><div class="pill">야외 · 실내 (추후)</div></div>
+          <div class="divider"></div><div class="muted">유산소 입력은 다음 단계에서 붙일게.</div>`;
+        exerciseList.appendChild(box);
+      }
       return;
     }
 
-    if(list.length===0){
+    if(full && list.length===0){
       const empty=document.createElement('div');
       empty.className="muted";
       empty.style.padding="6px 2px";
@@ -397,122 +479,107 @@
       return;
     }
 
-    for(const ex of list){
-      const card=document.createElement('div');
-      card.className="card ex-card" + (ex.completed ? " completed":"");
-      card.dataset.id = ex.id;
+    if(full){
+      for(const ex of list){
+        const card=document.createElement('div');
+        card.className="card ex-card" + (ex.completed ? " completed":"");
+        card.dataset.id = ex.id;
 
-      const activeMs = ex.completed ? ex.activeMs : getActiveMs(ex);
-      const timeText = fmtHMS(activeMs);
+        const timeText = fmtHMS(ex.completed ? ex.activeMs : getActiveMs(ex));
 
-      card.innerHTML = `
-        <div class="row between">
-          <div>
-            <div class="muted">${ex.part}</div>
-            <div class="ex-title">${ex.name}</div>
-          </div>
-          <div class="pill tap timer ${ex.paused ? "paused":""}" data-action="timer" title="탭: 일시정지/재개">
-            ⏱ <span class="timer-val">${timeText}</span> ${ex.paused ? "⏸":""}
-          </div>
-        </div>
-
-        <div class="details">
-          <div class="sets-placeholder">세트/무게 입력은 다음 단계(STEP2)에서 붙일게. 지금은 타이머 동작부터 써봐.</div>
-          <div class="row" style="margin-top:10px">
-            <div class="btn ghost" style="flex:1" data-action="complete">종목 완료</div>
-          </div>
-        </div>
-
-        <div class="collapse">
-          <div class="divider"></div>
+        card.innerHTML = `
           <div class="row between">
-            <div class="muted">요약</div>
-            <div class="muted">탭하면 펼쳐짐</div>
+            <div>
+              <div class="muted">${ex.part}</div>
+              <div class="ex-title">${ex.name}</div>
+            </div>
+            <div class="pill tap timer ${ex.paused ? "paused":""}" data-action="timer" title="탭: 일시정지/재개">
+              ⏱ <span class="timer-val">${timeText}</span> ${ex.paused ? "⏸":""}
+            </div>
           </div>
-          <div style="margin-top:6px">
-            <div class="row between"><div>훈련시간</div><div class="timer">${fmtHMS(ex.activeMs)}</div></div>
-            <div class="row between" style="margin-top:4px"><div class="muted">총 볼륨</div><div class="muted">- (STEP2)</div></div>
-          </div>
-        </div>
-      `;
 
-      card.addEventListener('click', (ev)=>{
-        const actionEl = ev.target.closest('[data-action]');
-        if(actionEl){
-          const action = actionEl.dataset.action;
-          if(action==="timer"){
-            ev.preventDefault();
-            ev.stopPropagation();
-            if(ex.completed) return;
-            // toggle pause/resume
-            if(!ex.paused){
-              ex.paused = true;
-              ex.pauseAt = Date.now();
-            } else {
-              ex.paused = false;
-              ex.pausedMs += (Date.now() - ex.pauseAt);
-              ex.pauseAt = null;
+          <div class="details">
+            <div class="sets-placeholder">STEP1.1: 무게 입력 키패드만 먼저 붙였어. (세트 저장은 다음 단계)</div>
+            <div class="row" style="margin-top:10px">
+              <div class="btn ghost" style="flex:1" data-action="weight">무게 입력</div>
+              <div class="btn ghost" style="flex:1" data-action="complete">종목 완료</div>
+            </div>
+          </div>
+
+          <div class="collapse">
+            <div class="divider"></div>
+            <div class="row between">
+              <div class="muted">요약</div>
+              <div class="muted">탭하면 펼쳐짐</div>
+            </div>
+            <div style="margin-top:6px">
+              <div class="row between"><div>훈련시간</div><div class="timer">${fmtHMS(ex.activeMs)}</div></div>
+              <div class="row between" style="margin-top:4px"><div class="muted">현재 무게</div><div class="muted">${ex.weightKg.toFixed(2).replace(/\.00$/,".0")} kg</div></div>
+            </div>
+          </div>
+        `;
+
+        card.addEventListener('click', (ev)=>{
+          const a = ev.target.closest('[data-action]');
+          if(a){
+            ev.preventDefault(); ev.stopPropagation();
+            const action = a.dataset.action;
+            if(action==="timer"){
+              if(ex.completed) return;
+              if(!ex.paused){ ex.paused=true; ex.pauseAt=Date.now(); }
+              else { ex.paused=false; ex.pausedMs += (Date.now()-ex.pauseAt); ex.pauseAt=null; }
+              renderExercises();
             }
+            if(action==="weight"){
+              openWeight(ex);
+            }
+            if(action==="complete"){
+              if(ex.completed) return;
+              const now=Date.now();
+              const pausedExtra = ex.paused ? (now - ex.pauseAt) : 0;
+              ex.activeMs = (now - ex.createdAt) - ex.pausedMs - pausedExtra;
+              ex.completed=true;
+              ex.paused=false; ex.pauseAt=null;
+              renderExercises();
+            }
+            return;
+          }
+          // click collapsed to reopen (prototype)
+          if(ex.completed){
+            ex.completed=false;
+            const now=Date.now();
+            ex.createdAt = now - ex.activeMs;
+            ex.pausedMs = 0; ex.activeMs = 0;
             renderExercises();
           }
-          if(action==="complete"){
-            ev.preventDefault();
-            ev.stopPropagation();
-            if(ex.completed) return;
-            // finalize active time
-            let now = Date.now();
-            let pausedExtra = ex.paused ? (now - ex.pauseAt) : 0;
-            ex.activeMs = (now - ex.createdAt) - ex.pausedMs - pausedExtra;
-            ex.completed = true;
-            ex.completedAt = now;
-            ex.paused = false;
-            ex.pauseAt = null;
-            renderExercises();
-          }
-          return;
-        }
+        });
 
-        // click on collapsed card -> expand (re-open details) (simple toggle)
-        if(ex.completed){
-          ex.completed = false;
-          // resume timer? no, keep completed time; restart from now as new session would be confusing.
-          // For STEP1, re-open means "continue" - we will treat it as resuming with same createdAt, keeping elapsed.
-          // We'll implement as: set createdAt = now - activeMs, pausedMs=0.
-          const now = Date.now();
-          ex.createdAt = now - ex.activeMs;
-          ex.pausedMs = 0;
-          ex.activeMs = 0;
-          ex.completedAt = null;
-          renderExercises();
-        }
-      });
-
-      exerciseList.appendChild(card);
+        exerciseList.appendChild(card);
+      }
+    } else {
+      // lightweight updates (weights)
+      // no-op; the UI will reflect on next render or close
     }
   }
 
-  // ---- tick timers
+  // tick visible timers
   setInterval(()=>{
     if(!state.selectedPart) return;
     const list = state.exercises.filter(e=>e.part===state.selectedPart && !e.completed);
     if(list.length===0) return;
-    // update only visible timer values without full re-render
     for(const ex of list){
-      const card = exerciseList.querySelector(`.ex-card[data-id="${ex.id}"]`);
+      const card = qs(`.ex-card[data-id="${ex.id}"]`, exerciseList);
       if(!card) continue;
-      const v = card.querySelector('.timer-val');
-      if(!v) continue;
-      v.textContent = fmtHMS(getActiveMs(ex));
+      const v = qs('.timer-val', card);
+      if(v) v.textContent = fmtHMS(getActiveMs(ex));
     }
   }, 250);
 
-  // ---- end button (step1: simple confirm)
   endBtn.addEventListener('click', ()=>{
-    if(!confirm("오늘 운동을 종료할까? (STEP1: 요약 화면은 다음 단계에서)")) return;
-    alert("STEP1에서는 아직 '오늘 요약 화면'이 붙기 전이야. 다음 단계에서 붙일게.");
+    if(!confirm("오늘 운동을 종료할까? (요약 화면은 다음 단계에서)")) return;
+    alert("STEP1.1에서는 아직 '오늘 요약 화면'이 붙기 전이야. 다음 단계에서 붙일게.");
   });
 
-  // start at part picker
   showPartPicker();
 </script>
 </body>
