@@ -3,12 +3,12 @@
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no"/>
-<title>Health Rank - Today (Step2.5)</title>
+<title>Health Rank - Today (Step3)</title>
 <style>
   :root{
     --bg:#0f1115; --card:#141826; --card2:#1b1f2a; --line:#2a3040;
     --txt:#eaeaf0; --mut:#8e93b5; --accent:#4c5cff; --accent2:#cfd3ff;
-    --danger:#ff4c6a;
+    --danger:#ff4c6a; --good:#36d399;
   }
   *{box-sizing:border-box}
   body{margin:0;font-family:-apple-system,BlinkMacSystemFont,system-ui,Segoe UI,Roboto,Apple SD Gothic Neo,Noto Sans KR,sans-serif;background:var(--bg);color:var(--txt)}
@@ -32,43 +32,37 @@
   .grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
   .btn{background:var(--card2);border:1px solid var(--line);color:#fff;border-radius:10px;padding:12px;text-align:center;user-select:none}
   .btn.primary{background:var(--accent);border-color:var(--accent)}
+  .btn.good{background:rgba(54,211,153,.16);border-color:rgba(54,211,153,.35);color:#c9ffe9}
   .btn.ghost{background:var(--card);border-color:var(--line)}
   .btn.small{padding:8px 10px;border-radius:12px}
   .btn.danger{background:rgba(255,76,106,.14);border-color:rgba(255,76,106,.40);color:#ffd0d8}
   .pill{padding:6px 10px;border-radius:999px;border:1px solid var(--line);user-select:none}
   .pill.tap{cursor:pointer}
   .divider{height:1px;background:var(--line);margin:10px 0;opacity:.8}
+  .hidden{display:none !important}
+
+  /* Exercise accordion */
+  .ex-head{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;cursor:pointer}
+  .ex-title{font-weight:900}
+  .ex-sub{color:var(--mut);font-size:12px;margin-top:2px}
+  .ex-meta{display:flex;flex-direction:column;align-items:flex-end;gap:6px}
+  .ex-vol{color:var(--mut);font-size:12px}
+  .ex-actions{display:flex;gap:8px;align-items:center}
 
   /* Swipe row */
   .swipe{
-    position:relative;
-    overflow:hidden;
-    border-radius:12px;
-    margin:6px 0;
-    background:var(--card);
-    border:1px dashed rgba(42,48,64,.7);
-    touch-action: pan-y;
+    position:relative; overflow:hidden; border-radius:12px; margin:6px 0;
+    background:var(--card); border:1px dashed rgba(42,48,64,.7); touch-action: pan-y;
   }
   .swipe-actions{
-    position:absolute;
-    top:0; right:0; bottom:0;
-    width:86px;
-    display:flex;
-    align-items:center;
-    justify-content:center;
-    padding:8px;
-    background:rgba(255,76,106,.12);
-    border-left:1px solid rgba(255,76,106,.25);
-    z-index:0;
+    position:absolute; top:0; right:0; bottom:0; width:86px;
+    display:flex; align-items:center; justify-content:center; padding:8px;
+    background:rgba(255,76,106,.12); border-left:1px solid rgba(255,76,106,.25); z-index:0;
   }
   .swipe-front{
-    position:relative;
-    z-index:1;
-    transform:translateX(0px);
-    transition:transform 140ms ease-out;
-    will-change:transform;
-    background:var(--card);
-    padding:10px 10px;
+    position:relative; z-index:1; transform:translateX(0px);
+    transition:transform 140ms ease-out; will-change:transform;
+    background:var(--card); padding:10px 10px;
   }
   .swipe.open .swipe-front{transform:translateX(-86px)}
   .set-row{display:flex;justify-content:space-between;align-items:center;gap:8px}
@@ -100,7 +94,11 @@
   .chipline{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}
   .chip{padding:8px 10px;border-radius:999px;border:1px solid var(--line);background:var(--card2);color:#fff;user-select:none;cursor:pointer;font-size:13px}
 
-  .hidden{display:none !important}
+  /* Summary overlay */
+  .sum-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px}
+  .sum-item{border:1px solid var(--line);border-radius:12px;padding:10px;background:rgba(255,255,255,.02)}
+  .sum-item .k{color:var(--mut);font-size:12px}
+  .sum-item .v{font-weight:900;margin-top:2px}
 </style>
 </head>
 <body>
@@ -208,7 +206,6 @@
     </div>
     <div class="drawer-body">
 
-      <!-- STEP: WEIGHT -->
       <div id="stepWeight">
         <div class="center">
           <div class="muted">무게</div>
@@ -223,7 +220,6 @@
           <div class="pill tap" id="decBtn">감</div>
         </div>
 
-        <!-- KG keypad -->
         <div id="kbdKg">
           <div class="kbd">
             <div class="key" id="barKey">BAR</div>
@@ -238,7 +234,6 @@
           </div>
         </div>
 
-        <!-- LB keypad (3x4) -->
         <div id="kbdLb" class="hidden">
           <div class="kbd">
             <div class="key" data-lb="1">1</div><div class="key" data-lb="2">2</div><div class="key" data-lb="3">3</div>
@@ -254,7 +249,6 @@
         </div>
       </div>
 
-      <!-- STEP: REPS -->
       <div id="stepReps" class="hidden">
         <div class="center">
           <div class="muted">횟수</div>
@@ -278,8 +272,47 @@
   </div>
 </div>
 
+<!-- Summary overlay (next step) -->
+<div class="overlay" id="overlaySummary" aria-hidden="true">
+  <div class="drawer" role="dialog" aria-modal="true" aria-label="오늘 요약">
+    <div class="drawer-head">
+      <div>
+        <div class="drawer-title">오늘 요약</div>
+        <div class="drawer-sub" id="sumSub">체급/랭킹은 다음 단계에서 실제 연결</div>
+      </div>
+      <div class="btn ghost small" id="closeSummary">닫기</div>
+    </div>
+    <div class="drawer-body">
+      <div class="card" style="padding:12px">
+        <div class="row between">
+          <div>
+            <div class="muted">오늘 총 볼륨</div>
+            <div style="font-weight:900;font-size:22px" id="sumTotalVol">0kg</div>
+          </div>
+          <div style="text-align:right">
+            <div class="muted">오늘 상위</div>
+            <div style="font-weight:900;font-size:22px" id="sumTopPct">- %</div>
+          </div>
+        </div>
+        <div class="divider"></div>
+        <div class="muted">부위별 볼륨</div>
+        <div class="sum-grid" id="sumParts"></div>
+      </div>
+
+      <div class="card" style="padding:12px;margin-top:10px">
+        <div class="muted">내가 운동한 부위 랭킹 (데모)</div>
+        <div style="margin-top:8px" id="sumLeaders"></div>
+      </div>
+
+      <div class="row" style="margin-top:12px">
+        <div class="btn primary" style="flex:1" id="summaryOk">확인</div>
+      </div>
+    </div>
+  </div>
+</div>
+
 <script>
-  const STORAGE_KEY="health_rank_today_v7";
+  const STORAGE_KEY="health_rank_today_v8";
   const qs=(s,el=document)=>el.querySelector(s);
   const qsa=(s,el=document)=>[...el.querySelectorAll(s)];
   const safeParse=s=>{try{return JSON.parse(s)}catch{return null}};
@@ -304,24 +337,28 @@
 
   // --- Ticker: 부위/순위/지역/헬스장/유저/볼륨 (데모) ---
   const tickerLine=qs('#tickerLine');
+  function getTouchedParts(){
+    // "오늘 운동하는 모든 부위" => 오늘 추가한 종목들의 부위들
+    return [...new Set(state.exercises.map(e=>e.part).filter(Boolean))];
+  }
   function buildTickerItems(){
-    const parts=[...new Set(state.exercises.map(e=>e.part).filter(Boolean))];
+    const parts=getTouchedParts();
     const fallback=["하체","가슴","등"];
     const use=parts.length?parts:fallback;
 
     const region="서울";
     const gym="Olympic Gym";
-    const sampleUsers=["jaeyang","userB","userC","userD"];
+    const sampleUsers=["jaeyang","userB","userC","userD","userE"];
     const out=[];
     use.forEach((p,pi)=>{
       for(let i=0;i<3;i++){
         const rank=i+1;
         const user=sampleUsers[(pi+i)%sampleUsers.length];
-        const vol=(9000 - (pi*600 + i*320));
+        const vol=(9000 - (pi*520 + i*310));
         out.push({part:p, rank, region, gym, user, vol});
       }
     });
-    return out.slice(0,18);
+    return out.slice(0,24);
   }
   function renderTicker(){
     const items=buildTickerItems();
@@ -415,7 +452,14 @@
 
   function addExercise(name){
     const id=crypto.randomUUID?crypto.randomUUID():String(Date.now())+Math.random();
-    const ex={ id, part:state.selectedPart, name, weightKg:0.0, barUsed:false, weightHist:[], sets:[], prevWorkoutRecord:null };
+    const ex={
+      id, part:state.selectedPart, name,
+      weightKg:0.0, barUsed:false, weightHist:[],
+      sets:[],
+      prevWorkoutRecord:null,
+      isCollapsed:false, // accordion
+      isDone:false // "종목 완료"
+    };
     seedPrevWorkoutRecord(ex);
     state.exercises.push(ex);
     saveState();
@@ -435,44 +479,34 @@
   const kbdKg=qs('#kbdKg'), kbdLb=qs('#kbdLb');
   const barKey=qs('#barKey'), backKey=qs('#backKey');
   const lbBack=qs('#lbBack');
-
   const nextToReps=qs('#nextToReps'), backToWeight=qs('#backToWeight');
   const setRepsVal=qs('#setRepsVal'), repsClear=qs('#repsClear'), repsBack=qs('#repsBack'), saveSetBtn=qs('#saveSetBtn');
 
   let currentExId=null;
   let currentReps=0;
-  let unit="kg"; // overlay-only
-  let tempKg=0;  // overlay-only in kg
-  let lbStr="";  // overlay-only when unit=lb
+  let unit="kg";
+  let tempKg=0;
+  let lbStr="";
   let pressTimer=null, repsPress=null;
 
   function showStep(which){
-    if(which==="weight"){
-      stepWeight.classList.remove('hidden');
-      stepReps.classList.add('hidden');
-    }else{
-      stepWeight.classList.add('hidden');
-      stepReps.classList.remove('hidden');
-    }
+    if(which==="weight"){ stepWeight.classList.remove('hidden'); stepReps.classList.add('hidden'); }
+    else{ stepWeight.classList.add('hidden'); stepReps.classList.remove('hidden'); }
   }
-
   function updateWeightUI(){
     if(unit==="kg"){
       unitToggle.textContent="KG";
-      kbdKg.classList.remove('hidden');
-      kbdLb.classList.add('hidden');
+      kbdKg.classList.remove('hidden'); kbdLb.classList.add('hidden');
       setWeightVal.textContent=fmtKg(tempKg);
     }else{
       unitToggle.textContent="LB";
-      kbdKg.classList.add('hidden');
-      kbdLb.classList.remove('hidden');
+      kbdKg.classList.add('hidden'); kbdLb.classList.remove('hidden');
       const lb = lbStr==="" ? 0 : parseFloat(lbStr);
       const shown = isFinite(lb) ? lb : 0;
       setWeightVal.textContent = String(shown);
       tempKg = lbToKg(shown || 0);
     }
   }
-
   function setMode(mode){
     state.weightMode=mode; saveState();
     incBtn.style.borderColor=(mode==="inc")?"var(--accent)":"var(--line)";
@@ -485,13 +519,8 @@
   decBtn.addEventListener('click',()=>setMode("dec"));
 
   unitToggle.addEventListener('click',()=>{
-    if(unit==="kg"){
-      unit="lb";
-      lbStr = (tempKg>0) ? (kgToLb(tempKg).toFixed(1).replace(/\.0$/,"")) : "";
-    }else{
-      unit="kg";
-      lbStr="";
-    }
+    if(unit==="kg"){ unit="lb"; lbStr=(tempKg>0)?(kgToLb(tempKg).toFixed(1).replace(/\.0$/,"")):""; }
+    else{ unit="kg"; lbStr=""; }
     updateWeightUI();
   });
 
@@ -500,23 +529,14 @@
     const nextNo=(ex.sets?.length||0)+1;
     if(nextNo>=2){
       const last=ex.sets[ex.sets.length-1];
-      if(last && typeof last.w==="number"){
-        ex.weightKg=last.w; ex.weightHist=[]; ex.barUsed=false;
-      }
+      if(last && typeof last.w==="number"){ ex.weightKg=last.w; ex.weightHist=[]; ex.barUsed=false; }
     }
     setTitle.textContent=`${nextNo}세트 입력`;
     setSub.textContent=`${ex.part} · ${ex.name}`;
-
-    unit="kg";
-    lbStr="";
-    tempKg=+(ex.weightKg||0);
-
+    unit="kg"; lbStr=""; tempKg=+(ex.weightKg||0);
     currentReps=0; setRepsVal.textContent="0";
     barKey.classList.toggle('disabled',!!ex.barUsed);
-
-    showStep("weight");
-    updateWeightUI();
-
+    showStep("weight"); updateWeightUI();
     overlaySet.classList.add('show'); overlaySet.setAttribute('aria-hidden','false');
     saveState();
   }
@@ -536,40 +556,32 @@
     updateWeightUI();
     saveState();
   }
-
   qsa('#kbdKg .key[data-d]').forEach(k=>k.addEventListener('click',()=>{
     const ex=state.exercises.find(e=>e.id===currentExId); if(!ex) return;
     applyDeltaKg(ex, parseFloat(k.dataset.d));
   }));
-
   barKey.addEventListener('click',()=>{
     const ex=state.exercises.find(e=>e.id===currentExId); if(!ex || ex.barUsed) return;
     const signed=(state.weightMode==="inc")?20:-20;
     tempKg=Math.max(0, +(tempKg + signed).toFixed(2));
     ex.weightHist = ex.weightHist || [];
     ex.weightHist.push({delta:signed, bar:true});
-    ex.barUsed=true;
-    barKey.classList.add('disabled');
-    updateWeightUI();
-    saveState();
+    ex.barUsed=true; barKey.classList.add('disabled');
+    updateWeightUI(); saveState();
   });
-
   function undoLast(ex){
     ex.weightHist = ex.weightHist || [];
     const last=ex.weightHist.pop(); if(!last) return;
     tempKg=Math.max(0, +(tempKg - last.delta).toFixed(2));
     if(last.bar){ ex.barUsed=false; barKey.classList.remove('disabled'); }
-    updateWeightUI();
-    saveState();
+    updateWeightUI(); saveState();
   }
   function clearAll(ex){
     tempKg=0; ex.weightHist=[]; ex.barUsed=false;
     barKey.classList.remove('disabled');
     unit="kg"; lbStr="";
-    updateWeightUI();
-    saveState();
+    updateWeightUI(); saveState();
   }
-
   backKey.addEventListener('pointerdown',()=>{
     const ex=state.exercises.find(e=>e.id===currentExId); if(!ex) return;
     pressTimer=setTimeout(()=>clearAll(ex),650);
@@ -617,10 +629,9 @@
 
   function saveOneSet(ex){
     if(currentReps<=0) return false;
-    ex.weightKg = +(tempKg||0); // always KG inside
+    ex.weightKg = +(tempKg||0);
     ex.sets.push({w:ex.weightKg, r:currentReps, ts:Date.now()});
-    saveState();
-    renderTicker();
+    saveState(); renderTicker();
     return true;
   }
   saveSetBtn.addEventListener('click',()=>{
@@ -630,14 +641,14 @@
     renderExercises();
   });
 
+  // Delete set
   function deleteSet(ex, idx){
     if(idx<0||idx>=ex.sets.length) return;
     ex.sets.splice(idx,1);
-    saveState();
-    renderTicker();
-    renderExercises();
+    saveState(); renderTicker(); renderExercises();
   }
 
+  // Swipe
   const SWIPE_OPEN_X=-86;
   function closeAllSwipes(root){ qsa('.swipe.open', root||document).forEach(el=>el.classList.remove('open')); }
   function attachSwipeHandlers(container){
@@ -703,7 +714,21 @@
     }, {passive:true});
   }
 
+  // Accordion + done
   const totalVolume=ex=>(ex.sets||[]).reduce((a,s)=>a+(s.w*s.r),0);
+  function toggleCollapse(ex){
+    ex.isCollapsed = !ex.isCollapsed;
+    saveState();
+    renderExercises();
+  }
+  function markDone(ex){
+    const ok = confirm(`${ex.name}를 완료하겠습니까?`);
+    if(!ok) return;
+    ex.isDone=true;
+    ex.isCollapsed=true;
+    saveState();
+    renderExercises();
+  }
 
   function renderExercises(){
     const list=state.exercises.filter(e=>e.part===state.selectedPart);
@@ -712,8 +737,8 @@
     if(state.selectedPart==="유산소"){
       const box=document.createElement('div');
       box.className="card";
-      box.innerHTML=`<div class="row between"><div style="font-weight:900">유산소</div><div class="pill">야외 · 실내 (추후)</div></div>
-        <div class="divider"></div><div class="muted">유산소 입력은 다음 단계에서.</div>`;
+      box.innerHTML=`<div class="row between"><div style="font-weight:900">유산소</div><div class="pill">야외 · 실내 (다음)</div></div>
+        <div class="divider"></div><div class="muted">유산소 입력/완료/요약은 다음 단계에서.</div>`;
       exerciseList.appendChild(box);
       return;
     }
@@ -734,6 +759,33 @@
       const sets=ex.sets||[];
       const vol=totalVolume(ex);
       const nextNo=sets.length+1;
+
+      const head = document.createElement('div');
+      head.className="ex-head";
+      head.innerHTML = `
+        <div>
+          <div class="muted">${ex.part}</div>
+          <div class="ex-title">${ex.name}</div>
+          <div class="ex-sub">${ex.isDone ? "완료됨" : "진행중"}</div>
+        </div>
+        <div class="ex-meta">
+          <div class="ex-actions">
+            <div class="btn small good" data-action="done">종목완료</div>
+          </div>
+          <div class="ex-vol">${vol.toLocaleString()}kg</div>
+        </div>
+      `;
+      head.addEventListener('click',(ev)=>{
+        const a=ev.target.closest('[data-action]');
+        if(a) return; // button clicks handled elsewhere
+        toggleCollapse(ex);
+      });
+
+      const body=document.createElement('div');
+      body.style.marginTop="10px";
+      body.style.borderTop="1px dashed var(--line)";
+      body.style.paddingTop="8px";
+      if(ex.isCollapsed) body.classList.add('hidden');
 
       const setRows = sets.map((s,i)=>`
         <div class="swipe" data-idx="${i}">
@@ -761,50 +813,89 @@
             <div class="set-no">${nextNo}세트</div>
             <div class="set-val ghosttext">${ghost}</div>
           </div>
-          <div class="btn ghost small" data-action="set">완료</div>
+          <div class="btn ghost small" data-action="set" ${ex.isDone?"style='opacity:.45;pointer-events:none'":""}>완료</div>
         </div>
       `;
 
-      card.innerHTML=`
-        <div class="row between">
-          <div>
-            <div class="muted">${ex.part}</div>
-            <div style="font-weight:900">${ex.name}</div>
-          </div>
-        </div>
-
-        <div style="margin-top:10px;border-top:1px dashed var(--line);padding-top:8px">
-          ${setRows}
-          ${liveRow}
-          <div class="row between" style="padding-top:10px">
-            <div class="muted">종목 볼륨</div>
-            <div class="muted">${vol.toLocaleString()}kg</div>
-          </div>
+      body.innerHTML = `
+        ${setRows}
+        ${liveRow}
+        <div class="row between" style="padding-top:10px">
+          <div class="muted">종목 볼륨</div>
+          <div class="muted">${vol.toLocaleString()}kg</div>
         </div>
       `;
 
+      // events
       card.addEventListener('click',(ev)=>{
         const a=ev.target.closest('[data-action]');
         if(!a) return;
         ev.preventDefault(); ev.stopPropagation();
         const action=a.dataset.action;
         if(action==="set") openSetEntry(ex);
-        if(action==="del"){
-          const idx=parseInt(a.dataset.idx,10);
-          deleteSet(ex, idx);
-        }
+        if(action==="del") deleteSet(ex, parseInt(a.dataset.idx,10));
+        if(action==="done") markDone(ex);
       });
 
+      card.appendChild(head);
+      card.appendChild(body);
       exerciseList.appendChild(card);
       attachSwipeHandlers(card);
+
+      // If collapsed, hide "종목완료" button for cleanliness? keep but disable if done
+      const doneBtn = card.querySelector('[data-action="done"]');
+      if(ex.isDone) { doneBtn.textContent="완료됨"; doneBtn.style.opacity=".55"; doneBtn.style.pointerEvents="none"; }
     });
   }
 
+  // Summary overlay (next step stub)
+  const overlaySummary=qs('#overlaySummary');
+  const closeSummary=qs('#closeSummary');
+  const summaryOk=qs('#summaryOk');
+  const sumTotalVol=qs('#sumTotalVol');
+  const sumTopPct=qs('#sumTopPct');
+  const sumParts=qs('#sumParts');
+  const sumLeaders=qs('#sumLeaders');
+
+  function openSummary(){
+    // compute totals
+    const total = state.exercises.reduce((a,e)=>a+totalVolume(e),0);
+    sumTotalVol.textContent = total.toLocaleString()+"kg";
+    // demo percentile
+    const pct = Math.max(1, Math.min(99, Math.round(100 - Math.log10(total+10)*18)));
+    sumTopPct.textContent = pct+" %";
+
+    const byPart = {};
+    state.exercises.forEach(e=>{
+      byPart[e.part]=(byPart[e.part]||0)+totalVolume(e);
+    });
+    const parts = Object.entries(byPart).sort((a,b)=>b[1]-a[1]);
+    sumParts.innerHTML = parts.map(([p,v])=>(
+      `<div class="sum-item"><div class="k">${p}</div><div class="v">${Math.round(v).toLocaleString()}kg</div></div>`
+    )).join("");
+
+    // demo leaders for parts I trained
+    const touched = getTouchedParts();
+    sumLeaders.innerHTML = touched.map((p,i)=>(
+      `<div style="padding:8px 10px;border:1px solid var(--line);border-radius:12px;margin-top:8px;background:rgba(255,255,255,.02)">
+        <div class="muted">${p} 리더보드</div>
+        <div style="margin-top:6px">🥇 #1 · 서울 · Olympic Gym · user${String.fromCharCode(65+i)} · ${(8000-i*450).toLocaleString()}kg</div>
+      </div>`
+    )).join("");
+
+    overlaySummary.classList.add('show'); overlaySummary.setAttribute('aria-hidden','false');
+  }
+  function closeSummaryFn(){ overlaySummary.classList.remove('show'); overlaySummary.setAttribute('aria-hidden','true'); }
+  closeSummary.addEventListener('click',closeSummaryFn);
+  overlaySummary.addEventListener('click',e=>{if(e.target===overlaySummary) closeSummaryFn();});
+  summaryOk.addEventListener('click',closeSummaryFn);
+
   endBtn.addEventListener('click',()=>{
-    if(!confirm("오늘 운동을 종료할까? (요약은 다음 단계)")) return;
-    alert("다음 단계에서 오늘 요약 화면 붙일게.");
+    if(!confirm("오늘 운동을 종료할까?")) return;
+    openSummary();
   });
 
+  // Boot
   if(state.selectedPart) showWork(state.selectedPart);
   else showPartPicker();
   renderExercises();
