@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no"/>
-<title>Health Rank - App (Step20)</title>
+<title>Health Rank - App (Step21)</title>
 <style>
   :root{
     --bg:#0f1115; --card:#141826; --card2:#1b1f2a; --line:#2a3040;
@@ -176,6 +176,20 @@
   .navbtn.active .dot{background:var(--accent)}
   /* leave space for nav */
   .page{padding-bottom:110px}
+
+
+  /* Ticker motion */
+  #tickerBar{overflow:hidden;white-space:nowrap;position:relative}
+  #tickerWrap{
+    display:inline-block;
+    will-change:transform;
+    animation: tickerScroll linear infinite;
+  }
+  @keyframes tickerScroll{
+    0%{ transform: translateX(0); }
+    100%{ transform: translateX(-50%); }
+  }
+  #tickerBar.paused #tickerWrap{ animation-play-state: paused; }
 
 </style>
 </head>
@@ -762,7 +776,30 @@ function renderTicker(){
     items.push({part:p, rank:1, nick:"익명1", region:"서울", gym:"A짐", vol: 5200 - i*320});
     items.push({part:p, rank:2, nick:"익명2", region:"부산", gym:"B짐", vol: 4400 - i*300});
     items.push({part:p, rank:3, nick:"익명3", region:"대구", gym:"C짐", vol: 3800 - i*260});
+  }
+
+function startTicker(){
+  const bar = document.getElementById('tickerBar');
+  const wrap = document.getElementById('tickerWrap');
+  if(!bar || !wrap) return;
+  // duration based on half-width (because we duplicate content)
+  requestAnimationFrame(()=>{
+    const w = wrap.scrollWidth || 0;
+    const half = w/2;
+    const pxPerSec = 70; // speed
+    const dur = Math.max(10, Math.round((half/pxPerSec)*10)/10);
+    wrap.style.animationDuration = dur + "s";
   });
+
+  // pause/resume on touch/click
+  let paused=false;
+  const toggle=()=>{
+    paused=!paused;
+    bar.classList.toggle('paused', paused);
+  };
+  bar.addEventListener('click', toggle);
+  bar.addEventListener('touchstart', (e)=>{ toggle(); }, {passive:true});
+});
 
   const myPart = state.selectedPart || "가슴";
   const myVol = (myPart==="유산소") ? 0 : computeMyTodayPartVolume(myPart);
@@ -775,7 +812,7 @@ function renderTicker(){
 
   wrap.innerHTML = htmlItems + '<span class="tick-sep">•</span>' + htmlItems;
   }
-  try{renderTicker();}catch(e){console.warn(e);}
+  try{renderTicker(); try{startTicker();}catch(e){console.warn(e);}}catch(e){console.warn(e);} try{startTicker();}catch(e){console.warn(e);} 
 
   // Top10 overlay
   const overlayTop10=qs('#overlayTop10');
