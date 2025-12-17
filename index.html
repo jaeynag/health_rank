@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no"/>
-<title>Health Rank - App (Step14)</title>
+<title>Health Rank - App (Step15)</title>
 <style>
   :root{
     --bg:#0f1115; --card:#141826; --card2:#1b1f2a; --line:#2a3040;
@@ -28,6 +28,15 @@
   .clock .t{font-variant-numeric:tabular-nums;letter-spacing:.08em;font-weight:900}
 
   /* Ticker */
+
+  .tick-item{display:inline-flex;gap:8px;align-items:center}
+  .tick-part{font-weight:900;color:#e7e9ff}
+  .tick-rank{font-weight:900;color:var(--accent2)}
+  .tick-loc{color:var(--mut)}
+  .tick-nick{font-weight:900}
+  .tick-vol{font-weight:900}
+  .tick-sep{opacity:.35;margin:0 10px}
+
   .ticker-wrap{overflow:hidden;white-space:nowrap;border-radius:10px;background:rgba(255,255,255,.03);border:1px solid #23283a}
   .ticker-touch{cursor:pointer}
   .ticker{display:inline-block;padding-left:100%;animation: marquee 18s linear infinite;will-change:transform}
@@ -143,6 +152,9 @@
     border-top:1px solid #1f2430;
     padding:8px 10px env(safe-area-inset-bottom);
     z-index:30;
+  
+    border-radius:16px;
+    box-shadow: 0 10px 30px rgba(0,0,0,.45);
   }
   .bottom-nav .wrap{max-width:480px;margin:0 auto;display:flex;gap:8px}
   .navbtn{
@@ -155,7 +167,7 @@
   .navbtn .dot{width:6px;height:6px;border-radius:50%;background:transparent}
   .navbtn.active .dot{background:var(--accent)}
   /* leave space for nav */
-  .page{padding-bottom:86px}
+  .page{padding-bottom:110px}
 
 </style>
 </head>
@@ -715,11 +727,29 @@ const STORAGE_KEY="health_rank_today_v12a";
     return out.slice(0,32);
   }
   function renderTicker(){
-    const items=buildTickerItems();
-    tickerLine.innerHTML = items.map(it=>{
-      const medal = it.rank===1?"🥇":(it.rank===2?"🥈":(it.rank===3?"🥉":"#"+it.rank));
-      return `<span>${it.part} ${medal} · ${it.region} · ${it.gym} · ${it.user} · ${it.vol.toLocaleString()}kg</span>`;
-    }).join("");
+  const wrap = qs('#tickerWrap');
+  if(!wrap) return;
+  const parts = ["가슴","등","하체","어깨","팔","복근","유산소"];
+  const region = state.profile?.region || "서울";
+  const gym = state.profile?.gym || "헬스장";
+  const me = state.profile?.nick || "나";
+  // demo leaderboard items
+  const items = [];
+  parts.forEach((p, i)=>{
+    items.push({part:p, rank:1, nick:"익명1", region:"서울", gym:"A짐", vol: 4800 - i*320});
+    items.push({part:p, rank:2, nick:"익명2", region:"부산", gym:"B짐", vol: 4100 - i*300});
+    items.push({part:p, rank:3, nick:"익명3", region:"대구", gym:"C짐", vol: 3600 - i*260});
+  });
+  // include me for the currently selected part if any volume exists
+  const myVol = computeMyTodayPartVolume(state.selectedPart || "가슴");
+  items.push({part:(state.selectedPart||"가슴"), rank:4, nick:me, region, gym, vol: Math.round(myVol)});
+  // build marquee
+  const frag = items.map(it=>{
+    const volTxt = (it.part==="유산소") ? `${Math.round(it.vol)}km` : `${Math.round(it.vol).toLocaleString()}kg`;
+    return `<span class="tick-item"><span class="tick-part">${it.part}</span> <span class="tick-rank">#${it.rank}</span> <span class="tick-loc">${it.region}·${it.gym}</span> <span class="tick-nick">${it.nick}</span> <span class="tick-vol">${volTxt}</span></span>`;
+  }).join('<span class="tick-sep">•</span>');
+  wrap.innerHTML = frag + '<span class="tick-sep">•</span>' + frag;
+}).join("");
   }
   renderTicker();
 
