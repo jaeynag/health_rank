@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no"/>
-<title>Health Rank - App (Step13)</title>
+<title>Health Rank - App (Step14)</title>
 <style>
   :root{
     --bg:#0f1115; --card:#141826; --card2:#1b1f2a; --line:#2a3040;
@@ -1618,6 +1618,25 @@ showScreen('today');
     <div class="navbtn" data-screen="more"><div class="dot"></div><div>더보기</div></div>
   </div>
 </div>
+
+
+<script>
+document.addEventListener('DOMContentLoaded', ()=>{
+  function showScreen(name){
+    document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
+    const el=document.getElementById('screen-'+name);
+    if(el) el.classList.add('active');
+    document.querySelectorAll('.navbtn').forEach(b=>b.classList.toggle('active', b.dataset.screen===name));
+  }
+  document.querySelectorAll('.navbtn').forEach(b=>{
+    b.addEventListener('click', (e)=>{
+      e.preventDefault(); e.stopPropagation();
+      showScreen(b.dataset.screen);
+    });
+  });
+  showScreen('today');
+});
+</script>
 
 </body>
 </html>
