@@ -300,6 +300,66 @@
   </div>
 </div>
 
+<!-- Cardio entry overlay -->
+<div class="overlay" id="overlayCardio" aria-hidden="true">
+  <div class="drawer" role="dialog" aria-modal="true" aria-label="유산소 기록">
+    <div class="drawer-head">
+      <div>
+        <div class="drawer-title" id="cardioTitle">유산소 기록</div>
+        <div class="drawer-sub" id="cardioSub">-</div>
+      </div>
+      <div class="btn ghost small" id="closeCardio">닫기</div>
+    </div>
+    <div class="drawer-body">
+      <div class="card" style="padding:12px">
+        <div class="row between">
+          <div>
+            <div class="muted">구분</div>
+            <div class="row" style="margin-top:6px">
+              <div class="pill tap" id="cardioOutdoor">야외</div>
+              <div class="pill tap" id="cardioIndoor">실내</div>
+            </div>
+          </div>
+          <div style="text-align:right">
+            <div class="muted">페이스</div>
+            <div style="font-weight:900;font-variant-numeric:tabular-nums" id="cardioPace">-</div>
+          </div>
+        </div>
+        <div class="divider"></div>
+
+        <div class="row" style="gap:10px">
+          <div style="flex:1">
+            <div class="muted">거리 (km)</div>
+            <div class="big center" id="distVal">0</div>
+          </div>
+          <div style="flex:1">
+            <div class="muted">시간</div>
+            <div class="big center"><span id="minVal">0</span>m <span id="secVal">00</span>s</div>
+          </div>
+        </div>
+
+        <div class="divider"></div>
+
+        <div class="muted" style="margin-bottom:8px">입력</div>
+        <div class="row" style="justify-content:center;margin-bottom:10px">
+          <div class="pill tap" id="cardioFocusDist">거리</div>
+          <div class="pill tap" id="cardioFocusTime">시간</div>
+        </div>
+
+        <div class="kbd" id="cardioKbd">
+          <div class="key" data-c="1">1</div><div class="key" data-c="2">2</div><div class="key" data-c="3">3</div>
+          <div class="key" data-c="4">4</div><div class="key" data-c="5">5</div><div class="key" data-c="6">6</div>
+          <div class="key" data-c="7">7</div><div class="key" data-c="8">8</div><div class="key" data-c="9">9</div>
+          <div class="key" id="cardioDot">.</div><div class="key" data-c="0">0</div><div class="key" id="cardioBack">←</div>
+        </div>
+
+        <div class="row" style="margin-top:14px">
+          <div class="btn primary" style="flex:1;padding:16px" id="saveCardio">입력</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
 <!-- Summary overlay -->
 <div class="overlay" id="overlaySummary" aria-hidden="true">
   <div class="drawer" role="dialog" aria-modal="true" aria-label="오늘 요약">
@@ -381,7 +441,10 @@ const STORAGE_KEY="health_rank_today_v12a";
       startedAt:null,
       endedAt:null,
       currentExId:null,
-      currentExStartedAt:null
+      currentExStartedAt:null,
+      paused:false,
+      pausedAt:null,
+      pausedTotalMs:0
     }
   };
 
@@ -427,18 +490,55 @@ const STORAGE_KEY="health_rank_today_v12a";
   }
   function endWorkout(){
     stopCurrentExerciseSegment();
-    state.timers.endedAt = now();
+    state.timers.endedAt = isPaused() ? (state.timers.pausedAt||now()) : now();
     saveState();
   }
   function totalMs(){
     if(!state.timers.startedAt) return 0;
-    const end = state.timers.endedAt || now();
-    return Math.max(0, end - state.timers.startedAt);
+    const rawEnd = state.timers.endedAt || (isPaused() ? (state.timers.pausedAt||now()) : now());
+    const elapsed = Math.max(0, rawEnd - state.timers.startedAt);
+    const paused = state.timers.pausedTotalMs||0;
+    return Math.max(0, elapsed - paused);
   }
 
-  // Clock UI
+  
+  function isPaused(){ return !!state.timers.paused; }
+
+  function pauseAll(){
+    if(isPaused()) return;
+    // stop current segment (counts only if running)
+    stopCurrentExerciseSegment();
+    state.timers.paused = true;
+    state.timers.pausedAt = now();
+    saveState();
+  }
+
+  function resumeAll(){
+    if(!isPaused()) return;
+    const pa = state.timers.pausedAt || now();
+    // accumulate pause time into total by shifting startedAt forward, easier:
+    // We'll keep pausedTotalMs and compute total as (now-startedAt - pausedTotalMs)
+    state.timers.pausedTotalMs += Math.max(0, now()-pa);
+    state.timers.paused = false;
+    state.timers.pausedAt = null;
+
+    // restart current exercise segment if it should run (expanded, not done)
+    const ex = state.exercises.find(e=>e.id===state.timers.currentExId);
+    if(ex && !ex.isDone && !ex.isCollapsed){
+      state.timers.currentExStartedAt = now();
+    }
+    saveState();
+  }
+
+  function togglePause(){
+    if(isPaused()) resumeAll();
+    else pauseAll();
+  }
+// Clock UI
+  const clockBox=qs('#clockBox');
   const clockTotal=qs('#clockTotal');
-  function renderClock(){ clockTotal.textContent = fmtHMS(totalMs()); }
+  function renderClock(){ clockTotal.textContent = fmtHMS(totalMs()); clockBox.style.opacity = isPaused()?0.65:1; }
+  clockBox.addEventListener('click', togglePause);
 
   // --- Ticker ---
   const tickerWrap=qs('#tickerWrap');
@@ -935,7 +1035,7 @@ const STORAGE_KEY="health_rank_today_v12a";
       const ex=state.exercises.find(e=>e.id===id);
       if(!ex) return;
       let ms = ex.activeMs||0;
-      if(state.timers.currentExId===id && state.timers.currentExStartedAt && !ex.isDone && !ex.isCollapsed){
+      if(state.timers.currentExId===id && state.timers.currentExStartedAt && !ex.isDone && !ex.isCollapsed && !isPaused()){
         ms += Math.max(0, now()-state.timers.currentExStartedAt);
       }
       el.textContent = fmtHMS(ms);
@@ -976,16 +1076,16 @@ const STORAGE_KEY="health_rank_today_v12a";
         head.className="ex-head";
         head.innerHTML = `
           <div>
-            <div class="muted">${ex.part}</div>
+            <div class="row" style="gap:8px;align-items:center"><div class="muted">${ex.part}</div><div class="pill tap" data-action="x" title="종목삭제" style="padding:4px 8px;border-radius:10px">✕</div></div>
             <div class="ex-title">${ex.name}</div>
             <div class="ex-sub">${ex.isDone ? "완료됨" : "진행중"} · <span class="ex-time" data-ex-time="${ex.id}">00:00:00</span></div>
           </div>
           <div class="ex-meta">
             <div class="ex-actions">
-              <div class="btn small danger" data-action="x">종목삭제</div>
               <div class="btn small good" data-action="done">종목완료</div>
+              <div class="ex-time" data-ex-time="${ex.id}">00:00:00</div>
             </div>
-            <div class="ex-vol">${vol.toLocaleString()}kg</div>
+            <div class="ex-vol">${ex.type==="cardio" ? ((ex.cardio?.distanceKm||0)+"km") : (vol.toLocaleString()+"kg")}</div>
           </div>
         `;
         head.addEventListener('click',(ev)=>{
@@ -1035,22 +1135,52 @@ const STORAGE_KEY="health_rank_today_v12a";
         const prevNote = prev ? `(${prev.date})` : "(이전 없음)";
         const prevLine = prevVol!=null ? `${Math.round(prevVol).toLocaleString()}kg` : "-";
 
-        body.innerHTML = `
-          ${setRows}
-          ${liveRow}
-          <div class="compare">
-            <div class="box">
-              <div class="k">이전 운동 볼륨</div>
-              <div class="v">${prevLine}</div>
-              <div class="s">${prevNote} · 데모</div>
-            </div>
-            <div class="box">
-              <div class="k">오늘 볼륨</div>
-              <div class="v">${Math.round(vol).toLocaleString()}kg</div>
-              <div class="s">${sets.length}세트 · 훈련 <span data-ex-time="${ex.id}">00:00:00</span></div>
-            </div>
-          </div>
-        `;
+        if(ex.type==="cardio"){
+  const c=ex.cardio||{mode:"야외",distanceKm:0,minutes:0,seconds:0,paceSecPerKm:null};
+  const dist=+(c.distanceKm||0);
+  const durSec=(+(c.minutes||0)*60)+(+(c.seconds||0));
+  const pace = (dist>0 && durSec>0) ? Math.round(durSec/dist) : null;
+  const paceTxt = pace!=null ? `${Math.floor(pace/60)}m ${String(pace%60).padStart(2,'0')}s/km` : "-";
+  const durTxt = `${c.minutes||0}m ${String(c.seconds||0).padStart(2,'0')}s`;
+  body.innerHTML = `
+    <div class="set-row" style="padding:10px 10px;border:1px dashed rgba(42,48,64,.7);border-radius:12px">
+      <div class="set-left">
+        <div class="set-no">기록</div>
+        <div class="set-val">${c.mode} · ${dist}km · ${durTxt}</div>
+      </div>
+      <div class="btn ghost small" data-action="cardio" ${ex.isDone?"style='opacity:.45;pointer-events:none'":""}>완료</div>
+    </div>
+    <div class="compare">
+      <div class="box">
+        <div class="k">페이스</div>
+        <div class="v">${paceTxt}</div>
+        <div class="s">Distance : ${dist}km</div>
+      </div>
+      <div class="box">
+        <div class="k">훈련시간</div>
+        <div class="v"><span data-ex-time="${ex.id}">00:00:00</span></div>
+        <div class="s">${c.mode} · 야외/실내</div>
+      </div>
+    </div>
+  `;
+} else {
+  body.innerHTML = `
+    ${setRows}
+    ${liveRow}
+    <div class="compare">
+      <div class="box">
+        <div class="k">이전 운동 볼륨</div>
+        <div class="v">${prevLine}</div>
+        <div class="s">${prevNote} · 데모</div>
+      </div>
+      <div class="box">
+        <div class="k">오늘 볼륨</div>
+        <div class="v">${Math.round(vol).toLocaleString()}kg</div>
+        <div class="s">${sets.length}세트 · 훈련 <span data-ex-time="${ex.id}">00:00:00</span></div>
+      </div>
+    </div>
+  `;
+}
 
         card.addEventListener('click',(ev)=>{
           const a=ev.target.closest('[data-action]');
@@ -1058,6 +1188,7 @@ const STORAGE_KEY="health_rank_today_v12a";
           ev.preventDefault(); ev.stopPropagation();
           const action=a.dataset.action;
           if(action==="set") openSetEntry(ex);
+          if(action==="cardio") openCardioEntry(ex);
           if(action==="del") deleteSet(ex, parseInt(a.dataset.idx,10));
           if(action==="done") markDone(ex);
           if(action==="x") deleteExercise(ex);
@@ -1075,6 +1206,146 @@ const STORAGE_KEY="health_rank_today_v12a";
 
     updateExerciseTimeBadges();
   }
+
+// --- Cardio overlay ---
+const overlayCardio=qs('#overlayCardio');
+const closeCardio=qs('#closeCardio');
+const cardioTitle=qs('#cardioTitle');
+const cardioSub=qs('#cardioSub');
+const cardioOutdoor=qs('#cardioOutdoor');
+const cardioIndoor=qs('#cardioIndoor');
+const cardioPace=qs('#cardioPace');
+const distVal=qs('#distVal');
+const minVal=qs('#minVal');
+const secVal=qs('#secVal');
+const cardioFocusDist=qs('#cardioFocusDist');
+const cardioFocusTime=qs('#cardioFocusTime');
+const cardioBack=qs('#cardioBack');
+const cardioDot=qs('#cardioDot');
+const saveCardio=qs('#saveCardio');
+
+let cardioExId=null;
+let cardioFocus="dist";
+let distStr="", minStr="", secStr="";
+
+function setPill(el,on){
+  el.style.borderColor = on ? "var(--accent)" : "var(--line)";
+  el.style.color = on ? "var(--accent2)" : "var(--txt)";
+}
+function paceText(dist, mins, secs){
+  const d=dist, t=mins*60+secs;
+  if(!(d>0 && t>0)) return "-";
+  const p=Math.round(t/d);
+  return `${Math.floor(p/60)}m ${String(p%60).padStart(2,'0')}s/km`;
+}
+function updateCardioUI(){
+  distVal.textContent = distStr==="" ? "0" : distStr;
+  const mins = parseInt(minStr||"0",10)||0;
+  const secs = parseInt(secStr||"0",10)||0;
+  minVal.textContent = String(mins);
+  secVal.textContent = String(secs).padStart(2,'0');
+  const dist = parseFloat(distStr||"0")||0;
+  cardioPace.textContent = paceText(dist, mins, secs);
+
+  setPill(cardioFocusDist, cardioFocus==="dist");
+  setPill(cardioFocusTime, cardioFocus==="time");
+}
+
+function openCardioEntry(ex){
+  ex.isCollapsed=false;
+  saveState();
+  // 타이머는 시계가 멈춰있으면 돌지 않음
+  setCurrentExercise(ex.id);
+
+  cardioExId=ex.id;
+  cardioTitle.textContent = ex.name || "유산소";
+  cardioSub.textContent = `${ex.part} · ${ex.name}`;
+
+  const c=ex.cardio||{mode:"야외",distanceKm:0,minutes:0,seconds:0};
+  distStr = c.distanceKm ? String(c.distanceKm) : "";
+  minStr  = c.minutes ? String(c.minutes) : "";
+  secStr  = c.seconds ? String(c.seconds) : "";
+
+  function applyMode(m){
+    ex.cardio = ex.cardio || {};
+    ex.cardio.mode = m;
+    setPill(cardioOutdoor, m==="야외");
+    setPill(cardioIndoor, m==="실내");
+    saveState();
+  }
+  cardioOutdoor.onclick = ()=>applyMode("야외");
+  cardioIndoor.onclick = ()=>applyMode("실내");
+  applyMode(c.mode||"야외");
+
+  cardioFocus="dist";
+  updateCardioUI();
+
+  overlayCardio.classList.add('show');
+  overlayCardio.setAttribute('aria-hidden','false');
+}
+function closeCardioFn(){
+  overlayCardio.classList.remove('show');
+  overlayCardio.setAttribute('aria-hidden','true');
+  cardioExId=null;
+}
+closeCardio.addEventListener('click', closeCardioFn);
+overlayCardio.addEventListener('click', e=>{ if(e.target===overlayCardio) closeCardioFn(); });
+
+cardioFocusDist.addEventListener('click', ()=>{cardioFocus="dist"; updateCardioUI();});
+cardioFocusTime.addEventListener('click', ()=>{cardioFocus="time"; updateCardioUI();});
+
+qsa('#cardioKbd .key[data-c]').forEach(k=>k.addEventListener('click', ()=>{
+  const ch=k.dataset.c;
+  if(cardioFocus==="dist"){
+    if(distStr.length>=6) return;
+    distStr += ch;
+  }else{
+    // time 입력: mmss 누적
+    const mm = (minStr||"").replace(/\D/g,"");
+    const ss = (secStr||"").replace(/\D/g,"").padStart(2,"0");
+    const combined = (mm+ss+ch).replace(/^0+/,"").slice(-4).padStart(4,"0");
+    const mins = parseInt(combined.slice(0,2),10)||0;
+    const secs = parseInt(combined.slice(2,4),10)||0;
+    minStr = String(mins);
+    secStr = String(secs);
+  }
+  updateCardioUI();
+}));
+cardioDot.addEventListener('click', ()=>{
+  if(cardioFocus!=="dist") return;
+  if(distStr.includes(".")) return;
+  distStr = distStr==="" ? "0." : (distStr + ".");
+  updateCardioUI();
+});
+cardioBack.addEventListener('click', ()=>{
+  if(cardioFocus==="dist"){
+    distStr = distStr.slice(0,-1);
+  }else{
+    const mm=(minStr||"").padStart(2,"0");
+    const ss=(secStr||"").padStart(2,"0");
+    const combined=(mm+ss).slice(0,-1).padStart(4,"0");
+    minStr=String(parseInt(combined.slice(0,2),10)||0);
+    secStr=String(parseInt(combined.slice(2,4),10)||0);
+  }
+  updateCardioUI();
+});
+
+saveCardio.addEventListener('click', ()=>{
+  const ex=state.exercises.find(e=>e.id===cardioExId);
+  if(!ex) return;
+  const dist=parseFloat(distStr||"0")||0;
+  const mins=parseInt(minStr||"0",10)||0;
+  const secs=parseInt(secStr||"0",10)||0;
+  ex.cardio = ex.cardio || {};
+  ex.cardio.distanceKm=dist;
+  ex.cardio.minutes=mins;
+  ex.cardio.seconds=secs;
+  const dur=mins*60+secs;
+  ex.cardio.paceSecPerKm = (dist>0 && dur>0) ? Math.round(dur/dist) : null;
+  saveState();
+  closeCardioFn();
+  renderExercises();
+});
 
   // Summary overlay
   const overlaySummary=qs('#overlaySummary');
