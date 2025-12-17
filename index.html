@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no"/>
-<title>Health Rank - App (Step21)</title>
+<title>Health Rank - App (Step22)</title>
 <style>
   :root{
     --bg:#0f1115; --card:#141826; --card2:#1b1f2a; --line:#2a3040;
@@ -179,7 +179,7 @@
 
 
   /* Ticker motion */
-  #tickerBar{overflow:hidden;white-space:nowrap;position:relative}
+  #tickerLine{overflow:hidden;white-space:nowrap;position:relative}
   #tickerWrap{
     display:inline-block;
     will-change:transform;
@@ -189,7 +189,7 @@
     0%{ transform: translateX(0); }
     100%{ transform: translateX(-50%); }
   }
-  #tickerBar.paused #tickerWrap{ animation-play-state: paused; }
+  #tickerLine.paused #tickerWrap{ animation-play-state: paused; }
 
 </style>
 </head>
@@ -779,9 +779,9 @@ function renderTicker(){
   }
 
 function startTicker(){
-  const bar = document.getElementById('tickerBar');
-  const wrap = document.getElementById('tickerWrap');
-  if(!bar || !wrap) return;
+    const bar = document.getElementById('tickerLine');
+    const wrap = document.getElementById('tickerWrap');
+    if(!bar || !wrap) return;
   // duration based on half-width (because we duplicate content)
   requestAnimationFrame(()=>{
     const w = wrap.scrollWidth || 0;
