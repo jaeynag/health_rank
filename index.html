@@ -178,18 +178,19 @@
   .page{padding-bottom:110px}
 
 
-  /* Ticker motion */
-  #tickerLine{overflow:hidden;white-space:nowrap;position:relative}
-  #tickerWrap{
+  /* Ticker motion (2x content) */
+  #tickerWrap{overflow:hidden;white-space:nowrap;position:relative}
+  #tickerLine{
     display:inline-block;
+    padding-left:0;
     will-change:transform;
-    animation: tickerScroll linear infinite;
+    animation: tickerScroll 18s linear infinite;
   }
+  #tickerLine.paused{animation-play-state:paused}
   @keyframes tickerScroll{
     0%{ transform: translateX(0); }
     100%{ transform: translateX(-50%); }
   }
-  #tickerLine.paused #tickerWrap{ animation-play-state: paused; }
 
 </style>
 </head>
@@ -762,9 +763,22 @@ const STORAGE_KEY="health_rank_today_v12a";
     return sum;
   }
 
+function startTicker(){
+  const line = document.getElementById('tickerLine');
+  if(!line) return;
+  // duration based on half-width (because we duplicate content)
+  requestAnimationFrame(()=>{
+    const w = line.scrollWidth || 0;
+    const half = (w>0) ? (w/2) : 0;
+    const pxPerSec = 70; // speed
+    const dur = Math.max(10, Math.round(((half||w)/pxPerSec)*10)/10);
+    line.style.animationDuration = dur + "s";
+  });
+}
+
 function renderTicker(){
-  const wrap = qs('#tickerWrap');
-  if(!wrap) return;
+  const line = qs('#tickerLine');
+  if(!line) return;
 
   const region = state.profile?.region || "서울";
   const gym = state.profile?.gym || "헬스장";
@@ -776,30 +790,7 @@ function renderTicker(){
     items.push({part:p, rank:1, nick:"익명1", region:"서울", gym:"A짐", vol: 5200 - i*320});
     items.push({part:p, rank:2, nick:"익명2", region:"부산", gym:"B짐", vol: 4400 - i*300});
     items.push({part:p, rank:3, nick:"익명3", region:"대구", gym:"C짐", vol: 3800 - i*260});
-  }
-
-function startTicker(){
-    const bar = document.getElementById('tickerLine');
-    const wrap = document.getElementById('tickerWrap');
-    if(!bar || !wrap) return;
-  // duration based on half-width (because we duplicate content)
-  requestAnimationFrame(()=>{
-    const w = wrap.scrollWidth || 0;
-    const half = w/2;
-    const pxPerSec = 70; // speed
-    const dur = Math.max(10, Math.round((half/pxPerSec)*10)/10);
-    wrap.style.animationDuration = dur + "s";
   });
-
-  // pause/resume on touch/click
-  let paused=false;
-  const toggle=()=>{
-    paused=!paused;
-    bar.classList.toggle('paused', paused);
-  };
-  bar.addEventListener('click', toggle);
-  bar.addEventListener('touchstart', (e)=>{ toggle(); }, {passive:true});
-});
 
   const myPart = state.selectedPart || "가슴";
   const myVol = (myPart==="유산소") ? 0 : computeMyTodayPartVolume(myPart);
@@ -810,9 +801,10 @@ function startTicker(){
     return `<span class="tick-item"><span class="tick-part">${it.part}</span> <span class="tick-rank">#${it.rank}</span> <span class="tick-loc">${it.region}·${it.gym}</span> <span class="tick-nick">${it.nick}</span> <span class="tick-vol">${volTxt}</span></span>`;
   }).join('<span class="tick-sep">•</span>');
 
-  wrap.innerHTML = htmlItems + '<span class="tick-sep">•</span>' + htmlItems;
-  }
-  try{renderTicker(); try{startTicker();}catch(e){console.warn(e);}}catch(e){console.warn(e);} try{startTicker();}catch(e){console.warn(e);} 
+  // 2번 이어붙여서 자연스럽게 반복
+  line.innerHTML = htmlItems + '<span class="tick-sep">•</span>' + htmlItems;
+  startTicker();
+}
 
   // Top10 overlay
   const overlayTop10=qs('#overlayTop10');
@@ -1683,6 +1675,7 @@ saveCardio.addEventListener('click', ()=>{
   // Boot
   if(state.selectedPart) showWork(state.selectedPart);
   else showPartPicker();
+  renderTicker();
   renderExercises();
   renderClock();
 // --- Bottom nav routing ---
