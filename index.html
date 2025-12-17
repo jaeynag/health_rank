@@ -992,15 +992,13 @@ const STORAGE_KEY="health_rank_today_v12a";
 
   
   function toggleTimePause(ex){
-    // pause/resume this exercise timer only
     if(!ex) return;
-    if(state.timers.currentExId!==ex.id){
-      // make it current if user taps its time
-      setCurrentExercise(ex.id);
-    }
+    if(ex.isDone) return; // 완료된 종목은 조작 불가
+    if(state.timers.currentExId!==ex.id) return; // 현재 진행중 종목만 조작 (다른 종목에 영향 X)
+
     if(!ex.timePaused){
-      // pause: stop current segment and mark paused
-      stopCurrentExerciseSegment();
+      // pause current exercise only
+      stopCurrentExerciseSegment(); // 현재 종목 세그먼트만 정리
       ex.timePaused = true;
       ex.timePausedAt = now();
       state.timers.currentExStartedAt = null;
@@ -1011,13 +1009,13 @@ const STORAGE_KEY="health_rank_today_v12a";
     // resume
     ex.timePaused = false;
     ex.timePausedAt = null;
-    // restart segment if it should run
-    if(state.timers.currentExId===ex.id && !ex.isDone && !ex.isCollapsed){
+    if(!ex.isCollapsed){
       state.timers.currentExStartedAt = now();
     }
     saveState();
     renderExercises();
   }
+
 
 function updateExerciseTimeBadges(){
     qsa('[data-ex-time]').forEach(el=>{
@@ -1030,7 +1028,9 @@ function updateExerciseTimeBadges(){
       }
       el.textContent = fmtHMS(ms);
       el.classList.toggle("time-paused", !!ex.timePaused);
-      if(ex.timePaused) el.title="일시정지중 (터치: 재개)"; else el.title="터치: 일시정지/재개";
+      if(ex.isDone){ el.title="완료됨"; }
+      else if(ex.timePaused){ el.title="일시정지중 (터치: 재개)"; }
+      else { el.title="터치: 일시정지/재개"; }
     });
   }
 
@@ -1075,7 +1075,7 @@ function updateExerciseTimeBadges(){
           </div>
           <div class="ex-meta">
             <div class="ex-actions">
-              <div class="pill tap" data-action="time" data-ex-time="${ex.id}" title="터치: 일시정지/재개" style="padding:6px 10px">00:00:00</div>
+              <div class="pill tap" data-action="time" data-ex-time="${ex.id}" title="터치: 일시정지/재개" style="padding:6px 10px;${ex.isDone?'opacity:.45;pointer-events:none':''}">00:00:00</div>
               <div class="btn small good" data-action="done">종목완료</div>
             </div>
             <div class="ex-vol">${ex.type==="cardio" ? ((ex.cardio?.distanceKm||0)+"km") : (vol.toLocaleString()+"kg")}</div>
