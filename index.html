@@ -35,6 +35,7 @@
   .tick-nick{font-weight:900}
   .tick-vol{font-weight:900}
   .tick-sep{opacity:.35;margin:0 10px}
+  .tick-medal{font-size:14px;line-height:1;transform:translateY(-1px)}
 
   .ticker-wrap{overflow:hidden;white-space:nowrap;border-radius:10px;background:rgba(255,255,255,.03);border:1px solid #23283a}
   .ticker-touch{cursor:pointer}
@@ -48,6 +49,8 @@
   /* UI */
   .section{margin:12px 0}
   .card{position:relative;background:var(--card);border:1px solid var(--line);border-radius:14px;padding:12px}
+  .card.ex-card.active{border-color:rgba(255,214,102,.24);box-shadow:0 0 0 1px rgba(255,214,102,.14) inset}
+
   .row{display:flex;gap:8px;align-items:center}
   .row.between{justify-content:space-between}
   .muted{color:var(--mut);font-size:12px}
@@ -104,10 +107,24 @@
   .swipe{position:relative; overflow:hidden; border-radius:12px; margin:6px 0;background:var(--card); border:1px dashed rgba(42,48,64,.7); touch-action: pan-y;}
   .swipe-actions{position:absolute; top:0; right:0; bottom:0; width:86px;display:flex; align-items:center; justify-content:center; padding:8px;background:rgba(255,76,106,.12); border-left:1px solid rgba(255,76,106,.25); z-index:0;}
   .swipe-front{position:relative; z-index:1; transform:translateX(0px);transition:transform 140ms ease-out; will-change:transform;background:var(--card); padding:10px 10px;}
+  .swipe-front.done{background:rgba(54,211,153,.10); border:1px solid rgba(54,211,153,.22)}
+  .swipe-front.done .set-no{color:#c9ffe9}
+  .swipe-front.done .set-val{color:#c9ffe9}
+  .swipe-front.done .set-vol{color:rgba(201,255,233,.85)}
+  .check{display:inline-flex;align-items:center;justify-content:center;width:16px;height:16px;border-radius:99px;margin-right:6px;background:rgba(54,211,153,.22);border:1px solid rgba(54,211,153,.35);color:#c9ffe9;font-size:11px;font-weight:900;transform:translateY(-1px)}
+  .set-row.live{padding:10px 10px;border:1px solid rgba(255,214,102,.35);background:rgba(255,214,102,.06);border-radius:12px}
+  .live-dot{display:inline-block;width:8px;height:8px;border-radius:99px;background:var(--accent2);margin-right:6px;animation:pulse 1.2s ease-in-out infinite}
+  @keyframes pulse{0%{transform:scale(1);opacity:.55}50%{transform:scale(1.7);opacity:1}100%{transform:scale(1);opacity:.55}}
+  .prev-box{display:flex;flex-direction:column;gap:2px;white-space:normal;line-height:1.15}
+  .prev-date{font-size:12px;opacity:.6}
+  .prev-val{font-size:13px;opacity:.75;font-variant-numeric:tabular-nums}
+
   .swipe.open .swipe-front{transform:translateX(-86px)}
   .set-row{display:flex;justify-content:space-between;align-items:center;gap:8px}
+  .set-row.done{opacity:.98}
+
   .set-left{display:flex;gap:10px;align-items:center;min-width:0;flex:1}
-  .set-no{color:var(--mut);width:52px;flex:0 0 auto}
+  .set-no{color:var(--mut);width:70px;flex:0 0 auto}
   .set-val{font-variant-numeric:tabular-nums;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   .set-vol{color:var(--mut);font-size:12px;flex:0 0 auto}
   .ghosttext{color:rgba(142,147,181,.85)}
@@ -715,7 +732,19 @@ const STORAGE_KEY="health_rank_today_v12a";
   }
   function endWorkout(){
     stopCurrentExerciseSegment();
-    state.timers.endedAt = now();
+
+    // 종목완료를 안 눌렀어도 '운동 종료'면 전부 종료 처리
+    const t = now();
+    for(const ex of state.exercises){
+      if(!ex.isDone){
+        ex.isDone = true;
+        ex.isCollapsed = true;
+      }
+    }
+    state.timers.currentExId = null;
+    state.timers.currentExStartedAt = null;
+
+    state.timers.endedAt = t;
     saveState();
   }
   function totalMs(){
@@ -798,7 +827,14 @@ function renderTicker(){
 
   const htmlItems = items.map(it=>{
     const volTxt = (it.part==="유산소") ? `${Math.round(it.vol)}km` : `${Math.round(it.vol).toLocaleString()}kg`;
-    return `<span class="tick-item"><span class="tick-part">${it.part}</span> <span class="tick-rank">#${it.rank}</span> <span class="tick-loc">${it.region}·${it.gym}</span> <span class="tick-nick">${it.nick}</span> <span class="tick-vol">${volTxt}</span></span>`;
+    return `<span class="tick-item">`
+      + (()=>{
+          const medal = (it.rank===1) ? "🥇" : (it.rank===2) ? "🥈" : (it.rank===3) ? "🥉" : (it.nick===me ? "🏅" : "");
+          const loc = `${it.region}·${it.gym}`;
+          const medalHtml = medal ? `<span class="tick-medal">${medal}</span>` : "";
+          return `${medalHtml}<span class="tick-part">${it.part}</span> <span class="tick-rank">#${it.rank}</span> <span class="tick-loc">${loc}</span> <span class="tick-nick">${it.nick}</span> <span class="tick-vol">${volTxt}</span>`;
+      })()
+      + `</span>`;
   }).join('<span class="tick-sep">•</span>');
 
   // 2번 이어붙여서 자연스럽게 반복
@@ -828,7 +864,7 @@ function renderTicker(){
           ${list.map(it=>`
             <div class="top10-item">
               <div class="a">
-                <div style="font-weight:900">#${it.rank} · ${it.user}</div>
+                <div style="font-weight:900">${it.rank===1?"🥇":it.rank===2?"🥈":it.rank===3?"🥉":"🏅"} #${it.rank} · ${it.user}</div>
                 <div style="font-weight:900">${it.vol.toLocaleString()}kg</div>
               </div>
               <div class="b">${it.region} · ${it.gym}</div>
@@ -1313,7 +1349,7 @@ function updateExerciseTimeBadges(){
 
       groups[part].forEach(ex=>{
         const card=document.createElement('div');
-        card.className="card";
+        card.className="card ex-card";
         card.dataset.id=ex.id;
 
         const sets=ex.sets||[];
@@ -1321,6 +1357,8 @@ function updateExerciseTimeBadges(){
         const prevVol = (typeof ex.prevWorkoutVolume==="number") ? ex.prevWorkoutVolume : null;
         const nextNo=sets.length+1;
 
+        const isActive = (state.timers.currentExId===ex.id) && !ex.isDone;
+        if(isActive) card.classList.add('active');
         const head = document.createElement('div');
         head.className="ex-head";
         head.innerHTML = `
@@ -1328,7 +1366,7 @@ function updateExerciseTimeBadges(){
           <div class="ex-left">
             <div class="muted">${ex.part}</div>
             <div class="ex-title">${ex.name}</div>
-            <div class="ex-sub">${ex.isDone ? "완료됨" : "진행중"}</div>
+            <div class="ex-sub">${ex.isDone ? "완료됨" : (isActive ? "진행중" : "대기중")}</div>
           </div>
           <div class="ex-meta">
             <div class="ex-actions">
@@ -1357,10 +1395,10 @@ function updateExerciseTimeBadges(){
             <div class="swipe-actions">
               <div class="btn danger small" data-action="del" data-idx="${i}">삭제</div>
             </div>
-            <div class="swipe-front">
-              <div class="set-row">
+            <div class="swipe-front done">
+              <div class="set-row done">
                 <div class="set-left">
-                  <div class="set-no">${i+1}세트</div>
+                  <div class="set-no"><span class="check">✓</span>${i+1}세트</div>
                   <div class="set-val">${fmtKg(s.w)}kg × ${s.r} reps</div>
                 </div>
                 <div class="set-vol">${(s.w*s.r).toLocaleString()}kg</div>
@@ -1370,13 +1408,15 @@ function updateExerciseTimeBadges(){
         `).join("");
 
         const prev=ex.prevWorkoutRecord;
-        const ghost=prev?`${prev.date}  ${fmtKg(prev.w)}kg × ${prev.r} reps`:`이전 기록 없음`;
+        const ghost = prev
+          ? `<div class="prev-date">${prev.date}</div><div class="prev-val">${fmtKg(prev.w)}kg*${prev.r}reps</div>`
+          : `<div class="prev-date">이전 없음</div><div class="prev-val">-</div>`;
 
         const liveRow = `
-          <div class="set-row" style="padding:10px 10px;border:1px dashed rgba(42,48,64,.7);border-radius:12px">
+          <div class="set-row live">
             <div class="set-left">
-              <div class="set-no">${nextNo}세트</div>
-              <div class="set-val ghosttext">${ghost}</div>
+              <div class="set-no"><span class="live-dot"></span>${nextNo}세트</div>
+              <div class="set-val prev-box ghosttext">${ghost}</div>
             </div>
             <div class="btn ghost small" data-action="set" ${ex.isDone?"style='opacity:.45;pointer-events:none'":""}>완료</div>
           </div>
