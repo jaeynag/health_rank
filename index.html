@@ -17,7 +17,7 @@
 
   /* Compact clock */
   .head-row{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:8px}
-  .clock{
+  .clock{cursor:pointer;
     flex:1;display:flex;align-items:center;justify-content:space-between;
     border:1px solid #23283a;border-radius:12px;
     background:rgba(255,255,255,.03);
@@ -26,6 +26,9 @@
   }
   .clock .s{color:var(--mut);font-size:12px}
   .clock .t{font-variant-numeric:tabular-nums;letter-spacing:.08em;font-weight:900}
+  .clock.paused{border-color:rgba(255,255,255,.35);background:rgba(76,92,255,.14)}
+  .clock.paused .s{color:#cfd3ff}
+  .clock.paused .t{color:#ffffff}
 
   /* Ticker */
   .ticker-wrap{overflow:hidden;white-space:nowrap;border-radius:10px;background:rgba(255,255,255,.03);border:1px solid #23283a}
@@ -39,7 +42,7 @@
 
   /* UI */
   .section{margin:12px 0}
-  .card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:12px}
+  .card{position:relative;background:var(--card);border:1px solid var(--line);border-radius:14px;padding:12px}
   .row{display:flex;gap:8px;align-items:center}
   .row.between{justify-content:space-between}
   .muted{color:var(--mut);font-size:12px}
@@ -63,6 +66,20 @@
   .ex-vol{color:var(--mut);font-size:12px}
   .ex-actions{display:flex;gap:8px;align-items:center;flex-wrap:wrap;justify-content:flex-end}
   .ex-time{color:var(--mut);font-size:12px;font-variant-numeric:tabular-nums;letter-spacing:.04em}
+
+  .ex-x{
+    position:absolute;left:8px;top:8px;
+    width:22px;height:22px;border-radius:8px;
+    display:flex;align-items:center;justify-content:center;
+    border:1px solid rgba(255,255,255,.18);
+    background:rgba(255,255,255,.04);
+    color:#cfd3ff;
+    font-weight:900;
+    font-size:13px;
+    line-height:1;
+    user-select:none;
+  }
+
 
   .part-label{margin:10px 0 6px;color:var(--mut);font-size:12px;letter-spacing:.02em}
   .part-label strong{color:var(--accent2)}
@@ -537,7 +554,7 @@ const STORAGE_KEY="health_rank_today_v12a";
 // Clock UI
   const clockBox=qs('#clockBox');
   const clockTotal=qs('#clockTotal');
-  function renderClock(){ clockTotal.textContent = fmtHMS(totalMs()); clockBox.style.opacity = isPaused()?0.65:1; }
+  function renderClock(){ clockTotal.textContent = fmtHMS(totalMs()); clockBox.classList.toggle("paused", isPaused()); }
   clockBox.addEventListener('click', togglePause);
 
   // --- Ticker ---
@@ -992,27 +1009,7 @@ const STORAGE_KEY="health_rank_today_v12a";
     renderExercises();
   }
 
-  function toggleCollapseWithTimer(ex){
-    if(ex.isDone){
-      toggleCollapseWithTimer(ex);
-      return;
-    }
-    const willCollapse = !ex.isCollapsed;
-    if(willCollapse){
-      if(state.timers.currentExId===ex.id){
-        stopCurrentExerciseSegment();
-        state.timers.currentExStartedAt = null;
-      }
-      ex.isCollapsed = true;
-      saveState();
-      renderExercises();
-      return;
-    }
-    ex.isCollapsed = false;
-    saveState();
-    setCurrentExercise(ex.id);
-    renderExercises();
-  }
+  function toggleCollapseWithTimer(ex){ toggleCollapse(ex); }
   function markDone(ex){
     const ok = confirm(`${ex.name}를 완료하겠습니까?`);
     if(!ok) return;
@@ -1075,15 +1072,16 @@ const STORAGE_KEY="health_rank_today_v12a";
         const head = document.createElement('div');
         head.className="ex-head";
         head.innerHTML = `
+          <div class="ex-x" data-action="x" title="종목삭제">✕</div>
           <div>
-            <div class="row" style="gap:8px;align-items:center"><div class="muted">${ex.part}</div><div class="pill tap" data-action="x" title="종목삭제" style="padding:4px 8px;border-radius:10px">✕</div></div>
+            <div class="muted">${ex.part}</div>
             <div class="ex-title">${ex.name}</div>
-            <div class="ex-sub">${ex.isDone ? "완료됨" : "진행중"} · <span class="ex-time" data-ex-time="${ex.id}">00:00:00</span></div>
+            <div class="ex-sub">${ex.isDone ? "완료됨" : "진행중"}</div>
           </div>
           <div class="ex-meta">
             <div class="ex-actions">
-              <div class="btn small good" data-action="done">종목완료</div>
               <div class="ex-time" data-ex-time="${ex.id}">00:00:00</div>
+              <div class="btn small good" data-action="done">종목완료</div>
             </div>
             <div class="ex-vol">${ex.type==="cardio" ? ((ex.cardio?.distanceKm||0)+"km") : (vol.toLocaleString()+"kg")}</div>
           </div>
