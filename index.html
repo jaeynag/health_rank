@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no"/>
-<title>Health Rank - App (Step16)</title>
+<title>Health Rank - App (Step17)</title>
 <style>
   :root{
     --bg:#0f1115; --card:#141826; --card2:#1b1f2a; --line:#2a3040;
@@ -113,8 +113,18 @@
   .ghosttext{color:rgba(142,147,181,.85)}
 
   /* Overlays */
-  .overlay{position:fixed;inset:0;background:rgba(0,0,0,.55);display:none;align-items:flex-start;justify-content:center;padding:12px;z-index:60}
-  .overlay.show{display:flex}
+  .overlay{
+    display:none;
+    position:fixed;inset:0;
+    background:rgba(0,0,0,.62);
+    z-index:60;
+    pointer-events:none;
+  }
+  .overlay.show{
+    display:flex;
+    align-items:flex-end;
+    pointer-events:auto;
+  }
   .drawer{width:min(480px,100%);margin-top:56px;background:var(--card);border:1px solid var(--line);border-radius:16px;overflow:hidden}
   .drawer-head{display:flex;align-items:center;justify-content:space-between;padding:12px;border-bottom:1px solid var(--line)}
   .drawer-title{font-weight:900}
@@ -170,6 +180,8 @@
 </style>
 </head>
 <body>
+<div id="errBanner" style="display:none;position:fixed;left:10px;right:10px;top:10px;z-index:9999;padding:10px 12px;border-radius:12px;background:rgba(255,80,80,.15);border:1px solid rgba(255,80,80,.45);color:#ffd9d9;font-weight:800;font-size:12px"></div>
+
 <div class="page" id="app">
   <div class="header">
     <div class="ticker-wrap ticker-touch" id="tickerWrap" title="터치하면 Top10">
@@ -1669,5 +1681,38 @@ document.addEventListener('DOMContentLoaded', ()=>{
 });
 </script>
 
+<script>
+(function(){
+  const eb = document.getElementById('errBanner');
+  function showErr(msg){
+    if(!eb) return;
+    eb.style.display='block';
+    eb.textContent = 'JS 오류: ' + msg;
+  }
+  window.addEventListener('error', (e)=>{ showErr(e.message || 'unknown'); });
+  window.addEventListener('unhandledrejection', (e)=>{ showErr((e.reason && e.reason.message) ? e.reason.message : String(e.reason)); });
+
+  document.addEventListener('DOMContentLoaded', ()=>{
+    try{
+      // Bottom nav routing (hard rebind)
+      function showScreen(name){
+        document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
+        const el=document.getElementById('screen-'+name);
+        if(el) el.classList.add('active');
+        document.querySelectorAll('.navbtn').forEach(b=>b.classList.toggle('active', b.dataset.screen===name));
+      }
+      document.querySelectorAll('.navbtn').forEach(b=>{
+        b.addEventListener('click', (e)=>{
+          e.preventDefault(); e.stopPropagation();
+          showScreen(b.dataset.screen);
+        });
+      });
+      showScreen('today');
+    }catch(err){
+      showErr(err.message||String(err));
+    }
+  });
+})();
+</script>
 </body>
 </html>
