@@ -270,7 +270,7 @@
       <div class="btn" data-part="어깨">어깨</div>
       <div class="btn" data-part="팔">팔</div>
       <div class="btn" data-part="복근">복근</div>
-      <div class="btn primary" data-part="유산소">유산소</div>
+      <div class="btn" data-part="유산소">유산소</div>
     </div>
   </div>
 
@@ -599,6 +599,41 @@
       </div>
     </div>
     <div class="divider"></div>
+    <div class="row between" style="align-items:flex-start">
+      <div>
+        <div style="font-weight:900">계정</div>
+        <div class="muted" id="authStatus">로그인 안 됨</div>
+      </div>
+      <div class="row" style="gap:8px">
+        <div class="btn small" id="authLogout" style="display:none">로그아웃</div>
+      </div>
+    </div>
+
+    <div id="authLoggedOut" style="margin-top:10px">
+      <div class="row" style="gap:8px; align-items:flex-end">
+        <div style="flex:1">
+          <div class="muted">아이디</div>
+          <input class="input" id="authLoginId" placeholder="예: jaeyang" autocomplete="username" />
+        </div>
+        <div style="flex:1">
+          <div class="muted">비밀번호</div>
+          <input class="input" id="authPassword" type="password" placeholder="••••••••" autocomplete="current-password" />
+        </div>
+      </div>
+      <div class="row" style="gap:8px; margin-top:10px">
+        <div class="btn" id="authSignIn" style="flex:1">로그인</div>
+        <div class="btn primary" id="authSignUp" style="flex:1">회원가입</div>
+      </div>
+      <div class="muted" id="authMsg" style="margin-top:10px"></div>
+    </div>
+
+    <div id="authLoggedIn" class="hidden" style="margin-top:10px">
+      <div class="muted" id="authWho">-</div>
+      <div class="muted" style="margin-top:6px">프로필(닉네임/성별/체급 등)은 운동 랭킹 필터에 쓰일 거야.</div>
+    </div>
+
+    <div class="divider"></div>
+
     <div class="row between">
       <div>
         <div style="font-weight:900">데이터</div>
@@ -671,6 +706,8 @@
   </div>
 </div>
 
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
 <script>
 const STORAGE_KEY="health_rank_today_v12c";
   const qs=(s,el=document)=>el.querySelector(s);
@@ -679,6 +716,149 @@ const STORAGE_KEY="health_rank_today_v12c";
   const fmtKg=x=>(+x||0).toFixed(2).replace(/\.00$/,".0");
   const kgToLb=kg=>kg*2.2046226218;
   const lbToKg=lb=>lb/2.2046226218;
+
+  // --- Supabase (Auth + Profile) ---
+  const SUPABASE_URL = "https://plwtafeydntllgqmufhc.supabase.co";
+  const SUPABASE_KEY = "sb_publishable_Famg4_KKiWfrVznxdsZ0-g_M59PKT4k";
+
+  const _createClient =
+    (window.supabase && window.supabase.createClient) ? window.supabase.createClient :
+    (window.supabaseJs && window.supabaseJs.createClient) ? window.supabaseJs.createClient :
+    (window.Supabase && window.Supabase.createClient) ? window.Supabase.createClient :
+    null;
+
+  const supa = _createClient ? _createClient(SUPABASE_URL, SUPABASE_KEY, {
+    auth: { persistSession:true, autoRefreshToken:true, detectSessionInUrl:true }
+  }) : null;
+
+  let authUser = null;     // { id, email }
+  let authLoginId = null;  // convenience only
+
+  function makeEmailFromLoginId(loginId){
+    const id = (loginId||"").trim().toLowerCase();
+    return id ? (id + "@hr.local") : "";
+  }
+
+  function setAuthMsg(msg, isBad=false){
+    const el = document.getElementById('authMsg');
+    if(!el) return;
+    el.textContent = msg || "";
+    el.style.color = isBad ? "var(--danger)" : "var(--muted)";
+  }
+
+  function renderAuthUI(){
+    const st = document.getElementById('authStatus');
+    const lo = document.getElementById('authLoggedOut');
+    const li = document.getElementById('authLoggedIn');
+    const who = document.getElementById('authWho');
+    const outBtn = document.getElementById('authLogout');
+
+    const loggedIn = !!authUser;
+
+    if(st) st.textContent = loggedIn ? `로그인됨: ${authLoginId||authUser.email||authUser.id}` : "로그인 안 됨";
+    if(lo) lo.style.display = loggedIn ? "none" : "";
+    if(li) li.classList.toggle('hidden', !loggedIn);
+    if(outBtn) outBtn.style.display = loggedIn ? "" : "none";
+    if(who) who.textContent = loggedIn ? `user_id: ${authUser.id}` : "-";
+  }
+
+  async function loadMyProfile(){
+    if(!supa || !authUser) return null;
+    const { data, error } = await supa.from('profiles').select('*').eq('id', authUser.id).maybeSingle();
+    if(error) throw error;
+    return data || null;
+  }
+
+  async function upsertMyProfile(profile){
+    if(!supa || !authUser) return;
+    const row = Object.assign({}, profile, {
+      id: authUser.id,
+      login_id: authLoginId || null,
+      updated_at: new Date().toISOString(),
+    });
+    const { error } = await supa.from('profiles').upsert(row, { onConflict:'id' });
+    if(error) throw error;
+  }
+
+  async function bootstrapAuth(){
+    renderAuthUI();
+    if(!supa){
+      setAuthMsg("Supabase 라이브러리를 못 불러왔어. (CDN 차단/오프라인일 수 있음)", true);
+      return;
+    }
+
+    const { data } = await supa.auth.getSession();
+    authUser = data?.session?.user || null;
+
+    if(authUser){
+      // restore loginId from email if we used hr.local
+      const email = (authUser.email||"");
+      authLoginId = email.endsWith("@hr.local") ? email.replace("@hr.local","") : null;
+
+      try{
+        const p = await loadMyProfile();
+        if(p){
+          state.profile = {
+            nick: p.nick || "-",
+            sex: p.sex || "M",
+            heightCm: p.height_cm ?? null,
+            weightKg: p.weight_kg ?? null,
+            weightClass: p.weight_class || "-",
+            gym: p.gym || "",
+            region: p.region || "",
+          };
+          saveState();
+          renderMe();
+          renderTicker();
+        }else{
+          // no profile yet -> open editor
+          openProfile(true);
+        }
+      }catch(err){
+        setAuthMsg("프로필 불러오기 실패: " + (err?.message||String(err)), true);
+      }
+    }else{
+      renderMe();
+      renderTicker();
+    }
+
+    supa.auth.onAuthStateChange(async (_event, session)=>{
+      authUser = session?.user || null;
+      if(authUser){
+        const email = (authUser.email||"");
+        authLoginId = email.endsWith("@hr.local") ? email.replace("@hr.local","") : null;
+        try{
+          const p = await loadMyProfile();
+          if(p){
+            state.profile = {
+              nick: p.nick || "-",
+              sex: p.sex || "M",
+              heightCm: p.height_cm ?? null,
+              weightKg: p.weight_kg ?? null,
+              weightClass: p.weight_class || "-",
+              gym: p.gym || "",
+              region: p.region || "",
+            };
+            saveState();
+            renderMe();
+            renderTicker();
+          }else{
+            openProfile(true);
+          }
+        }catch(err){
+          setAuthMsg("프로필 불러오기 실패: " + (err?.message||String(err)), true);
+        }
+      }else{
+        // logout
+        authLoginId = null;
+        renderMe();
+        renderTicker();
+      }
+      renderAuthUI();
+    });
+
+    renderAuthUI();
+  }
 
   const HISTORY_KEY="health_rank_history_v1";
   const MAX_HISTORY_DAYS=365;
@@ -743,6 +923,7 @@ const STORAGE_KEY="health_rank_today_v12c";
   const state={
     selectedPart:null,
     exercises:[],
+    profile:null,
     weightMode:"inc",
     timers:{
       startedAt:null,
@@ -760,6 +941,7 @@ const STORAGE_KEY="health_rank_today_v12c";
     if(typeof snap.selectedPart==="string") state.selectedPart=snap.selectedPart;
     if(Array.isArray(snap.exercises)) state.exercises=snap.exercises;
     if(snap.weightMode==="inc"||snap.weightMode==="dec") state.weightMode=snap.weightMode;
+    if(snap.profile && typeof snap.profile==="object") state.profile=snap.profile;
     if(snap.timers) state.timers = Object.assign(state.timers, snap.timers);
   }
   loadState();
@@ -865,7 +1047,7 @@ function startTicker(){
   requestAnimationFrame(()=>{
     const w = line.scrollWidth || 0;
     const half = (w>0) ? (w/2) : 0;
-    const pxPerSec = 70; // speed
+    const pxPerSec = 35; // speed
     const dur = Math.max(10, Math.round(((half||w)/pxPerSec)*10)/10);
     line.style.animationDuration = dur + "s";
   });
@@ -950,6 +1132,200 @@ function renderTicker(){
 
   // Navigation
   const partCard=qs('#partCard'), workCard=qs('#workCard');
+  // --- More page: profile / unit / reset ---
+  const meNickEl=qs('#meNick');
+  const meMetaEl=qs('#meMeta');
+  const editProfileBtn=qs('#editProfile');
+  const resetAllBtn=qs('#resetAll');
+
+  const overlayProfile=qs('#overlayProfile');
+  const closeProfileBtn=qs('#closeProfile');
+  const pfNick=qs('#pfNick'), pfSex=qs('#pfSex'), pfHeight=qs('#pfHeight'), pfWeight=qs('#pfWeight');
+  const pfClass=qs('#pfClass'), pfGym=qs('#pfGym'), pfRegion=qs('#pfRegion');
+  const pfCancel=qs('#pfCancel'), pfSave=qs('#pfSave'), pfWarn=qs('#pfWarn');
+
+  function calcWeightClass(sex, wKg){
+    const w = +wKg;
+    if(!isFinite(w) || w<=0) return "-";
+    // 단순 예시 체급(대략): 나중에 필요하면 표준으로 교체
+    if(sex==="F"){
+      if(w<=47) return "여 47-";
+      if(w<=52) return "여 52";
+      if(w<=57) return "여 57";
+      if(w<=63) return "여 63";
+      if(w<=69) return "여 69";
+      if(w<=76) return "여 76";
+      return "여 76+";
+    }else{
+      if(w<=59) return "남 59-";
+      if(w<=66) return "남 66";
+      if(w<=74) return "남 74";
+      if(w<=83) return "남 83";
+      if(w<=93) return "남 93";
+      if(w<=105) return "남 105";
+      return "남 105+";
+    }
+  }
+
+  function renderMe(){
+    const p = state.profile;
+    if(!p){
+      if(meNickEl) meNickEl.textContent = "-";
+      if(meMetaEl) meMetaEl.textContent = "프로필을 설정해줘";
+      return;
+    }
+    if(meNickEl) meNickEl.textContent = p.nick || "-";
+    const meta = [
+      (p.sex==="F" ? "여" : "남"),
+      (p.weightClass || "-"),
+      (p.region || ""),
+      (p.gym || "")
+    ].filter(Boolean).join(" · ");
+    if(meMetaEl) meMetaEl.textContent = meta || "-";
+  }
+
+  function openProfile(force=false){
+    if(!overlayProfile) return;
+    if(pfWarn) pfWarn.textContent = force ? "프로필을 저장해야 랭킹 필터가 정확해져." : "";
+    const p = state.profile || {};
+    pfNick.value = p.nick || (authLoginId||"");
+    pfSex.value = p.sex || "M";
+    pfHeight.value = (p.heightCm!=null) ? String(p.heightCm) : "";
+    pfWeight.value = (p.weightKg!=null) ? String(p.weightKg) : "";
+    pfGym.value = p.gym || "";
+    pfRegion.value = p.region || "";
+    pfClass.textContent = calcWeightClass(pfSex.value, pfWeight.value);
+    overlayProfile.classList.add('show');
+    overlayProfile.setAttribute('aria-hidden','false');
+  }
+
+  function closeProfile(){
+    if(!overlayProfile) return;
+    overlayProfile.classList.remove('show');
+    overlayProfile.setAttribute('aria-hidden','true');
+  }
+
+  function setProfileWarn(msg, isBad=false){
+    if(!pfWarn) return;
+    pfWarn.textContent = msg || "";
+    pfWarn.style.color = isBad ? "var(--danger)" : "var(--muted)";
+  }
+
+  function readProfileFromForm(){
+    const nick=(pfNick.value||"").trim();
+    const sex=pfSex.value==="F" ? "F" : "M";
+    const h = parseInt((pfHeight.value||"").replace(/[^0-9]/g,""),10);
+    const w = parseFloat((pfWeight.value||"").replace(/[^0-9.]/g,""));
+    const heightCm = isFinite(h) && h>0 ? h : null;
+    const weightKg = isFinite(w) && w>0 ? +w.toFixed(1) : null;
+    const gym=(pfGym.value||"").trim();
+    const region=(pfRegion.value||"").trim();
+    const weightClass = calcWeightClass(sex, weightKg);
+    return { nick, sex, heightCm, weightKg, weightClass, gym, region };
+  }
+
+  pfSex.addEventListener('change', ()=>{ pfClass.textContent = calcWeightClass(pfSex.value, pfWeight.value); });
+  pfWeight.addEventListener('input', ()=>{ pfClass.textContent = calcWeightClass(pfSex.value, pfWeight.value); });
+
+  if(editProfileBtn) editProfileBtn.addEventListener('click', ()=>openProfile(false));
+  if(closeProfileBtn) closeProfileBtn.addEventListener('click', closeProfile);
+  if(pfCancel) pfCancel.addEventListener('click', closeProfile);
+
+  if(pfSave) pfSave.addEventListener('click', async ()=>{
+    const p = readProfileFromForm();
+    if(!p.nick){
+      setProfileWarn("닉네임은 필수야.", true);
+      return;
+    }
+    state.profile = p;
+    saveState();
+    renderMe();
+    renderTicker();
+
+    if(authUser && supa){
+      try{
+        await upsertMyProfile({
+          nick:p.nick,
+          sex:p.sex,
+          height_cm:p.heightCm,
+          weight_kg:p.weightKg,
+          weight_class:p.weightClass,
+          gym:p.gym,
+          region:p.region,
+        });
+        setProfileWarn("저장됨");
+        closeProfile();
+      }catch(err){
+        setProfileWarn("Supabase 저장 실패: " + (err?.message||String(err)), true);
+      }
+    }else{
+      setProfileWarn("로컬에만 저장됨(로그인하면 클라우드 저장 가능)");
+      closeProfile();
+    }
+  });
+
+  if(resetAllBtn) resetAllBtn.addEventListener('click', ()=>{
+    const ok = confirm("로컬 데이터를 전부 초기화할까?");
+    if(!ok) return;
+    localStorage.removeItem(STORAGE_KEY);
+    localStorage.removeItem(HISTORY_KEY);
+    location.reload();
+  });
+
+  // --- Auth UI events ---
+  const authLoginIdEl = qs('#authLoginId');
+  const authPasswordEl = qs('#authPassword');
+  const authSignInBtn = qs('#authSignIn');
+  const authSignUpBtn = qs('#authSignUp');
+  const authLogoutBtn = qs('#authLogout');
+
+  if(authSignInBtn) authSignInBtn.addEventListener('click', async ()=>{
+    setAuthMsg("");
+    if(!supa) return setAuthMsg("Supabase 연결이 없어.", true);
+    const loginId=(authLoginIdEl.value||"").trim();
+    const pw=(authPasswordEl.value||"");
+    if(!loginId || pw.length<6) return setAuthMsg("아이디/비밀번호(6자 이상) 확인해줘.", true);
+    const email=makeEmailFromLoginId(loginId);
+    try{
+      const { data, error } = await supa.auth.signInWithPassword({ email, password: pw });
+      if(error) throw error;
+      authLoginId = loginId.toLowerCase();
+      authUser = data?.user || data?.session?.user || null;
+      setAuthMsg("로그인됨");
+      renderAuthUI();
+    }catch(err){
+      setAuthMsg("로그인 실패: " + (err?.message||String(err)), true);
+    }
+  });
+
+  if(authSignUpBtn) authSignUpBtn.addEventListener('click', async ()=>{
+    setAuthMsg("");
+    if(!supa) return setAuthMsg("Supabase 연결이 없어.", true);
+    const loginId=(authLoginIdEl.value||"").trim();
+    const pw=(authPasswordEl.value||"");
+    if(!loginId || pw.length<6) return setAuthMsg("아이디/비밀번호(6자 이상) 확인해줘.", true);
+    const email=makeEmailFromLoginId(loginId);
+    try{
+      const { data, error } = await supa.auth.signUp({ email, password: pw });
+      if(error) throw error;
+      authLoginId = loginId.toLowerCase();
+      authUser = data?.user || data?.session?.user || null;
+      setAuthMsg("회원가입/로그인 완료. 프로필 설정해줘.");
+      renderAuthUI();
+      openProfile(true);
+    }catch(err){
+      setAuthMsg("회원가입 실패: " + (err?.message||String(err)), true);
+    }
+  });
+
+  if(authLogoutBtn) authLogoutBtn.addEventListener('click', async ()=>{
+    if(!supa) return;
+    await supa.auth.signOut();
+    authUser=null; authLoginId=null;
+    setAuthMsg("로그아웃됨");
+    renderAuthUI();
+  });
+
   const calendarCard=qs('#calendarCard');
   const selectedPartEl=qs('#selectedPart'), todaySmall=qs('#todaySmall'), exerciseList=qs('#exerciseList');
   const backBtn=qs('#backBtn'), addExerciseBtn=qs('#addExerciseBtn');
@@ -1001,8 +1377,6 @@ function renderTicker(){
         + `</div>`
       );
     }
-
-    while(cells.length<42) cells.push('<div class="cal-cell blank"></div>');
     calGrid.innerHTML = cells.join("");
   }
 
@@ -1864,6 +2238,8 @@ saveCardio.addEventListener('click', ()=>{
   }, 250);
 
   // Boot
+  bootstrapAuth();
+
   if(state.selectedPart) showWork(state.selectedPart, false);
   else showPartPicker();
   renderTicker();
@@ -1901,21 +2277,15 @@ showScreen('today');
 
 
 <script>
-document.addEventListener('DOMContentLoaded', ()=>{
-  function showScreen(name){
-    document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
-    const el=document.getElementById('screen-'+name);
-    if(el) el.classList.add('active');
-    document.querySelectorAll('.navbtn').forEach(b=>b.classList.toggle('active', b.dataset.screen===name));
-  }
-  document.querySelectorAll('.navbtn').forEach(b=>{
-    b.addEventListener('click', (e)=>{
-      e.preventDefault(); e.stopPropagation();
-      showScreen(b.dataset.screen);
+  document.addEventListener('DOMContentLoaded', ()=>{
+    document.querySelectorAll('.navbtn').forEach(b=>{
+      b.addEventListener('click', (e)=>{
+        e.preventDefault(); e.stopPropagation();
+        if(typeof window.showScreen==='function') window.showScreen(b.dataset.screen);
+      }, {passive:false});
     });
+    if(typeof window.showScreen==='function') window.showScreen('today');
   });
-  showScreen('today');
-});
 </script>
 
 <script>
