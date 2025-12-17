@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no"/>
-<title>Health Rank - App (Step22)</title>
+<title>Health Rank - App (Step27)</title>
 <style>
   :root{
     --bg:#0f1115; --card:#141826; --card2:#1b1f2a; --line:#2a3040;
@@ -41,12 +41,11 @@
   .ticker-touch{cursor:pointer}
   .ticker{display:inline-block;padding-left:100%;animation: marquee 18s linear infinite;will-change:transform}
   .ticker.paused{animation-play-state:paused}
-  .ticker span{display:inline-block;margin-right:24px;color:var(--accent2);animation:pulse 1.6s ease-in-out infinite}
-  .ticker.paused span{animation-play-state:paused}
+  .ticker span{display:inline-block;margin-right:24px;color:var(--accent2)}
+  .ticker.paused span{}
   @keyframes marquee{0%{transform:translateX(0)}100%{transform:translateX(-100%)}}
-  @keyframes pulse{0%,100%{opacity:.85;text-shadow:none}50%{opacity:1;text-shadow:0 0 6px rgba(120,140,255,.6)}}
-
-  /* UI */
+  /* ticker: no extra effects */
+/* UI */
   .section{margin:12px 0}
   .card{position:relative;background:var(--card);border:1px solid var(--line);border-radius:14px;padding:12px}
   .card.ex-card.active{border-color:rgba(255,214,102,.24);box-shadow:0 0 0 1px rgba(255,214,102,.14) inset}
@@ -105,21 +104,22 @@
 
   /* Swipe row */
   .swipe{position:relative; overflow:hidden; border-radius:12px; margin:6px 0;background:var(--card); border:1px dashed rgba(42,48,64,.7); touch-action: pan-y;}
-  .swipe-actions{position:absolute; top:0; right:0; bottom:0; width:86px;display:flex; align-items:center; justify-content:center; padding:8px;background:rgba(255,76,106,.12); border-left:1px solid rgba(255,76,106,.25); z-index:0;}
+  .swipe-actions{position:absolute; top:0; right:0; bottom:0; width:86px;display:flex; align-items:center; justify-content:center; padding:8px;background:rgba(255,76,106,.12); border-left:1px solid rgba(255,76,106,.25); z-index:0; opacity:0; pointer-events:none; transition:opacity 120ms ease;}
   .swipe-front{position:relative; z-index:1; transform:translateX(0px);transition:transform 140ms ease-out; will-change:transform;background:var(--card); padding:10px 10px;}
-  .swipe-front.done{background:rgba(54,211,153,.10); border:1px solid rgba(54,211,153,.22)}
+  .swipe-front.done{background:linear-gradient(180deg, rgba(54,211,153,.18), rgba(54,211,153,.06)), var(--card); border:1px solid rgba(54,211,153,.22)}
   .swipe-front.done .set-no{color:#c9ffe9}
   .swipe-front.done .set-val{color:#c9ffe9}
   .swipe-front.done .set-vol{color:rgba(201,255,233,.85)}
   .check{display:inline-flex;align-items:center;justify-content:center;width:16px;height:16px;border-radius:99px;margin-right:6px;background:rgba(54,211,153,.22);border:1px solid rgba(54,211,153,.35);color:#c9ffe9;font-size:11px;font-weight:900;transform:translateY(-1px)}
   .set-row.live{padding:10px 10px;border:1px solid rgba(255,214,102,.35);background:rgba(255,214,102,.06);border-radius:12px}
-  .live-dot{display:inline-block;width:8px;height:8px;border-radius:99px;background:var(--accent2);margin-right:6px;animation:pulse 1.2s ease-in-out infinite}
-  @keyframes pulse{0%{transform:scale(1);opacity:.55}50%{transform:scale(1.7);opacity:1}100%{transform:scale(1);opacity:.55}}
+  .live-dot{display:inline-block;width:8px;height:8px;border-radius:99px;background:var(--accent2);margin-right:6px;animation:livePulse 1.2s ease-in-out infinite}
+  @keyframes livePulse{0%{transform:scale(1);opacity:.55}50%{transform:scale(1.7);opacity:1}100%{transform:scale(1);opacity:.55}}
   .prev-box{display:flex;flex-direction:column;gap:2px;white-space:normal;line-height:1.15}
   .prev-date{font-size:12px;opacity:.6}
   .prev-val{font-size:13px;opacity:.75;font-variant-numeric:tabular-nums}
 
   .swipe.open .swipe-front{transform:translateX(-86px)}
+  .swipe.open .swipe-actions{opacity:1;pointer-events:auto}
   .set-row{display:flex;justify-content:space-between;align-items:center;gap:8px}
   .set-row.done{opacity:.98}
 
@@ -644,7 +644,7 @@
 </div>
 
 <script>
-const STORAGE_KEY="health_rank_today_v12a";
+const STORAGE_KEY="health_rank_today_v12c";
   const qs=(s,el=document)=>el.querySelector(s);
   const qsa=(s,el=document)=>[...el.querySelectorAll(s)];
   const safeParse=s=>{try{return JSON.parse(s)}catch{return null}};
@@ -705,10 +705,13 @@ const STORAGE_KEY="health_rank_today_v12a";
   });
 
   // Timers: start on first exercise add. Exercise timer runs from add until "종목완료"
-  function ensureStarted(){
-    if(!state.timers.startedAt){
+  function ensureStarted(forceNew=false){
+    // forceNew=true면, '운동 종료' 후 다시 시작할 때 타이머를 새로 잡는다
+    if(!state.timers.startedAt || (forceNew && state.timers.endedAt)){
       state.timers.startedAt = now();
       state.timers.endedAt = null;
+      state.timers.currentExId = null;
+      state.timers.currentExStartedAt = null;
       saveState();
     }
   }
@@ -889,14 +892,19 @@ function renderTicker(){
   const endBtn=qs('#endBtn');
 
   function showPartPicker(){ partCard.style.display=""; workCard.style.display="none"; }
-  function showWork(part){
+  function showWork(part, forceStart=false){
+    // forceStart=true: 사용자가 부위를 새로 선택한 케이스(=운동 시작/재시작)
+    // forceStart=false: 부트/복원 화면(종료된 세션이면 그대로 유지)
+    if(forceStart) ensureStarted(true);
+    else ensureStarted(false);
     state.selectedPart=part; saveState();
     selectedPartEl.textContent=part;
     todaySmall.textContent=new Date().toISOString().slice(0,10);
     partCard.style.display="none"; workCard.style.display="";
     renderExercises();
+    renderClock();
   }
-  qsa('#partGrid .btn').forEach(b=>b.addEventListener('click',()=>showWork(b.dataset.part)));
+  qsa('#partGrid .btn').forEach(b=>b.addEventListener('click',()=>showWork(b.dataset.part, true)));
   backBtn.addEventListener('click',showPartPicker);
 
   // Examples + previous workout (demo)
@@ -964,7 +972,8 @@ function renderTicker(){
   overlayStart.addEventListener('click',e=>{if(e.target===overlayStart) closeStartFn();});
 
   function addExercise(name){
-    ensureStarted();
+    // 종료된 세션이었으면 새 운동으로 간주해서 타이머를 새로 시작
+    ensureStarted(!!state.timers.endedAt);
     const id=crypto.randomUUID?crypto.randomUUID():String(Date.now())+Math.random();
     const ex={
       id, part:state.selectedPart, name,
@@ -1713,7 +1722,7 @@ saveCardio.addEventListener('click', ()=>{
   }, 250);
 
   // Boot
-  if(state.selectedPart) showWork(state.selectedPart);
+  if(state.selectedPart) showWork(state.selectedPart, false);
   else showPartPicker();
   renderTicker();
   renderExercises();
