@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no"/>
-<title>Health Rank - Today (Step4)</title>
+<title>Health Rank - Today (Step4.1)</title>
 <style>
   :root{
     --bg:#0f1115; --card:#141826; --card2:#1b1f2a; --line:#2a3040;
@@ -15,20 +15,17 @@
   .page{max-width:480px;margin:0 auto;padding:12px 12px 24px}
   .header{position:sticky;top:0;background:var(--bg);padding:6px 0 10px;border-bottom:1px solid #1f2430;z-index:20}
 
-  /* Header clock */
+  /* Compact clock */
   .head-row{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:8px}
   .clock{
-    flex:1;
-    display:flex;align-items:center;justify-content:space-between;
+    flex:1;display:flex;align-items:center;justify-content:space-between;
     border:1px solid #23283a;border-radius:12px;
     background:rgba(255,255,255,.03);
     padding:10px 12px;
-    cursor:pointer; user-select:none;
+    user-select:none;
   }
-  .clock .t{font-variant-numeric:tabular-nums;letter-spacing:.08em;font-weight:900}
   .clock .s{color:var(--mut);font-size:12px}
-  .clock.paused{border-color:rgba(255,76,106,.45); background:rgba(255,76,106,.06)}
-  .clock.paused .t{color:#ffd0d8}
+  .clock .t{font-variant-numeric:tabular-nums;letter-spacing:.08em;font-weight:900}
 
   /* Ticker */
   .ticker-wrap{overflow:hidden;white-space:nowrap;border-radius:10px;background:rgba(255,255,255,.03);border:1px solid #23283a}
@@ -128,15 +125,9 @@
     </div>
 
     <div class="head-row">
-      <div class="clock" id="clockTap" title="누르면 일시정지/재개">
-        <div>
-          <div class="s" id="clockLabel">오늘 총운동시간</div>
-          <div class="t" id="clockTotal">00:00:00</div>
-        </div>
-        <div style="text-align:right">
-          <div class="s">실제 훈련시간</div>
-          <div class="t" id="clockActive">00:00:00</div>
-        </div>
+      <div class="clock" id="clockBox">
+        <div class="s">총운동시간</div>
+        <div class="t" id="clockTotal">00:00:00</div>
       </div>
     </div>
   </div>
@@ -315,7 +306,7 @@
     <div class="drawer-head">
       <div>
         <div class="drawer-title">오늘 요약</div>
-        <div class="drawer-sub">총시간/훈련시간/부위별 시간 포함</div>
+        <div class="drawer-sub">총시간 + 부위/종목 훈련시간</div>
       </div>
       <div class="btn ghost small" id="closeSummary">닫기</div>
     </div>
@@ -338,8 +329,8 @@
             <div style="font-weight:900" id="sumTotalTime">00:00:00</div>
           </div>
           <div style="text-align:right">
-            <div class="muted">실제 훈련시간</div>
-            <div style="font-weight:900" id="sumActiveTime">00:00:00</div>
+            <div class="muted">총 훈련시간(종목 합)</div>
+            <div style="font-weight:900" id="sumTrainTime">00:00:00</div>
           </div>
         </div>
         <div class="divider"></div>
@@ -363,7 +354,7 @@
 </div>
 
 <script>
-  const STORAGE_KEY="health_rank_today_v11";
+  const STORAGE_KEY="health_rank_today_v12";
   const qs=(s,el=document)=>el.querySelector(s);
   const qsa=(s,el=document)=>[...el.querySelectorAll(s)];
   const safeParse=s=>{try{return JSON.parse(s)}catch{return null}};
@@ -387,98 +378,67 @@
     exercises:[],
     weightMode:"inc",
     timers:{
-      startedAt:null,          // total elapsed base
-      totalPausedMs:0,         // for total? we keep total always running; pause affects active only
-      activeAccumMs:0,
-      activeRunning:true,
-      activeLastTick:null,
-      currentExId:null
+      startedAt:null,
+      endedAt:null,
+      currentExId:null,
+      currentExStartedAt:null
     }
   };
 
-  function saveState(){
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-  }
+  function saveState(){ localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); }
   function loadState(){
     const snap=safeParse(localStorage.getItem(STORAGE_KEY));
     if(!snap) return;
     if(typeof snap.selectedPart==="string") state.selectedPart=snap.selectedPart;
     if(Array.isArray(snap.exercises)) state.exercises=snap.exercises;
     if(snap.weightMode==="inc"||snap.weightMode==="dec") state.weightMode=snap.weightMode;
-    if(snap.timers && typeof snap.timers==="object"){
-      state.timers = Object.assign(state.timers, snap.timers);
-    }
+    if(snap.timers) state.timers = Object.assign(state.timers, snap.timers);
   }
   loadState();
-
-  // ensure per-exercise fields
   state.exercises.forEach(ex=>{
     if(typeof ex.activeMs!=="number") ex.activeMs=0;
-    if(typeof ex.prevWorkoutVolume!=="number") ex.prevWorkoutVolume=null;
   });
 
-  // Timer core
+  // Timers: start on first exercise add. Exercise timer runs from add until "종목완료"
   function ensureStarted(){
     if(!state.timers.startedAt){
       state.timers.startedAt = now();
-      state.timers.activeLastTick = now();
-      state.timers.activeRunning = true;
+      state.timers.endedAt = null;
       saveState();
     }
   }
-  function tickActive(){
-    if(!state.timers.startedAt) return;
-    if(!state.timers.activeRunning) return;
-    const t=now();
-    const last=state.timers.activeLastTick || t;
-    const dt=Math.max(0, t-last);
-    state.timers.activeAccumMs += dt;
-    state.timers.activeLastTick = t;
-
-    // add to current exercise
+  function stopCurrentExerciseSegment(){
     const curId=state.timers.currentExId;
-    if(curId){
-      const ex=state.exercises.find(e=>e.id===curId);
-      if(ex){ ex.activeMs = (ex.activeMs||0) + dt; }
+    const started=state.timers.currentExStartedAt;
+    if(!curId || !started) return;
+    const ex=state.exercises.find(e=>e.id===curId);
+    if(ex && !ex.isDone){
+      ex.activeMs = (ex.activeMs||0) + Math.max(0, now()-started);
     }
+    state.timers.currentExStartedAt=null;
   }
-
-  // UI clock
-  const clockTap=qs('#clockTap');
-  const clockTotal=qs('#clockTotal');
-  const clockActive=qs('#clockActive');
-  function renderClock(){
-    if(!state.timers.startedAt){
-      clockTotal.textContent="00:00:00";
-      clockActive.textContent="00:00:00";
-      clockTap.classList.remove('paused');
-      return;
-    }
-    const totalMs = now() - state.timers.startedAt;
-    const activeMs = state.timers.activeAccumMs;
-    clockTotal.textContent = fmtHMS(totalMs);
-    clockActive.textContent = fmtHMS(activeMs);
-    clockTap.classList.toggle('paused', !state.timers.activeRunning);
-  }
-  function togglePause(){
+  function setCurrentExercise(exId){
     ensureStarted();
-    tickActive(); // close current segment
-    state.timers.activeRunning = !state.timers.activeRunning;
-    state.timers.activeLastTick = now();
+    if(state.timers.currentExId===exId && state.timers.currentExStartedAt) return;
+    stopCurrentExerciseSegment();
+    state.timers.currentExId = exId;
+    state.timers.currentExStartedAt = now();
     saveState();
-    renderClock();
   }
-  clockTap.addEventListener('click', togglePause);
+  function endWorkout(){
+    stopCurrentExerciseSegment();
+    state.timers.endedAt = now();
+    saveState();
+  }
+  function totalMs(){
+    if(!state.timers.startedAt) return 0;
+    const end = state.timers.endedAt || now();
+    return Math.max(0, end - state.timers.startedAt);
+  }
 
-  // periodic tick
-  setInterval(()=>{
-    tickActive();
-    renderClock();
-    // don't spam localStorage too hard; save every ~2s
-    if(state.timers.startedAt && (now()%2000)<60) saveState();
-    // update exercise time labels in view
-    updateExerciseTimeBadges();
-  }, 250);
+  // Clock UI
+  const clockTotal=qs('#clockTotal');
+  function renderClock(){ clockTotal.textContent = fmtHMS(totalMs()); }
 
   // --- Ticker ---
   const tickerWrap=qs('#tickerWrap');
@@ -488,15 +448,14 @@
     const parts=getTouchedParts();
     const fallback=["하체","가슴","등"];
     const use=parts.length?parts:fallback;
-
     const region="서울";
     const gym="Olympic Gym";
-    const sampleUsers=["jaeyang","userB","userC","userD","userE","userF","userG","userH","userI","userJ"];
+    const users=["jaeyang","userB","userC","userD","userE","userF","userG","userH","userI","userJ"];
     const out=[];
     use.forEach((p,pi)=>{
       for(let i=0;i<4;i++){
         const rank=i+1;
-        const user=sampleUsers[(pi+i)%sampleUsers.length];
+        const user=users[(pi+i)%users.length];
         const vol=(9000 - (pi*520 + i*310));
         out.push({part:p, rank, region, gym, user, vol});
       }
@@ -516,18 +475,12 @@
   const overlayTop10=qs('#overlayTop10');
   const closeTop10=qs('#closeTop10');
   const top10Body=qs('#top10Body');
-
   function openTop10(){
-    // pause ticker while open
     tickerLine.classList.add('paused');
-    overlayTop10.classList.add('show');
-    overlayTop10.setAttribute('aria-hidden','false');
-
+    overlayTop10.classList.add('show'); overlayTop10.setAttribute('aria-hidden','false');
     const items=buildTickerItems();
     const byPart={};
-    items.forEach(it=>{
-      (byPart[it.part]=byPart[it.part]||[]).push(it);
-    });
+    items.forEach(it=>{ (byPart[it.part]=byPart[it.part]||[]).push(it); });
     const parts=Object.keys(byPart);
     top10Body.innerHTML = parts.map(p=>{
       const list=byPart[p].sort((a,b)=>a.rank-b.rank).slice(0,10);
@@ -551,8 +504,7 @@
     }).join("");
   }
   function closeTop10Fn(){
-    overlayTop10.classList.remove('show');
-    overlayTop10.setAttribute('aria-hidden','true');
+    overlayTop10.classList.remove('show'); overlayTop10.setAttribute('aria-hidden','true');
     tickerLine.classList.remove('paused');
   }
   closeTop10.addEventListener('click', closeTop10Fn);
@@ -655,9 +607,10 @@
     };
     seedPrevWorkoutRecord(ex);
     state.exercises.push(ex);
-    // make it current
-    state.timers.currentExId = ex.id;
-    state.timers.activeLastTick = now();
+
+    // 종목 추가 순간부터 "종목 타이머" 시작
+    setCurrentExercise(ex.id);
+
     saveState(); renderTicker();
     closePromptFn();
     renderExercises();
@@ -720,11 +673,8 @@
   });
 
   function openSetEntry(ex){
-    ensureStarted();
-    tickActive(); // close prior segment
-    state.timers.currentExId = ex.id;
-    state.timers.activeLastTick = now();
-    saveState();
+    // 세트 입력 들어갈 때도 해당 종목 타이머 계속(이미 돌고 있어도 OK)
+    setCurrentExercise(ex.id);
 
     currentExId=ex.id;
     const nextNo=(ex.sets?.length||0)+1;
@@ -858,7 +808,11 @@
   function deleteExercise(ex){
     const ok = confirm(`${ex.name} 종목을 삭제할까?`);
     if(!ok) return;
-    if(state.timers.currentExId===ex.id) state.timers.currentExId=null;
+    if(state.timers.currentExId===ex.id){
+      stopCurrentExerciseSegment();
+      state.timers.currentExId=null;
+      state.timers.currentExStartedAt=null;
+    }
     state.exercises = state.exercises.filter(e=>e.id!==ex.id);
     saveState(); renderTicker(); renderExercises();
   }
@@ -939,6 +893,13 @@
   function markDone(ex){
     const ok = confirm(`${ex.name}를 완료하겠습니까?`);
     if(!ok) return;
+
+    // 종목 완료 순간 타이머 종료
+    if(state.timers.currentExId===ex.id){
+      stopCurrentExerciseSegment();
+      state.timers.currentExId=null;
+      state.timers.currentExStartedAt=null;
+    }
     ex.isDone=true;
     ex.isCollapsed=true;
     saveState();
@@ -946,11 +907,15 @@
   }
 
   function updateExerciseTimeBadges(){
-    // update any visible time labels without full re-render
     qsa('[data-ex-time]').forEach(el=>{
       const id=el.getAttribute('data-ex-time');
       const ex=state.exercises.find(e=>e.id===id);
-      if(ex) el.textContent = fmtHMS(ex.activeMs||0);
+      if(!ex) return;
+      let ms = ex.activeMs||0;
+      if(state.timers.currentExId===id && state.timers.currentExStartedAt && !ex.isDone){
+        ms += Math.max(0, now()-state.timers.currentExStartedAt);
+      }
+      el.textContent = fmtHMS(ms);
     });
   }
 
@@ -990,7 +955,7 @@
           <div>
             <div class="muted">${ex.part}</div>
             <div class="ex-title">${ex.name}</div>
-            <div class="ex-sub">${ex.isDone ? "완료됨" : "진행중"} · <span class="ex-time" data-ex-time="${ex.id}">${fmtHMS(ex.activeMs||0)}</span></div>
+            <div class="ex-sub">${ex.isDone ? "완료됨" : "진행중"} · <span class="ex-time" data-ex-time="${ex.id}">00:00:00</span></div>
           </div>
           <div class="ex-meta">
             <div class="ex-actions">
@@ -1003,11 +968,8 @@
         head.addEventListener('click',(ev)=>{
           const a=ev.target.closest('[data-action]');
           if(a) return;
-          // set current exercise when tapped
-          ensureStarted(); tickActive();
-          state.timers.currentExId = ex.id;
-          state.timers.activeLastTick = now();
-          saveState();
+          // 종목 눌렀으면 그 종목이 "진행중"으로 간주 (타이머도 그 종목으로 스위치)
+          if(!ex.isDone) setCurrentExercise(ex.id);
           toggleCollapse(ex);
         });
 
@@ -1062,7 +1024,7 @@
             <div class="box">
               <div class="k">오늘 볼륨</div>
               <div class="v">${Math.round(vol).toLocaleString()}kg</div>
-              <div class="s">${sets.length}세트 · 훈련 <span data-ex-time="${ex.id}">${fmtHMS(ex.activeMs||0)}</span></div>
+              <div class="s">${sets.length}세트 · 훈련 <span data-ex-time="${ex.id}">00:00:00</span></div>
             </div>
           </div>
         `;
@@ -1101,20 +1063,22 @@
   const sumPartTimes=qs('#sumPartTimes');
   const sumLeaders=qs('#sumLeaders');
   const sumTotalTime=qs('#sumTotalTime');
-  const sumActiveTime=qs('#sumActiveTime');
+  const sumTrainTime=qs('#sumTrainTime');
 
   function openSummary(){
-    tickActive(); // finalize current segment
-    saveState();
+    // 요약 열 때 현재 세그먼트는 끊어서 반영(진행중 종목은 그대로 계속이지만, 요약값은 고정)
+    stopCurrentExerciseSegment();
 
     const total = state.exercises.reduce((a,e)=>a+totalVolume(e),0);
     sumTotalVol.textContent = total.toLocaleString()+"kg";
     const pct = Math.max(1, Math.min(99, Math.round(100 - Math.log10(total+10)*18)));
     sumTopPct.textContent = pct+" %";
 
-    const totalMs = state.timers.startedAt ? (now()-state.timers.startedAt) : 0;
-    sumTotalTime.textContent = fmtHMS(totalMs);
-    sumActiveTime.textContent = fmtHMS(state.timers.activeAccumMs||0);
+    sumTotalTime.textContent = fmtHMS(totalMs());
+
+    let trainMs = 0;
+    state.exercises.forEach(e=>{ trainMs += (e.activeMs||0); });
+    sumTrainTime.textContent = fmtHMS(trainMs);
 
     const byPart = {};
     const byPartTime = {};
@@ -1142,6 +1106,7 @@
     )).join("");
 
     overlaySummary.classList.add('show'); overlaySummary.setAttribute('aria-hidden','false');
+    saveState();
   }
   function closeSummaryFn(){ overlaySummary.classList.remove('show'); overlaySummary.setAttribute('aria-hidden','true'); }
   closeSummary.addEventListener('click',closeSummaryFn);
@@ -1150,8 +1115,17 @@
 
   endBtn.addEventListener('click',()=>{
     if(!confirm("오늘 운동을 종료할까?")) return;
+    endWorkout();
     openSummary();
   });
+
+  // Periodic UI refresh
+  setInterval(()=>{
+    renderClock();
+    updateExerciseTimeBadges();
+    // save occasionally
+    if((now()%3000)<80) saveState();
+  }, 250);
 
   // Boot
   if(state.selectedPart) showWork(state.selectedPart);
