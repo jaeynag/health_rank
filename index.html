@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no"/>
-<title>Health Rank - Today (Step4.1)</title>
+<title>Health Rank - App (Step11)</title>
 <style>
   :root{
     --bg:#0f1115; --card:#141826; --card2:#1b1f2a; --line:#2a3040;
@@ -137,7 +137,7 @@
   /* Screens & bottom nav */
   .screen{display:none}
   .screen.active{display:block}
-  .bottom-nav{
+  .bottom-nav{box-shadow:0 -10px 30px rgba(0,0,0,.45);border-top:1px solid rgba(255,255,255,.12);
     position:fixed;left:0;right:0;bottom:0;
     background:rgba(15,17,21,.92);
     border-top:1px solid #1f2430;
@@ -1595,5 +1595,14 @@ saveCardio.addEventListener('click', ()=>{
   renderExercises();
   renderClock();
 </script>
+
+<div class="bottom-nav" id="bottomNav">
+  <div class="wrap">
+    <div class="navbtn active" data-screen="today"><div class="dot"></div><div>오늘</div></div>
+    <div class="navbtn" data-screen="rank"><div class="dot"></div><div>랭킹</div></div>
+    <div class="navbtn" data-screen="more"><div class="dot"></div><div>더보기</div></div>
+  </div>
+</div>
+
 </body>
 </html>
