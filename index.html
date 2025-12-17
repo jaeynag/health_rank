@@ -17,7 +17,7 @@
 
   /* Compact clock */
   .head-row{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:8px}
-  .clock{cursor:pointer;
+  .clock{
     flex:1;display:flex;align-items:center;justify-content:space-between;
     border:1px solid #23283a;border-radius:12px;
     background:rgba(255,255,255,.03);
@@ -26,9 +26,6 @@
   }
   .clock .s{color:var(--mut);font-size:12px}
   .clock .t{font-variant-numeric:tabular-nums;letter-spacing:.08em;font-weight:900}
-  .clock.paused{border-color:rgba(255,255,255,.35);background:rgba(76,92,255,.14)}
-  .clock.paused .s{color:#cfd3ff}
-  .clock.paused .t{color:#ffffff}
 
   /* Ticker */
   .ticker-wrap{overflow:hidden;white-space:nowrap;border-radius:10px;background:rgba(255,255,255,.03);border:1px solid #23283a}
@@ -55,6 +52,7 @@
   .btn.danger{background:rgba(255,76,106,.14);border-color:rgba(255,76,106,.40);color:#ffd0d8}
   .pill{padding:6px 10px;border-radius:999px;border:1px solid var(--line);user-select:none}
   .pill.tap{cursor:pointer}
+  .time-paused{background:rgba(255,255,255,.06);border-color:rgba(255,255,255,.35)}
   .divider{height:1px;background:var(--line);margin:10px 0;opacity:.8}
   .hidden{display:none !important}
 
@@ -68,8 +66,8 @@
   .ex-time{color:var(--mut);font-size:12px;font-variant-numeric:tabular-nums;letter-spacing:.04em}
 
   .ex-x{
-    position:absolute;left:8px;top:8px;
-    width:22px;height:22px;border-radius:8px;
+    position:absolute;left:6px;top:6px;
+    width:20px;height:20px;border-radius:8px;
     display:flex;align-items:center;justify-content:center;
     border:1px solid rgba(255,255,255,.18);
     background:rgba(255,255,255,.04);
@@ -79,6 +77,7 @@
     line-height:1;
     user-select:none;
   }
+  .ex-left{padding-left:22px}
 
 
   .part-label{margin:10px 0 6px;color:var(--mut);font-size:12px;letter-spacing:.02em}
@@ -459,9 +458,7 @@ const STORAGE_KEY="health_rank_today_v12a";
       endedAt:null,
       currentExId:null,
       currentExStartedAt:null,
-      paused:false,
-      pausedAt:null,
-      pausedTotalMs:0
+      
     }
   };
 
@@ -492,7 +489,7 @@ const STORAGE_KEY="health_rank_today_v12a";
     const started=state.timers.currentExStartedAt;
     if(!curId || !started) return;
     const ex=state.exercises.find(e=>e.id===curId);
-    if(ex && !ex.isDone && !ex.isCollapsed){
+    if(ex && !ex.isDone && !ex.isCollapsed && !ex.timePaused){
       ex.activeMs = (ex.activeMs||0) + Math.max(0, now()-started);
     }
     state.timers.currentExStartedAt=null;
@@ -507,55 +504,19 @@ const STORAGE_KEY="health_rank_today_v12a";
   }
   function endWorkout(){
     stopCurrentExerciseSegment();
-    state.timers.endedAt = isPaused() ? (state.timers.pausedAt||now()) : now();
+    state.timers.endedAt = now();
     saveState();
   }
   function totalMs(){
     if(!state.timers.startedAt) return 0;
-    const rawEnd = state.timers.endedAt || (isPaused() ? (state.timers.pausedAt||now()) : now());
-    const elapsed = Math.max(0, rawEnd - state.timers.startedAt);
-    const paused = state.timers.pausedTotalMs||0;
-    return Math.max(0, elapsed - paused);
-  }
-
-  
-  function isPaused(){ return !!state.timers.paused; }
-
-  function pauseAll(){
-    if(isPaused()) return;
-    // stop current segment (counts only if running)
-    stopCurrentExerciseSegment();
-    state.timers.paused = true;
-    state.timers.pausedAt = now();
-    saveState();
-  }
-
-  function resumeAll(){
-    if(!isPaused()) return;
-    const pa = state.timers.pausedAt || now();
-    // accumulate pause time into total by shifting startedAt forward, easier:
-    // We'll keep pausedTotalMs and compute total as (now-startedAt - pausedTotalMs)
-    state.timers.pausedTotalMs += Math.max(0, now()-pa);
-    state.timers.paused = false;
-    state.timers.pausedAt = null;
-
-    // restart current exercise segment if it should run (expanded, not done)
-    const ex = state.exercises.find(e=>e.id===state.timers.currentExId);
-    if(ex && !ex.isDone && !ex.isCollapsed){
-      state.timers.currentExStartedAt = now();
-    }
-    saveState();
-  }
-
-  function togglePause(){
-    if(isPaused()) resumeAll();
-    else pauseAll();
+    const end = state.timers.endedAt || now();
+    return Math.max(0, end - state.timers.startedAt);
   }
 // Clock UI
   const clockBox=qs('#clockBox');
   const clockTotal=qs('#clockTotal');
-  function renderClock(){ clockTotal.textContent = fmtHMS(totalMs()); clockBox.classList.toggle("paused", isPaused()); }
-  clockBox.addEventListener('click', togglePause);
+  function renderClock(){ clockTotal.textContent = fmtHMS(totalMs()); }
+
 
   // --- Ticker ---
   const tickerWrap=qs('#tickerWrap');
@@ -720,7 +681,10 @@ const STORAGE_KEY="health_rank_today_v12a";
       prevWorkoutVolume:null,
       isCollapsed:false,
       isDone:false,
-      activeMs:0
+      activeMs:0,
+      timePaused:false,
+      timePausedAt:null,
+      timePausedMs:0
     };
     seedPrevWorkoutRecord(ex);
     state.exercises.push(ex);
@@ -1026,16 +990,47 @@ const STORAGE_KEY="health_rank_today_v12a";
     renderExercises();
   }
 
-  function updateExerciseTimeBadges(){
+  
+  function toggleTimePause(ex){
+    // pause/resume this exercise timer only
+    if(!ex) return;
+    if(state.timers.currentExId!==ex.id){
+      // make it current if user taps its time
+      setCurrentExercise(ex.id);
+    }
+    if(!ex.timePaused){
+      // pause: stop current segment and mark paused
+      stopCurrentExerciseSegment();
+      ex.timePaused = true;
+      ex.timePausedAt = now();
+      state.timers.currentExStartedAt = null;
+      saveState();
+      renderExercises();
+      return;
+    }
+    // resume
+    ex.timePaused = false;
+    ex.timePausedAt = null;
+    // restart segment if it should run
+    if(state.timers.currentExId===ex.id && !ex.isDone && !ex.isCollapsed){
+      state.timers.currentExStartedAt = now();
+    }
+    saveState();
+    renderExercises();
+  }
+
+function updateExerciseTimeBadges(){
     qsa('[data-ex-time]').forEach(el=>{
       const id=el.getAttribute('data-ex-time');
       const ex=state.exercises.find(e=>e.id===id);
       if(!ex) return;
       let ms = ex.activeMs||0;
-      if(state.timers.currentExId===id && state.timers.currentExStartedAt && !ex.isDone && !ex.isCollapsed && !isPaused()){
+      if(state.timers.currentExId===id && state.timers.currentExStartedAt && !ex.isDone && !ex.isCollapsed ){
         ms += Math.max(0, now()-state.timers.currentExStartedAt);
       }
       el.textContent = fmtHMS(ms);
+      el.classList.toggle("time-paused", !!ex.timePaused);
+      if(ex.timePaused) el.title="일시정지중 (터치: 재개)"; else el.title="터치: 일시정지/재개";
     });
   }
 
@@ -1073,14 +1068,14 @@ const STORAGE_KEY="health_rank_today_v12a";
         head.className="ex-head";
         head.innerHTML = `
           <div class="ex-x" data-action="x" title="종목삭제">✕</div>
-          <div>
+          <div class="ex-left">
             <div class="muted">${ex.part}</div>
             <div class="ex-title">${ex.name}</div>
             <div class="ex-sub">${ex.isDone ? "완료됨" : "진행중"}</div>
           </div>
           <div class="ex-meta">
             <div class="ex-actions">
-              <div class="ex-time" data-ex-time="${ex.id}">00:00:00</div>
+              <div class="pill tap" data-action="time" data-ex-time="${ex.id}" title="터치: 일시정지/재개" style="padding:6px 10px">00:00:00</div>
               <div class="btn small good" data-action="done">종목완료</div>
             </div>
             <div class="ex-vol">${ex.type==="cardio" ? ((ex.cardio?.distanceKm||0)+"km") : (vol.toLocaleString()+"kg")}</div>
@@ -1190,6 +1185,7 @@ const STORAGE_KEY="health_rank_today_v12a";
           if(action==="del") deleteSet(ex, parseInt(a.dataset.idx,10));
           if(action==="done") markDone(ex);
           if(action==="x") deleteExercise(ex);
+          if(action==="time") toggleTimePause(ex);
         });
 
         card.appendChild(head);
