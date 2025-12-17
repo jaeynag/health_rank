@@ -300,6 +300,68 @@
   </div>
 </div>
 
+
+<!-- Cardio entry overlay -->
+<div class="overlay" id="overlayCardio" aria-hidden="true">
+  <div class="drawer" role="dialog" aria-modal="true" aria-label="유산소 기록">
+    <div class="drawer-head">
+      <div>
+        <div class="drawer-title" id="cardioTitle">유산소 기록</div>
+        <div class="drawer-sub" id="cardioSub">-</div>
+      </div>
+      <div class="btn ghost small" id="closeCardio">닫기</div>
+    </div>
+    <div class="drawer-body">
+      <div class="card" style="padding:12px">
+        <div class="row between">
+          <div>
+            <div class="muted">구분</div>
+            <div class="row" style="margin-top:6px">
+              <div class="pill tap" id="cardioOutdoor">야외</div>
+              <div class="pill tap" id="cardioIndoor">실내</div>
+            </div>
+          </div>
+          <div style="text-align:right">
+            <div class="muted">페이스</div>
+            <div style="font-weight:900;font-variant-numeric:tabular-nums" id="cardioPace">-</div>
+          </div>
+        </div>
+        <div class="divider"></div>
+
+        <div class="row" style="gap:10px">
+          <div style="flex:1">
+            <div class="muted">거리 (km)</div>
+            <div class="big center" id="distVal">0</div>
+          </div>
+          <div style="flex:1">
+            <div class="muted">시간</div>
+            <div class="big center"><span id="minVal">0</span>m <span id="secVal">00</span>s</div>
+          </div>
+        </div>
+
+        <div class="divider"></div>
+
+        <div class="muted" style="margin-bottom:8px">입력</div>
+        <div class="row" style="justify-content:center;margin-bottom:10px">
+          <div class="pill tap" id="cardioFocusDist">거리</div>
+          <div class="pill tap" id="cardioFocusTime">시간</div>
+        </div>
+
+        <div class="kbd" id="cardioKbd">
+          <div class="key" data-c="1">1</div><div class="key" data-c="2">2</div><div class="key" data-c="3">3</div>
+          <div class="key" data-c="4">4</div><div class="key" data-c="5">5</div><div class="key" data-c="6">6</div>
+          <div class="key" data-c="7">7</div><div class="key" data-c="8">8</div><div class="key" data-c="9">9</div>
+          <div class="key" id="cardioDot">.</div><div class="key" data-c="0">0</div><div class="key" id="cardioBack">←</div>
+        </div>
+
+        <div class="row" style="margin-top:14px">
+          <div class="btn primary" style="flex:1;padding:16px" id="saveCardio">입력</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
 <!-- Summary overlay -->
 <div class="overlay" id="overlaySummary" aria-hidden="true">
   <div class="drawer" role="dialog" aria-modal="true" aria-label="오늘 요약">
@@ -354,7 +416,7 @@
 </div>
 
 <script>
-  const STORAGE_KEY="health_rank_today_v12";
+  const STORAGE_KEY="health_rank_today_v13";
   const qs=(s,el=document)=>el.querySelector(s);
   const qsa=(s,el=document)=>[...el.querySelectorAll(s)];
   const safeParse=s=>{try{return JSON.parse(s)}catch{return null}};
@@ -412,7 +474,7 @@
     const started=state.timers.currentExStartedAt;
     if(!curId || !started) return;
     const ex=state.exercises.find(e=>e.id===curId);
-    if(ex && !ex.isDone){
+    if(ex && !ex.isDone && !ex.isCollapsed){
       ex.activeMs = (ex.activeMs||0) + Math.max(0, now()-started);
     }
     state.timers.currentExStartedAt=null;
@@ -422,7 +484,12 @@
     if(state.timers.currentExId===exId && state.timers.currentExStartedAt) return;
     stopCurrentExerciseSegment();
     state.timers.currentExId = exId;
-    state.timers.currentExStartedAt = now();
+    const ex = state.exercises.find(e=>e.id===exId);
+    if(ex && !ex.isDone && !ex.isCollapsed){
+      state.timers.currentExStartedAt = now();
+    }else{
+      state.timers.currentExStartedAt = null;
+    }
     saveState();
   }
   function endWorkout(){
@@ -595,16 +662,35 @@
   function addExercise(name){
     ensureStarted();
     const id=crypto.randomUUID?crypto.randomUUID():String(Date.now())+Math.random();
+    const isCardio = (state.selectedPart==="유산소");
     const ex={
       id, part:state.selectedPart, name,
+      type: isCardio ? "cardio" : "weight",
       weightKg:0.0, barUsed:false, weightHist:[],
       sets:[],
+      cardio:{mode:"야외", distanceKm:0, minutes:0, seconds:0, paceSecPerKm:null},
       prevWorkoutRecord:null,
       prevWorkoutVolume:null,
       isCollapsed:false,
       isDone:false,
       activeMs:0
     };
+    seedPrevWorkoutRecord(ex);
+    state.exercises.push(ex);
+
+    // 펼쳐진 종목만 타이머가 돈다. (추가 시에는 펼쳐진 상태)
+    ex.isCollapsed = false;
+    setCurrentExercise(ex.id);
+
+    saveState(); renderTicker();
+    closePromptFn();
+    renderExercises();
+    if(isCardio){
+      openCardioEntry(ex);
+    }else{
+      openStart(ex);
+    }
+  };
     seedPrevWorkoutRecord(ex);
     state.exercises.push(ex);
 
@@ -890,6 +976,29 @@
     saveState();
     renderExercises();
   }
+
+  function toggleCollapseWithTimer(ex){
+    if(ex.isDone){
+      toggleCollapseWithTimer(ex);
+      return;
+    }
+    const willCollapse = !ex.isCollapsed; // expanded -> collapse
+    if(willCollapse){
+      if(state.timers.currentExId===ex.id){
+        stopCurrentExerciseSegment();
+        state.timers.currentExStartedAt = null;
+      }
+      ex.isCollapsed = true;
+      saveState();
+      renderExercises();
+      return;
+    }
+    // expanding
+    ex.isCollapsed = false;
+    saveState();
+    setCurrentExercise(ex.id);
+    renderExercises();
+  }
   function markDone(ex){
     const ok = confirm(`${ex.name}를 완료하겠습니까?`);
     if(!ok) return;
@@ -912,7 +1021,7 @@
       const ex=state.exercises.find(e=>e.id===id);
       if(!ex) return;
       let ms = ex.activeMs||0;
-      if(state.timers.currentExId===id && state.timers.currentExStartedAt && !ex.isDone){
+      if(state.timers.currentExId===id && state.timers.currentExStartedAt && !ex.isDone && !ex.isCollapsed){
         ms += Math.max(0, now()-state.timers.currentExStartedAt);
       }
       el.textContent = fmtHMS(ms);
@@ -962,7 +1071,7 @@
               <div class="btn small danger" data-action="x">종목삭제</div>
               <div class="btn small good" data-action="done">종목완료</div>
             </div>
-            <div class="ex-vol">${vol.toLocaleString()}kg</div>
+            <div class="ex-vol">${ex.type==="cardio" ? ((ex.cardio?.distanceKm||0)+"km") : (vol.toLocaleString()+"kg")}</div>
           </div>
         `;
         head.addEventListener('click',(ev)=>{
@@ -1012,22 +1121,52 @@
         const prevNote = prev ? `(${prev.date})` : "(이전 없음)";
         const prevLine = prevVol!=null ? `${Math.round(prevVol).toLocaleString()}kg` : "-";
 
-        body.innerHTML = `
-          ${setRows}
-          ${liveRow}
-          <div class="compare">
-            <div class="box">
-              <div class="k">이전 운동 볼륨</div>
-              <div class="v">${prevLine}</div>
-              <div class="s">${prevNote} · 데모</div>
+        if(ex.type==="cardio"){
+          const c=ex.cardio||{mode:"야외",distanceKm:0,minutes:0,seconds:0,paceSecPerKm:null};
+          const dist=+(c.distanceKm||0);
+          const durSec=(+(c.minutes||0)*60)+(+(c.seconds||0));
+          const pace = (dist>0 && durSec>0) ? Math.round(durSec/dist) : null;
+          const paceTxt = pace!=null ? `${Math.floor(pace/60)}m ${String(pace%60).padStart(2,'0')}s/km` : "-";
+          const durTxt = `${c.minutes||0}m ${String(c.seconds||0).padStart(2,'0')}s`;
+          body.innerHTML = `
+            <div class="set-row" style="padding:10px 10px;border:1px dashed rgba(42,48,64,.7);border-radius:12px">
+              <div class="set-left">
+                <div class="set-no">기록</div>
+                <div class="set-val">${c.mode} · ${dist}km · ${durTxt}</div>
+              </div>
+              <div class="btn ghost small" data-action="cardio" ${ex.isDone?"style='opacity:.45;pointer-events:none'":""}>완료</div>
             </div>
-            <div class="box">
-              <div class="k">오늘 볼륨</div>
-              <div class="v">${Math.round(vol).toLocaleString()}kg</div>
-              <div class="s">${sets.length}세트 · 훈련 <span data-ex-time="${ex.id}">00:00:00</span></div>
+            <div class="compare">
+              <div class="box">
+                <div class="k">페이스</div>
+                <div class="v">${paceTxt}</div>
+                <div class="s">Distance : ${dist}km</div>
+              </div>
+              <div class="box">
+                <div class="k">오늘 훈련시간</div>
+                <div class="v"><span data-ex-time="${ex.id}">00:00:00</span></div>
+                <div class="s">${c.mode} · 기록한 사람만 랭킹</div>
+              </div>
             </div>
-          </div>
-        `;
+          `;
+        } else {
+          body.innerHTML = `
+            ${setRows}
+            ${liveRow}
+            <div class="compare">
+              <div class="box">
+                <div class="k">이전 운동 볼륨</div>
+                <div class="v">${prevLine}</div>
+                <div class="s">${prevNote} · 데모</div>
+              </div>
+              <div class="box">
+                <div class="k">오늘 볼륨</div>
+                <div class="v">${Math.round(vol).toLocaleString()}kg</div>
+                <div class="s">${sets.length}세트 · 훈련 <span data-ex-time="${ex.id}">00:00:00</span></div>
+              </div>
+            </div>
+          `;
+        }
 
         card.addEventListener('click',(ev)=>{
           const a=ev.target.closest('[data-action]');
@@ -1035,6 +1174,7 @@
           ev.preventDefault(); ev.stopPropagation();
           const action=a.dataset.action;
           if(action==="set") openSetEntry(ex);
+          if(action==="cardio") openCardioEntry(ex);
           if(action==="del") deleteSet(ex, parseInt(a.dataset.idx,10));
           if(action==="done") markDone(ex);
           if(action==="x") deleteExercise(ex);
@@ -1052,6 +1192,149 @@
 
     updateExerciseTimeBadges();
   }
+
+
+  // --- Cardio overlay ---
+  const overlayCardio=qs('#overlayCardio');
+  const closeCardio=qs('#closeCardio');
+  const cardioTitle=qs('#cardioTitle');
+  const cardioSub=qs('#cardioSub');
+  const cardioOutdoor=qs('#cardioOutdoor');
+  const cardioIndoor=qs('#cardioIndoor');
+  const cardioPace=qs('#cardioPace');
+  const distVal=qs('#distVal');
+  const minVal=qs('#minVal');
+  const secVal=qs('#secVal');
+  const cardioFocusDist=qs('#cardioFocusDist');
+  const cardioFocusTime=qs('#cardioFocusTime');
+  const cardioBack=qs('#cardioBack');
+  const cardioDot=qs('#cardioDot');
+  const saveCardio=qs('#saveCardio');
+
+  let cardioExId=null;
+  let focus="dist"; // dist | time
+  let distStr="";
+  let minStr="";
+  let secStr="";
+
+  function setPillActive(el, on){
+    el.style.borderColor = on ? "var(--accent)" : "var(--line)";
+    el.style.color = on ? "var(--accent2)" : "var(--txt)";
+  }
+  function updateCardioUI(){
+    distVal.textContent = distStr==="" ? "0" : distStr;
+    const mins = parseInt(minStr||"0",10) || 0;
+    const secs = parseInt(secStr||"0",10) || 0;
+    minVal.textContent = String(mins);
+    secVal.textContent = String(secs).padStart(2,'0');
+
+    setPillActive(cardioFocusDist, focus==="dist");
+    setPillActive(cardioFocusTime, focus==="time");
+
+    const dist = parseFloat(distStr||"0") || 0;
+    const dur = mins*60+secs;
+    if(dist>0 && dur>0){
+      const pace = Math.round(dur/dist);
+      cardioPace.textContent = `${Math.floor(pace/60)}m ${String(pace%60).padStart(2,'0')}s/km`;
+    }else{
+      cardioPace.textContent = "-";
+    }
+  }
+
+  function openCardioEntry(ex){
+    ex.isCollapsed=false;
+    saveState();
+    setCurrentExercise(ex.id);
+
+    cardioExId = ex.id;
+    cardioTitle.textContent = ex.name || "유산소";
+    cardioSub.textContent = `${ex.part} · ${ex.name}`;
+
+    const c=ex.cardio||{mode:"야외",distanceKm:0,minutes:0,seconds:0};
+    distStr = (c.distanceKm && c.distanceKm!==0) ? String(c.distanceKm) : "";
+    minStr = (c.minutes && c.minutes!==0) ? String(c.minutes) : "";
+    secStr = (c.seconds && c.seconds!==0) ? String(c.seconds) : "";
+
+    function applyMode(m){
+      ex.cardio = ex.cardio || {};
+      ex.cardio.mode = m;
+      setPillActive(cardioOutdoor, m==="야외");
+      setPillActive(cardioIndoor, m==="실내");
+      saveState();
+    }
+    cardioOutdoor.onclick = ()=>applyMode("야외");
+    cardioIndoor.onclick = ()=>applyMode("실내");
+    applyMode(c.mode||"야외");
+
+    focus="dist";
+    updateCardioUI();
+
+    overlayCardio.classList.add('show');
+    overlayCardio.setAttribute('aria-hidden','false');
+  }
+  function closeCardioFn(){
+    overlayCardio.classList.remove('show');
+    overlayCardio.setAttribute('aria-hidden','true');
+    cardioExId=null;
+  }
+  closeCardio.addEventListener('click', closeCardioFn);
+  overlayCardio.addEventListener('click', e=>{ if(e.target===overlayCardio) closeCardioFn(); });
+
+  cardioFocusDist.addEventListener('click', ()=>{focus="dist"; updateCardioUI();});
+  cardioFocusTime.addEventListener('click', ()=>{focus="time"; updateCardioUI();});
+
+  qsa('#cardioKbd .key[data-c]').forEach(k=>k.addEventListener('click', ()=>{
+    const ch=k.dataset.c;
+    if(focus==="dist"){
+      if(distStr.length>=6) return;
+      distStr += ch;
+    }else{
+      const combined = (minStr.padStart(2,'0') + secStr.padStart(2,'0')).replace(/^0+/,'') + ch;
+      const padded = combined.padStart(4,'0').slice(-4);
+      let mins=parseInt(padded.slice(0,2),10)||0;
+      let secs=parseInt(padded.slice(2,4),10)||0;
+      mins += Math.floor(secs/60);
+      secs = secs%60;
+      minStr=String(mins);
+      secStr=String(secs);
+    }
+    updateCardioUI();
+  }));
+  cardioDot.addEventListener('click', ()=>{
+    if(focus!=="dist") return;
+    if(distStr.includes(".")) return;
+    distStr = distStr==="" ? "0." : (distStr + ".");
+    updateCardioUI();
+  });
+  cardioBack.addEventListener('click', ()=>{
+    if(focus==="dist"){
+      distStr = distStr.slice(0,-1);
+    }else{
+      const padded = (minStr.padStart(2,'0') + secStr.padStart(2,'0'));
+      const next = padded.slice(0,-1);
+      const p = next.padStart(4,'0');
+      minStr = String(parseInt(p.slice(0,2),10)||0);
+      secStr = String(parseInt(p.slice(2,4),10)||0);
+    }
+    updateCardioUI();
+  });
+
+  saveCardio.addEventListener('click', ()=>{
+    const ex=state.exercises.find(e=>e.id===cardioExId);
+    if(!ex) return;
+    const dist = parseFloat(distStr||"0") || 0;
+    const mins = parseInt(minStr||"0",10) || 0;
+    const secs = parseInt(secStr||"0",10) || 0;
+    ex.cardio = ex.cardio || {};
+    ex.cardio.distanceKm = dist;
+    ex.cardio.minutes = mins;
+    ex.cardio.seconds = secs;
+    const dur = mins*60+secs;
+    ex.cardio.paceSecPerKm = (dist>0 && dur>0) ? Math.round(dur/dist) : null;
+    saveState();
+    closeCardioFn();
+    renderExercises();
+  });
 
   // Summary overlay
   const overlaySummary=qs('#overlaySummary');
