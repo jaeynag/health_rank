@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no"/>
-<title>Health Rank - Today (Step3)</title>
+<title>Health Rank - Today (Step3.1)</title>
 <style>
   :root{
     --bg:#0f1115; --card:#141826; --card2:#1b1f2a; --line:#2a3040;
@@ -47,7 +47,10 @@
   .ex-sub{color:var(--mut);font-size:12px;margin-top:2px}
   .ex-meta{display:flex;flex-direction:column;align-items:flex-end;gap:6px}
   .ex-vol{color:var(--mut);font-size:12px}
-  .ex-actions{display:flex;gap:8px;align-items:center}
+  .ex-actions{display:flex;gap:8px;align-items:center;flex-wrap:wrap;justify-content:flex-end}
+
+  .part-label{margin:10px 0 6px;color:var(--mut);font-size:12px;letter-spacing:.02em}
+  .part-label strong{color:var(--accent2)}
 
   /* Swipe row */
   .swipe{
@@ -133,7 +136,7 @@
       <div class="row" style="gap:10px">
         <div class="btn small ghost" id="backBtn" title="부위 다시 선택">←</div>
         <div>
-          <div class="muted">선택 부위</div>
+          <div class="muted">지금 추가할 부위</div>
           <div style="font-weight:900" id="selectedPart">-</div>
         </div>
       </div>
@@ -144,8 +147,7 @@
 
     <div class="divider"></div>
     <div class="row">
-      <div class="btn ghost" style="flex:0.38" id="addPartBtn">부위 추가</div>
-      <div class="btn ghost" style="flex:0.62" id="addExerciseBtn">종목 추가</div>
+      <div class="btn ghost" style="flex:1" id="addExerciseBtn">종목 추가</div>
     </div>
   </div>
 
@@ -272,7 +274,7 @@
   </div>
 </div>
 
-<!-- Summary overlay (next step) -->
+<!-- Summary overlay -->
 <div class="overlay" id="overlaySummary" aria-hidden="true">
   <div class="drawer" role="dialog" aria-modal="true" aria-label="오늘 요약">
     <div class="drawer-head">
@@ -312,7 +314,7 @@
 </div>
 
 <script>
-  const STORAGE_KEY="health_rank_today_v8";
+  const STORAGE_KEY="health_rank_today_v9";
   const qs=(s,el=document)=>el.querySelector(s);
   const qsa=(s,el=document)=>[...el.querySelectorAll(s)];
   const safeParse=s=>{try{return JSON.parse(s)}catch{return null}};
@@ -335,12 +337,9 @@
   }
   loadState();
 
-  // --- Ticker: 부위/순위/지역/헬스장/유저/볼륨 (데모) ---
+  // --- Ticker (demo) ---
   const tickerLine=qs('#tickerLine');
-  function getTouchedParts(){
-    // "오늘 운동하는 모든 부위" => 오늘 추가한 종목들의 부위들
-    return [...new Set(state.exercises.map(e=>e.part).filter(Boolean))];
-  }
+  function getTouchedParts(){ return [...new Set(state.exercises.map(e=>e.part).filter(Boolean))]; }
   function buildTickerItems(){
     const parts=getTouchedParts();
     const fallback=["하체","가슴","등"];
@@ -372,10 +371,10 @@
   // Navigation
   const partCard=qs('#partCard'), workCard=qs('#workCard');
   const selectedPartEl=qs('#selectedPart'), todaySmall=qs('#todaySmall'), exerciseList=qs('#exerciseList');
-  const backBtn=qs('#backBtn'), addPartBtn=qs('#addPartBtn'), addExerciseBtn=qs('#addExerciseBtn');
+  const backBtn=qs('#backBtn'), addExerciseBtn=qs('#addExerciseBtn');
   const endBtn=qs('#endBtn');
 
-  function showPartPicker(){ state.selectedPart=null; saveState(); partCard.style.display=""; workCard.style.display="none"; }
+  function showPartPicker(){ partCard.style.display=""; workCard.style.display="none"; }
   function showWork(part){
     state.selectedPart=part; saveState();
     selectedPartEl.textContent=part;
@@ -385,9 +384,8 @@
   }
   qsa('#partGrid .btn').forEach(b=>b.addEventListener('click',()=>showWork(b.dataset.part)));
   backBtn.addEventListener('click',showPartPicker);
-  addPartBtn.addEventListener('click',showPartPicker);
 
-  // Examples + previous workout record (데모)
+  // Examples + previous workout record (demo)
   const EXAMPLES={
     "가슴":["벤치프레스","인클라인 벤치프레스","체스트프레스","딥스","푸쉬업"],
     "등":["랫풀다운","시티드로우","바벨로우","풀업","페이스풀"],
@@ -411,7 +409,7 @@
   const exerciseName=qs('#exerciseName'), confirmAdd=qs('#confirmAdd'), exerciseChips=qs('#exerciseChips');
   function openPrompt(){
     if(!state.selectedPart) return;
-    promptSub.textContent=`선택 부위: ${state.selectedPart}`;
+    promptSub.textContent=`추가할 부위: ${state.selectedPart}`;
     exerciseName.value="";
     exerciseChips.innerHTML="";
     (EXAMPLES[state.selectedPart]||[]).forEach(n=>{
@@ -457,13 +455,12 @@
       weightKg:0.0, barUsed:false, weightHist:[],
       sets:[],
       prevWorkoutRecord:null,
-      isCollapsed:false, // accordion
-      isDone:false // "종목 완료"
+      isCollapsed:false,
+      isDone:false
     };
     seedPrevWorkoutRecord(ex);
     state.exercises.push(ex);
-    saveState();
-    renderTicker();
+    saveState(); renderTicker();
     closePromptFn();
     renderExercises();
     openStart(ex);
@@ -527,22 +524,33 @@
   function openSetEntry(ex){
     currentExId=ex.id;
     const nextNo=(ex.sets?.length||0)+1;
+
+    // weight carryover: last set weight
     if(nextNo>=2){
       const last=ex.sets[ex.sets.length-1];
       if(last && typeof last.w==="number"){ ex.weightKg=last.w; ex.weightHist=[]; ex.barUsed=false; }
     }
+
+    // reps carryover: last set reps
+    const lastRep = ex.sets?.length ? ex.sets[ex.sets.length-1].r : 0;
+
     setTitle.textContent=`${nextNo}세트 입력`;
     setSub.textContent=`${ex.part} · ${ex.name}`;
+
     unit="kg"; lbStr=""; tempKg=+(ex.weightKg||0);
-    currentReps=0; setRepsVal.textContent="0";
+
+    currentReps = lastRep || 0;
+    setRepsVal.textContent = String(currentReps);
+
     barKey.classList.toggle('disabled',!!ex.barUsed);
+
     showStep("weight"); updateWeightUI();
     overlaySet.classList.add('show'); overlaySet.setAttribute('aria-hidden','false');
     saveState();
   }
   function closeSetFn(){
     overlaySet.classList.remove('show'); overlaySet.setAttribute('aria-hidden','true');
-    currentExId=null; currentReps=0; unit="kg"; lbStr=""; tempKg=0;
+    currentExId=null; unit="kg"; lbStr=""; tempKg=0;
     showStep("weight");
   }
   closeSet.addEventListener('click',closeSetFn);
@@ -641,10 +649,16 @@
     renderExercises();
   });
 
-  // Delete set
+  // Delete set/exercise
   function deleteSet(ex, idx){
     if(idx<0||idx>=ex.sets.length) return;
     ex.sets.splice(idx,1);
+    saveState(); renderTicker(); renderExercises();
+  }
+  function deleteExercise(ex){
+    const ok = confirm(`${ex.name} 종목을 삭제할까?`);
+    if(!ok) return;
+    state.exercises = state.exercises.filter(e=>e.id!==ex.id);
     saveState(); renderTicker(); renderExercises();
   }
 
@@ -730,20 +744,10 @@
     renderExercises();
   }
 
+  // Render: show all parts on same page, grouped.
   function renderExercises(){
-    const list=state.exercises.filter(e=>e.part===state.selectedPart);
     exerciseList.innerHTML="";
-
-    if(state.selectedPart==="유산소"){
-      const box=document.createElement('div');
-      box.className="card";
-      box.innerHTML=`<div class="row between"><div style="font-weight:900">유산소</div><div class="pill">야외 · 실내 (다음)</div></div>
-        <div class="divider"></div><div class="muted">유산소 입력/완료/요약은 다음 단계에서.</div>`;
-      exerciseList.appendChild(box);
-      return;
-    }
-
-    if(list.length===0){
+    if(state.exercises.length===0){
       const empty=document.createElement('div');
       empty.className="muted"; empty.style.padding="6px 2px";
       empty.textContent="종목을 추가해줘.";
@@ -751,104 +755,115 @@
       return;
     }
 
-    list.forEach(ex=>{
-      const card=document.createElement('div');
-      card.className="card";
-      card.dataset.id=ex.id;
+    const order=["가슴","등","하체","어깨","팔","복근","유산소"];
+    const groups = {};
+    state.exercises.forEach(e=>{ (groups[e.part]=groups[e.part]||[]).push(e); });
 
-      const sets=ex.sets||[];
-      const vol=totalVolume(ex);
-      const nextNo=sets.length+1;
+    order.filter(p=>groups[p]?.length).forEach(part=>{
+      const label=document.createElement('div');
+      label.className="part-label";
+      label.innerHTML = `<strong>${part}</strong> · ${groups[part].length}종목`;
+      exerciseList.appendChild(label);
 
-      const head = document.createElement('div');
-      head.className="ex-head";
-      head.innerHTML = `
-        <div>
-          <div class="muted">${ex.part}</div>
-          <div class="ex-title">${ex.name}</div>
-          <div class="ex-sub">${ex.isDone ? "완료됨" : "진행중"}</div>
-        </div>
-        <div class="ex-meta">
-          <div class="ex-actions">
-            <div class="btn small good" data-action="done">종목완료</div>
+      groups[part].forEach(ex=>{
+        const card=document.createElement('div');
+        card.className="card";
+        card.dataset.id=ex.id;
+
+        const sets=ex.sets||[];
+        const vol=totalVolume(ex);
+        const nextNo=sets.length+1;
+
+        const head = document.createElement('div');
+        head.className="ex-head";
+        head.innerHTML = `
+          <div>
+            <div class="muted">${ex.part}</div>
+            <div class="ex-title">${ex.name}</div>
+            <div class="ex-sub">${ex.isDone ? "완료됨" : "진행중"}</div>
           </div>
-          <div class="ex-vol">${vol.toLocaleString()}kg</div>
-        </div>
-      `;
-      head.addEventListener('click',(ev)=>{
-        const a=ev.target.closest('[data-action]');
-        if(a) return; // button clicks handled elsewhere
-        toggleCollapse(ex);
-      });
-
-      const body=document.createElement('div');
-      body.style.marginTop="10px";
-      body.style.borderTop="1px dashed var(--line)";
-      body.style.paddingTop="8px";
-      if(ex.isCollapsed) body.classList.add('hidden');
-
-      const setRows = sets.map((s,i)=>`
-        <div class="swipe" data-idx="${i}">
-          <div class="swipe-actions">
-            <div class="btn danger small" data-action="del" data-idx="${i}">삭제</div>
+          <div class="ex-meta">
+            <div class="ex-actions">
+              <div class="btn small danger" data-action="x">종목삭제</div>
+              <div class="btn small good" data-action="done">종목완료</div>
+            </div>
+            <div class="ex-vol">${vol.toLocaleString()}kg</div>
           </div>
-          <div class="swipe-front">
-            <div class="set-row">
-              <div class="set-left">
-                <div class="set-no">${i+1}세트</div>
-                <div class="set-val">${fmtKg(s.w)}kg × ${s.r} reps</div>
+        `;
+        head.addEventListener('click',(ev)=>{
+          const a=ev.target.closest('[data-action]');
+          if(a) return;
+          toggleCollapse(ex);
+        });
+
+        const body=document.createElement('div');
+        body.style.marginTop="10px";
+        body.style.borderTop="1px dashed var(--line)";
+        body.style.paddingTop="8px";
+        if(ex.isCollapsed) body.classList.add('hidden');
+
+        const setRows = sets.map((s,i)=>`
+          <div class="swipe" data-idx="${i}">
+            <div class="swipe-actions">
+              <div class="btn danger small" data-action="del" data-idx="${i}">삭제</div>
+            </div>
+            <div class="swipe-front">
+              <div class="set-row">
+                <div class="set-left">
+                  <div class="set-no">${i+1}세트</div>
+                  <div class="set-val">${fmtKg(s.w)}kg × ${s.r} reps</div>
+                </div>
+                <div class="set-vol">${(s.w*s.r).toLocaleString()}kg</div>
               </div>
-              <div class="set-vol">${(s.w*s.r).toLocaleString()}kg</div>
             </div>
           </div>
-        </div>
-      `).join("");
+        `).join("");
 
-      const prev=ex.prevWorkoutRecord;
-      const ghost=prev?`${prev.date}  ${fmtKg(prev.w)}kg × ${prev.r} reps`:`이전 기록 없음`;
+        const prev=ex.prevWorkoutRecord;
+        const ghost=prev?`${prev.date}  ${fmtKg(prev.w)}kg × ${prev.r} reps`:`이전 기록 없음`;
 
-      const liveRow = `
-        <div class="set-row" style="padding:10px 10px;border:1px dashed rgba(42,48,64,.7);border-radius:12px">
-          <div class="set-left">
-            <div class="set-no">${nextNo}세트</div>
-            <div class="set-val ghosttext">${ghost}</div>
+        const liveRow = `
+          <div class="set-row" style="padding:10px 10px;border:1px dashed rgba(42,48,64,.7);border-radius:12px">
+            <div class="set-left">
+              <div class="set-no">${nextNo}세트</div>
+              <div class="set-val ghosttext">${ghost}</div>
+            </div>
+            <div class="btn ghost small" data-action="set" ${ex.isDone?"style='opacity:.45;pointer-events:none'":""}>완료</div>
           </div>
-          <div class="btn ghost small" data-action="set" ${ex.isDone?"style='opacity:.45;pointer-events:none'":""}>완료</div>
-        </div>
-      `;
+        `;
 
-      body.innerHTML = `
-        ${setRows}
-        ${liveRow}
-        <div class="row between" style="padding-top:10px">
-          <div class="muted">종목 볼륨</div>
-          <div class="muted">${vol.toLocaleString()}kg</div>
-        </div>
-      `;
+        body.innerHTML = `
+          ${setRows}
+          ${liveRow}
+          <div class="row between" style="padding-top:10px">
+            <div class="muted">종목 볼륨</div>
+            <div class="muted">${vol.toLocaleString()}kg</div>
+          </div>
+        `;
 
-      // events
-      card.addEventListener('click',(ev)=>{
-        const a=ev.target.closest('[data-action]');
-        if(!a) return;
-        ev.preventDefault(); ev.stopPropagation();
-        const action=a.dataset.action;
-        if(action==="set") openSetEntry(ex);
-        if(action==="del") deleteSet(ex, parseInt(a.dataset.idx,10));
-        if(action==="done") markDone(ex);
+        card.addEventListener('click',(ev)=>{
+          const a=ev.target.closest('[data-action]');
+          if(!a) return;
+          ev.preventDefault(); ev.stopPropagation();
+          const action=a.dataset.action;
+          if(action==="set") openSetEntry(ex);
+          if(action==="del") deleteSet(ex, parseInt(a.dataset.idx,10));
+          if(action==="done") markDone(ex);
+          if(action==="x") deleteExercise(ex);
+        });
+
+        card.appendChild(head);
+        card.appendChild(body);
+        exerciseList.appendChild(card);
+        attachSwipeHandlers(card);
+
+        const doneBtn = card.querySelector('[data-action="done"]');
+        if(ex.isDone) { doneBtn.textContent="완료됨"; doneBtn.style.opacity=".55"; doneBtn.style.pointerEvents="none"; }
       });
-
-      card.appendChild(head);
-      card.appendChild(body);
-      exerciseList.appendChild(card);
-      attachSwipeHandlers(card);
-
-      // If collapsed, hide "종목완료" button for cleanliness? keep but disable if done
-      const doneBtn = card.querySelector('[data-action="done"]');
-      if(ex.isDone) { doneBtn.textContent="완료됨"; doneBtn.style.opacity=".55"; doneBtn.style.pointerEvents="none"; }
     });
   }
 
-  // Summary overlay (next step stub)
+  // Summary overlay
   const overlaySummary=qs('#overlaySummary');
   const closeSummary=qs('#closeSummary');
   const summaryOk=qs('#summaryOk');
@@ -858,23 +873,18 @@
   const sumLeaders=qs('#sumLeaders');
 
   function openSummary(){
-    // compute totals
     const total = state.exercises.reduce((a,e)=>a+totalVolume(e),0);
     sumTotalVol.textContent = total.toLocaleString()+"kg";
-    // demo percentile
     const pct = Math.max(1, Math.min(99, Math.round(100 - Math.log10(total+10)*18)));
     sumTopPct.textContent = pct+" %";
 
     const byPart = {};
-    state.exercises.forEach(e=>{
-      byPart[e.part]=(byPart[e.part]||0)+totalVolume(e);
-    });
+    state.exercises.forEach(e=>{ byPart[e.part]=(byPart[e.part]||0)+totalVolume(e); });
     const parts = Object.entries(byPart).sort((a,b)=>b[1]-a[1]);
     sumParts.innerHTML = parts.map(([p,v])=>(
       `<div class="sum-item"><div class="k">${p}</div><div class="v">${Math.round(v).toLocaleString()}kg</div></div>`
     )).join("");
 
-    // demo leaders for parts I trained
     const touched = getTouchedParts();
     sumLeaders.innerHTML = touched.map((p,i)=>(
       `<div style="padding:8px 10px;border:1px solid var(--line);border-radius:12px;margin-top:8px;background:rgba(255,255,255,.02)">
