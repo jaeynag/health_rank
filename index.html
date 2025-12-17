@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no"/>
-<title>Health Rank - Today (Step3.1)</title>
+<title>Health Rank - Today (Step3.2)</title>
 <style>
   :root{
     --bg:#0f1115; --card:#141826; --card2:#1b1f2a; --line:#2a3040;
@@ -51,6 +51,24 @@
 
   .part-label{margin:10px 0 6px;color:var(--mut);font-size:12px;letter-spacing:.02em}
   .part-label strong{color:var(--accent2)}
+
+  /* Footer compare row */
+  .compare{
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:8px;
+    margin-top:10px;
+  }
+  .compare .box{
+    border:1px solid var(--line);
+    border-radius:12px;
+    padding:10px;
+    background:rgba(255,255,255,.02);
+    overflow:hidden;
+  }
+  .compare .k{color:var(--mut);font-size:12px}
+  .compare .v{font-weight:900;margin-top:4px;font-variant-numeric:tabular-nums}
+  .compare .s{color:var(--mut);font-size:11px;margin-top:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 
   /* Swipe row */
   .swipe{
@@ -314,7 +332,7 @@
 </div>
 
 <script>
-  const STORAGE_KEY="health_rank_today_v9";
+  const STORAGE_KEY="health_rank_today_v10";
   const qs=(s,el=document)=>el.querySelector(s);
   const qsa=(s,el=document)=>[...el.querySelectorAll(s)];
   const safeParse=s=>{try{return JSON.parse(s)}catch{return null}};
@@ -399,9 +417,11 @@
     if(ex.prevWorkoutRecord) return;
     const d=new Date(Date.now()-86400000*3);
     const ds=d.toISOString().slice(0,10);
-    const base={"스쿼트":{w:60,r:8},"레그프레스":{w:120,r:10},"벤치프레스":{w:40,r:10},"랫풀다운":{w:50,r:10},"오버헤드프레스":{w:25,r:8}};
-    const b=base[ex.name]||{w:20,r:10};
-    ex.prevWorkoutRecord={date:ds,w:b.w,r:b.r};
+    const base={"스쿼트":{w:60,r:8,sets:3},"레그프레스":{w:120,r:10,sets:4},"벤치프레스":{w:40,r:10,sets:3},"랫풀다운":{w:50,r:10,sets:3},"오버헤드프레스":{w:25,r:8,sets:3}};
+    const b=base[ex.name]||{w:20,r:10,sets:3};
+    ex.prevWorkoutRecord={date:ds,w:b.w,r:b.r,sets:b.sets};
+    // "이전 운동 볼륨" 데모 계산(정확한 과거 세트 데이터가 생기면 그걸로 교체)
+    ex.prevWorkoutVolume = Math.round(b.w*b.r*b.sets);
   }
 
   // Add exercise overlay
@@ -455,6 +475,7 @@
       weightKg:0.0, barUsed:false, weightHist:[],
       sets:[],
       prevWorkoutRecord:null,
+      prevWorkoutVolume:null,
       isCollapsed:false,
       isDone:false
     };
@@ -525,20 +546,16 @@
     currentExId=ex.id;
     const nextNo=(ex.sets?.length||0)+1;
 
-    // weight carryover: last set weight
     if(nextNo>=2){
       const last=ex.sets[ex.sets.length-1];
       if(last && typeof last.w==="number"){ ex.weightKg=last.w; ex.weightHist=[]; ex.barUsed=false; }
     }
-
-    // reps carryover: last set reps
     const lastRep = ex.sets?.length ? ex.sets[ex.sets.length-1].r : 0;
 
     setTitle.textContent=`${nextNo}세트 입력`;
     setSub.textContent=`${ex.part} · ${ex.name}`;
 
     unit="kg"; lbStr=""; tempKg=+(ex.weightKg||0);
-
     currentReps = lastRep || 0;
     setRepsVal.textContent = String(currentReps);
 
@@ -744,7 +761,6 @@
     renderExercises();
   }
 
-  // Render: show all parts on same page, grouped.
   function renderExercises(){
     exerciseList.innerHTML="";
     if(state.exercises.length===0){
@@ -772,6 +788,7 @@
 
         const sets=ex.sets||[];
         const vol=totalVolume(ex);
+        const prevVol = (typeof ex.prevWorkoutVolume==="number") ? ex.prevWorkoutVolume : null;
         const nextNo=sets.length+1;
 
         const head = document.createElement('div');
@@ -832,12 +849,23 @@
           </div>
         `;
 
+        const prevNote = prev ? `(${prev.date})` : "(이전 없음)";
+        const prevLine = prevVol!=null ? `${Math.round(prevVol).toLocaleString()}kg` : "-";
+
         body.innerHTML = `
           ${setRows}
           ${liveRow}
-          <div class="row between" style="padding-top:10px">
-            <div class="muted">종목 볼륨</div>
-            <div class="muted">${vol.toLocaleString()}kg</div>
+          <div class="compare">
+            <div class="box">
+              <div class="k">이전 운동 볼륨</div>
+              <div class="v">${prevLine}</div>
+              <div class="s">${prevNote} · 데모</div>
+            </div>
+            <div class="box">
+              <div class="k">오늘 볼륨</div>
+              <div class="v">${Math.round(vol).toLocaleString()}kg</div>
+              <div class="s">${sets.length}세트</div>
+            </div>
           </div>
         `;
 
