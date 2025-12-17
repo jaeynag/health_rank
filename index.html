@@ -142,7 +142,11 @@
     align-items:flex-end;
     pointer-events:auto;
   }
-  .drawer{width:min(480px,100%);margin-top:56px;background:var(--card);border:1px solid var(--line);border-radius:16px;overflow:hidden}
+
+  /* Start 안내는 중앙 */
+  #overlayStart.show{align-items:center}
+  #overlayStart .drawer{margin-top:0}
+  .drawer{width:min(480px,calc(100% - 24px));margin-top:56px;background:var(--card2);border:1px solid var(--line);border-radius:16px;overflow:hidden;box-shadow:0 14px 40px rgba(0,0,0,.45)}
   .drawer-head{display:flex;align-items:center;justify-content:space-between;padding:12px;border-bottom:1px solid var(--line)}
   .drawer-title{font-weight:900}
   .drawer-sub{color:var(--mut);font-size:12px;margin-top:2px}
@@ -209,6 +213,21 @@
     100%{ transform: translateX(-50%); }
   }
 
+
+
+  /* Calendar (월간) */
+  .cal-head{display:flex;align-items:center;justify-content:space-between;gap:10px}
+  .cal-nav{display:flex;gap:8px;align-items:center}
+  .cal-nav .btn{padding:8px 10px}
+  .cal-title{font-weight:900}
+  .cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:8px;margin-top:10px}
+  .cal-dow{font-size:12px;color:var(--mut);text-align:center;padding:6px 0}
+  .cal-day{border:1px solid #23283a;background:rgba(255,255,255,.02);border-radius:12px;min-height:56px;padding:8px 8px 6px;display:flex;flex-direction:column;gap:4px}
+  .cal-day.muted{opacity:.55}
+  .cal-day.today{outline:2px solid rgba(76,92,255,.55)}
+  .cal-num{font-weight:900;font-size:14px;line-height:1}
+  .cal-tags{font-size:11px;color:var(--accent2);line-height:1.15;word-break:keep-all}
+
 </style>
 </head>
 <body>
@@ -219,13 +238,7 @@
     <div class="ticker-wrap ticker-touch" id="tickerWrap" title="터치하면 Top10">
       <div class="ticker" id="tickerLine"></div>
     </div>
-
-    <div class="head-row">
-      <div class="clock" id="clockBox">
-        <div class="s">총운동시간</div>
-        <div class="t" id="clockTotal">00:00:00</div>
-      </div>
-    </div>
+</div>
   </div>
 
   <div id="screen-today" class="screen active">
@@ -246,7 +259,23 @@
       <div class="btn" data-part="복근">복근</div>
       <div class="btn primary" data-part="유산소">유산소</div>
     </div>
+  
+  <div class="section card" id="calCard">
+    <div class="cal-head">
+      <div>
+        <div class="muted">달력</div>
+        <div class="cal-title" id="calTitle">-</div>
+      </div>
+      <div class="cal-nav">
+        <div class="btn ghost small" id="calPrev">이전</div>
+        <div class="btn ghost small" id="calNext">다음</div>
+      </div>
+    </div>
+    <div class="divider"></div>
+    <div class="cal-grid" id="calDow"></div>
+    <div class="cal-grid" id="calGrid"></div>
   </div>
+</div>
 
   <div class="section card" id="workCard" style="display:none">
     <div class="row between">
@@ -590,17 +619,18 @@
   </div>
 </div>
 
-<!-- Summary overlay -->
-<div class="overlay" id="overlaySummary" aria-hidden="true">
-  <div class="drawer" role="dialog" aria-modal="true" aria-label="오늘 요약">
-    <div class="drawer-head">
+
+<div id="screen-summary" class="screen">
+  <div class="section card">
+    <div class="row between">
       <div>
-        <div class="drawer-title">오늘 요약</div>
-        <div class="drawer-sub">총시간 + 부위/종목 훈련시간</div>
+        <div class="muted">오늘 요약</div>
+        <div style="font-weight:900;margin-top:2px">총시간 + 부위/종목 훈련시간</div>
       </div>
-      <div class="btn ghost small" id="closeSummary">닫기</div>
+      <div class="pill" id="sumDate">-</div>
     </div>
-    <div class="drawer-body">
+    <div class="divider"></div>
+
       <div class="card" style="padding:12px">
         <div class="row between">
           <div>
@@ -637,9 +667,8 @@
       </div>
 
       <div class="row" style="margin-top:12px">
-        <div class="btn primary" style="flex:1" id="summaryOk">확인</div>
+        <div class="btn primary" style="flex:1" id="summaryOk">오늘 운동 더하기</div>
       </div>
-    </div>
   </div>
 </div>
 
@@ -681,12 +710,13 @@ const STORAGE_KEY="health_rank_today_v12c";
     selectedPart:null,
     exercises:[],
     weightMode:"inc",
+    logs:{ sessions:[] }, // 날짜별 캘린더용 (최근 365일 유지)
     timers:{
       startedAt:null,
       endedAt:null,
       currentExId:null,
       currentExStartedAt:null,
-      
+
     }
   };
 
@@ -696,6 +726,7 @@ const STORAGE_KEY="health_rank_today_v12c";
     if(!snap) return;
     if(typeof snap.selectedPart==="string") state.selectedPart=snap.selectedPart;
     if(Array.isArray(snap.exercises)) state.exercises=snap.exercises;
+    if(snap.logs && Array.isArray(snap.logs.sessions)) state.logs.sessions=snap.logs.sessions;
     if(snap.weightMode==="inc"||snap.weightMode==="dec") state.weightMode=snap.weightMode;
     if(snap.timers) state.timers = Object.assign(state.timers, snap.timers);
   }
@@ -703,6 +734,85 @@ const STORAGE_KEY="health_rank_today_v12c";
   state.exercises.forEach(ex=>{
     if(typeof ex.activeMs!=="number") ex.activeMs=0;
   });
+
+
+  // --- Calendar ---
+  const calTitle=qs('#calTitle');
+  const calPrev=qs('#calPrev');
+  const calNext=qs('#calNext');
+  const calGrid=qs('#calGrid');
+  const calDow=qs('#calDow');
+  let calY=null, calM=null; // 1-12
+
+  function initCalendar(){
+    const d=new Date();
+    calY=d.getFullYear(); calM=d.getMonth()+1;
+    if(calDow){
+      const dows=["일","월","화","수","목","금","토"];
+      calDow.innerHTML = dows.map(x=>`<div class="cal-dow">${x}</div>`).join("");
+    }
+    renderCalendar();
+  }
+  function shiftMonth(delta){
+    let y=calY, m=calM+delta;
+    while(m<=0){ m+=12; y-=1; }
+    while(m>=13){ m-=12; y+=1; }
+    calY=y; calM=m;
+    renderCalendar();
+  }
+  function renderCalendar(){
+    if(!calGrid || calY==null || calM==null) return;
+    if(calTitle) calTitle.textContent = `${calY}년 ${calM}월`;
+
+    const partMap = buildPartMap(); // { 'YYYY-MM-DD': ['가슴','등',...] }
+
+    const first = new Date(calY, calM-1, 1);
+    const firstDow = first.getDay();
+    const dim = new Date(calY, calM, 0).getDate(); // days in month
+    const prevDim = new Date(calY, calM-1, 0).getDate();
+
+    const cells=[];
+    // leading days (prev month)
+    for(let i=0;i<firstDow;i++){
+      const day = prevDim - firstDow + i + 1;
+      const d = new Date(calY, calM-2, day);
+      const ymd = localYMD(d.getTime());
+      cells.push({num:day, ymd, muted:true});
+    }
+    // current month
+    for(let day=1; day<=dim; day++){
+      const d = new Date(calY, calM-1, day);
+      const ymd = localYMD(d.getTime());
+      cells.push({num:day, ymd, muted:false});
+    }
+    // trailing days to fill 6 rows (42)
+    while(cells.length < 42){
+      const last = cells[cells.length-1];
+      const d = new Date(ymdToMs(last.ymd) + 24*60*60*1000);
+      cells.push({num:d.getDate(), ymd: localYMD(d.getTime()), muted:true});
+    }
+
+    const today = localYMD(Date.now());
+
+    calGrid.innerHTML = cells.map(c=>{
+      const tags = (partMap[c.ymd]||[]);
+      let tagLine = "";
+      if(tags.length){
+        const shown = tags.slice(0,2);
+        tagLine = shown.join("·");
+        if(tags.length>2) tagLine += ` +${tags.length-2}`;
+      }
+      const cls = ["cal-day", c.muted?"muted":"", c.ymd===today?"today":""].filter(Boolean).join(" ");
+      return `<div class="${cls}">
+        <div class="cal-num">${c.num}</div>
+        <div class="cal-tags">${tagLine}</div>
+      </div>`;
+    }).join("");
+  }
+
+  if(calPrev) calPrev.addEventListener('click', ()=>shiftMonth(-1));
+  if(calNext) calNext.addEventListener('click', ()=>shiftMonth(1));
+
 
   // Timers: start on first exercise add. Exercise timer runs from add until "종목완료"
   function ensureStarted(forceNew=false){
@@ -733,6 +843,14 @@ const STORAGE_KEY="health_rank_today_v12c";
     state.timers.currentExStartedAt = now();
     saveState();
   }
+  function closeAllOverlays(){
+    [overlayTop10, overlayPrompt, overlayStart, overlaySet, overlayCardio, overlayProfile].forEach(ov=>{
+      if(!ov) return;
+      ov.classList.remove('show');
+      ov.setAttribute('aria-hidden','true');
+    });
+  }
+
   function endWorkout(){
     stopCurrentExerciseSegment();
 
@@ -748,6 +866,7 @@ const STORAGE_KEY="health_rank_today_v12c";
     state.timers.currentExStartedAt = null;
 
     state.timers.endedAt = t;
+    closeAllOverlays();
     saveState();
   }
   function totalMs(){
@@ -758,7 +877,7 @@ const STORAGE_KEY="health_rank_today_v12c";
 // Clock UI
   const clockBox=qs('#clockBox');
   const clockTotal=qs('#clockTotal');
-  function renderClock(){ clockTotal.textContent = fmtHMS(totalMs()); }
+  function renderClock(){ if(clockTotal) clockTotal.textContent = fmtHMS(totalMs()); }
 
 
   // --- Ticker ---
@@ -890,8 +1009,9 @@ function renderTicker(){
   const selectedPartEl=qs('#selectedPart'), todaySmall=qs('#todaySmall'), exerciseList=qs('#exerciseList');
   const backBtn=qs('#backBtn'), addExerciseBtn=qs('#addExerciseBtn');
   const endBtn=qs('#endBtn');
+  const calCard=qs('#calCard');
 
-  function showPartPicker(){ partCard.style.display=""; workCard.style.display="none"; }
+  function showPartPicker(){ partCard.style.display=""; workCard.style.display="none"; if(calCard) calCard.style.display=""; renderCalendar(); }
   function showWork(part, forceStart=false){
     // forceStart=true: 사용자가 부위를 새로 선택한 케이스(=운동 시작/재시작)
     // forceStart=false: 부트/복원 화면(종료된 세션이면 그대로 유지)
@@ -900,7 +1020,7 @@ function renderTicker(){
     state.selectedPart=part; saveState();
     selectedPartEl.textContent=part;
     todaySmall.textContent=new Date().toISOString().slice(0,10);
-    partCard.style.display="none"; workCard.style.display="";
+    partCard.style.display="none"; workCard.style.display=""; if(calCard) calCard.style.display="none";
     renderExercises();
     renderClock();
   }
@@ -1647,9 +1767,8 @@ saveCardio.addEventListener('click', ()=>{
   renderExercises();
 });
 
-  // Summary overlay
-  const overlaySummary=qs('#overlaySummary');
-  const closeSummary=qs('#closeSummary');
+  // Summary page
+  const sumDate=qs('#sumDate');
   const summaryOk=qs('#summaryOk');
   const sumTotalVol=qs('#sumTotalVol');
   const sumTopPct=qs('#sumTopPct');
@@ -1659,58 +1778,135 @@ saveCardio.addEventListener('click', ()=>{
   const sumTotalTime=qs('#sumTotalTime');
   const sumTrainTime=qs('#sumTrainTime');
 
-  function openSummary(){
-    // 요약 열 때 현재 세그먼트는 끊어서 반영(진행중 종목은 그대로 계속이지만, 요약값은 고정)
+  function localYMD(ts=Date.now()){
+    const d=new Date(ts);
+    const y=d.getFullYear();
+    const m=String(d.getMonth()+1).padStart(2,'0');
+    const dd=String(d.getDate()).padStart(2,'0');
+    return `${y}-${m}-${dd}`;
+  }
+  function ymdToMs(ymd){
+    const [y,m,d]=ymd.split('-').map(n=>parseInt(n,10));
+    return new Date(y, m-1, d).getTime();
+  }
+  function pruneLogs(days=365){
+    const cut = Date.now() - days*24*60*60*1000;
+    state.logs.sessions = (state.logs.sessions||[]).filter(s=>s && s.date && ymdToMs(s.date) >= cut);
+  }
+  function buildPartMap(){
+    const map={};
+    // 종료된 세션
+    (state.logs.sessions||[]).forEach(s=>{
+      if(!s || !s.date || !Array.isArray(s.parts)) return;
+      map[s.date] = map[s.date] || new Set();
+      s.parts.forEach(p=>{ if(p) map[s.date].add(p); });
+    });
+    // 현재 진행중(오늘)도 반영
+    if(!state.timers.endedAt && state.exercises && state.exercises.length){
+      const td = localYMD(Date.now());
+      map[td] = map[td] || new Set();
+      state.exercises.forEach(e=>{ if(e && e.part) map[td].add(e.part); });
+    }
+    // Set -> Array
+    const out={};
+    Object.entries(map).forEach(([k,set])=>{ out[k]=[...set]; });
+    return out;
+  }
+
+  function logSessionIfNeeded(){
+    // 운동 종료 후, 캘린더/요약용으로 기록 저장
+    const parts=[...new Set((state.exercises||[]).map(e=>e && e.part).filter(Boolean))];
+    const hasAny = parts.length>0;
+    if(!hasAny) return;
+
+    const date = localYMD(state.timers.startedAt || Date.now());
+    let trainMs=0, totalVol=0;
+    (state.exercises||[]).forEach(e=>{ trainMs += (e.activeMs||0); totalVol += totalVolume(e); });
+    const rec = {
+      date,
+      parts,
+      startedAt: state.timers.startedAt || Date.now(),
+      endedAt: state.timers.endedAt || Date.now(),
+      totalMs: totalMs(),
+      trainMs,
+      totalVol: Math.round(totalVol)
+    };
+    state.logs.sessions = state.logs.sessions || [];
+    state.logs.sessions.push(rec);
+    pruneLogs(365);
+    saveState();
+  }
+
+  function openSummaryPage(){
     stopCurrentExerciseSegment();
 
-    const total = state.exercises.reduce((a,e)=>a+totalVolume(e),0);
-    sumTotalVol.textContent = total.toLocaleString()+"kg";
-    const pct = Math.max(1, Math.min(99, Math.round(100 - Math.log10(total+10)*18)));
-    sumTopPct.textContent = pct+" %";
+    // 날짜 pill
+    if(sumDate) sumDate.textContent = localYMD(state.timers.endedAt || Date.now());
 
-    sumTotalTime.textContent = fmtHMS(totalMs());
+    const total = Math.round((state.exercises||[]).reduce((a,e)=>a+totalVolume(e),0));
+    if(sumTotalVol) sumTotalVol.textContent = total.toLocaleString()+"kg";
+    const pct = Math.max(1, Math.min(99, Math.round(100 - Math.log10(total+10)*18)));
+    if(sumTopPct) sumTopPct.textContent = pct+" %";
+
+    if(sumTotalTime) sumTotalTime.textContent = fmtHMS(totalMs());
 
     let trainMs = 0;
-    state.exercises.forEach(e=>{ trainMs += (e.activeMs||0); });
-    sumTrainTime.textContent = fmtHMS(trainMs);
+    (state.exercises||[]).forEach(e=>{ trainMs += (e.activeMs||0); });
+    if(sumTrainTime) sumTrainTime.textContent = fmtHMS(trainMs);
 
     const byPart = {};
     const byPartTime = {};
-    state.exercises.forEach(e=>{
+    (state.exercises||[]).forEach(e=>{
+      if(!e || !e.part) return;
       byPart[e.part]=(byPart[e.part]||0)+totalVolume(e);
       byPartTime[e.part]=(byPartTime[e.part]||0)+(e.activeMs||0);
     });
 
     const parts = Object.entries(byPart).sort((a,b)=>b[1]-a[1]);
-    sumParts.innerHTML = parts.map(([p,v])=>(
+    if(sumParts) sumParts.innerHTML = parts.map(([p,v])=>(
       `<div class="sum-item"><div class="k">${p}</div><div class="v">${Math.round(v).toLocaleString()}kg</div></div>`
     )).join("");
 
     const partsT = Object.entries(byPartTime).sort((a,b)=>b[1]-a[1]);
-    sumPartTimes.innerHTML = partsT.map(([p,ms])=>(
+    if(sumPartTimes) sumPartTimes.innerHTML = partsT.map(([p,ms])=>(
       `<div class="sum-item"><div class="k">${p}</div><div class="v">${fmtHMS(ms)}</div></div>`
     )).join("");
 
     const touched = getTouchedParts();
-    sumLeaders.innerHTML = touched.map((p,i)=>(
+    if(sumLeaders) sumLeaders.innerHTML = touched.map((p,i)=>(
       `<div style="padding:8px 10px;border:1px solid var(--line);border-radius:12px;margin-top:8px;background:rgba(255,255,255,.02)">
         <div class="muted">${p} 리더보드</div>
         <div style="margin-top:6px">🥇 #1 · 서울 · Olympic Gym · user${String.fromCharCode(65+i)} · ${(8000-i*450).toLocaleString()}kg</div>
       </div>`
     )).join("");
 
-    overlaySummary.classList.add('show'); overlaySummary.setAttribute('aria-hidden','false');
+    showScreen('summary');
     saveState();
   }
-  function closeSummaryFn(){ overlaySummary.classList.remove('show'); overlaySummary.setAttribute('aria-hidden','true'); }
-  closeSummary.addEventListener('click',closeSummaryFn);
-  overlaySummary.addEventListener('click',e=>{if(e.target===overlaySummary) closeSummaryFn();});
-  summaryOk.addEventListener('click',closeSummaryFn);
 
-  endBtn.addEventListener('click',()=>{
+  function resetForNewWorkout(){
+    state.selectedPart = null;
+    state.exercises = [];
+    state.timers.startedAt = null;
+    state.timers.endedAt = null;
+    state.timers.currentExId = null;
+    state.timers.currentExStartedAt = null;
+    saveState();
+  }
+
+  summaryOk.addEventListener('click', ()=>{
+    resetForNewWorkout();
+    showScreen('today');
+    showPartPicker();
+    renderCalendar();
+  });
+
+
+endBtn.addEventListener('click',()=>{
     if(!confirm("오늘 운동을 종료할까?")) return;
     endWorkout();
-    openSummary();
+    logSessionIfNeeded();
+    openSummaryPage();
   });
 
   // Periodic UI refresh
@@ -1722,6 +1918,7 @@ saveCardio.addEventListener('click', ()=>{
   }, 250);
 
   // Boot
+  initCalendar();
   if(state.selectedPart) showWork(state.selectedPart, false);
   else showPartPicker();
   renderTicker();
