@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no"/>
-<title>Health Rank - App (Step29)</title>
+<title>Health Rank - App (Step31)</title>
 <style>
   :root{
     --bg:#0f1115; --card:#141826; --card2:#1b1f2a; --line:#2a3040;
@@ -142,6 +142,10 @@
     align-items:flex-end;
     pointer-events:auto;
   }
+  .overlay.center.show{align-items:center;}
+  .overlay.center .drawer{margin-top:0;margin-bottom:0;}
+  #overlayPrompt .drawer{width:min(520px,92vw);}
+
   .drawer{width:min(480px,100%);margin-top:56px;background:var(--card);border:1px solid var(--line);border-radius:16px;overflow:hidden}
   .drawer-head{display:flex;align-items:center;justify-content:space-between;padding:12px;border-bottom:1px solid var(--line)}
   .drawer-title{font-weight:900}
@@ -154,7 +158,7 @@
   .big{font-size:28px;letter-spacing:.08em;font-variant-numeric:tabular-nums}
   .center{text-align:center}
 
-  input[type="text"]{width:100%;padding:12px;border-radius:12px;border:1px solid var(--line);background:#0c0e13;color:var(--txt);outline:none;font-size:16px;}
+  input[type="text"],input[type="password"]{width:100%;padding:12px;border-radius:12px;border:1px solid var(--line);background:#0c0e13;color:var(--txt);outline:none;font-size:16px;}
   .chipline{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}
   .chip{padding:8px 10px;border-radius:999px;border:1px solid var(--line);background:var(--card2);color:#fff;user-select:none;cursor:pointer;font-size:13px}
 
@@ -236,6 +240,7 @@
   .cal-today{box-shadow:0 0 0 1px rgba(76,92,255,.40) inset;border-color:rgba(76,92,255,.55)}
 
 </style>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 <body>
 <div id="errBanner" style="display:none;position:fixed;left:10px;right:10px;top:10px;z-index:9999;padding:10px 12px;border-radius:12px;background:rgba(255,80,80,.15);border:1px solid rgba(255,80,80,.45);color:#ffd9d9;font-weight:800;font-size:12px"></div>
@@ -254,7 +259,78 @@
     </div>
   </div>
 
-  <div id="screen-today" class="screen active">
+  
+<div id="screen-auth" class="screen active">
+  <div class="page">
+    <div class="section card" id="authCard">
+      <div class="row between">
+        <div>
+          <div class="h1">로그인</div>
+          <div class="muted">아이디/비번으로 들어가자.</div>
+        </div>
+      </div>
+      <div class="divider"></div>
+
+      <div class="label">아이디</div>
+      <input type="text" id="authId" placeholder="아이디"/>
+
+      <div class="label" style="margin-top:10px">비밀번호</div>
+      <input type="password" id="authPw" placeholder="비밀번호"/>
+
+      <div class="row" style="margin-top:12px">
+        <div class="btn primary" id="btnLogin" style="flex:1">로그인</div>
+        <div class="btn ghost" id="btnSignup" style="flex:1">회원가입</div>
+      </div>
+      <div class="muted" id="authMsg" style="margin-top:10px;min-height:18px"></div>
+    </div>
+
+    <div class="section card" id="profileCard" style="display:none">
+      <div class="row between">
+        <div>
+          <div class="h1">프로필</div>
+          <div class="muted">처음 한 번만 입력해줘.</div>
+        </div>
+      </div>
+      <div class="divider"></div>
+
+      <div class="label">닉네임</div>
+      <input type="text" id="profNick" placeholder="예) 재양"/>
+
+      <div class="row" style="gap:10px;margin-top:10px">
+        <div style="flex:1">
+          <div class="label">성별</div>
+          <div class="chipline" id="profSex">
+            <div class="chip" data-sex="M">남</div>
+            <div class="chip" data-sex="F">여</div>
+          </div>
+        </div>
+        <div style="flex:1">
+          <div class="label">몸무게(kg)</div>
+          <input type="text" id="profWeight" placeholder="예) 78.5"/>
+        </div>
+      </div>
+
+      <div class="row" style="gap:10px;margin-top:10px">
+        <div style="flex:1">
+          <div class="label">키(cm)</div>
+          <input type="text" id="profHeight" placeholder="예) 175"/>
+        </div>
+        <div style="flex:1">
+          <div class="label">지역(선택)</div>
+          <input type="text" id="profRegion" placeholder="예) 서울"/>
+        </div>
+      </div>
+
+      <div class="row" style="margin-top:12px">
+        <div class="btn primary" id="btnSaveProfile" style="flex:1">저장하고 시작</div>
+      </div>
+      <div class="muted" id="profMsg" style="margin-top:10px;min-height:18px"></div>
+    </div>
+  </div>
+</div>
+
+
+<div id="screen-today" class="screen">
   <div class="section card" id="partCard">
     <div class="row between">
       <div>
@@ -328,7 +404,7 @@
 </div>
 
 <!-- Add exercise overlay -->
-<div class="overlay" id="overlayPrompt" aria-hidden="true">
+<div class="overlay center" id="overlayPrompt" aria-hidden="true">
   <div class="drawer" role="dialog" aria-modal="true" aria-label="종목 추가">
     <div class="drawer-head">
       <div>
@@ -976,12 +1052,12 @@ function renderTicker(){
     const m = d.getMonth(); // 0-based
     calTitle.textContent = `${y}-${String(m+1).padStart(2,'0')}`;
 
-    const dows = ["월","화","수","목","금","토","일"];
+    const dows = ["일","월","화","수","목","금","토"];
     calDow.innerHTML = dows.map(x=>`<div class="cal-cell">${x}</div>`).join("");
 
     const first = new Date(y, m, 1);
     const lastDay = new Date(y, m+1, 0).getDate();
-    const start = (first.getDay()+6)%7; // Monday=0
+    const start = first.getDay(); // Sunday=0
 
     const cells = [];
     for(let i=0;i<start;i++) cells.push('<div class="cal-cell blank"></div>');
@@ -1830,7 +1906,19 @@ saveCardio.addEventListener('click', ()=>{
   }
 
   endBtn.addEventListener('click',()=>{
-    if(!confirm("오늘 운동을 종료할까?")) return;
+    const pending = state.exercises.filter(ex=>!ex.isDone);
+    let msg = "오늘 운동을 종료할까?";
+    if(pending.length){
+      const lines = pending.map(ex=>{
+        const sets = Array.isArray(ex.sets) ? ex.sets : [];
+        const doneSets = sets.filter(s=>typeof s.w==="number" && typeof s.r==="number" && s.w>0 && s.r>0).length;
+        const label = `${ex.part||""}${ex.part?"-":""}${ex.name}`;
+        return `${label} ${doneSets}세트(볼륨입력된세트)까지만 진행되어 있습니다.`;
+      });
+      msg = lines.join("\n") + "\n\n종목을 완료하고 운동을 종료할까요?";
+    }
+    if(!confirm(msg)) return;
+
     closeAllOverlays();
     endWorkout();
 
@@ -1902,19 +1990,245 @@ showScreen('today');
 
 <script>
 document.addEventListener('DOMContentLoaded', ()=>{
+  const bottomNav = document.getElementById('bottomNav');
+
   function showScreen(name){
     document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
-    const el=document.getElementById('screen-'+name);
+    const el = document.getElementById('screen-'+name);
     if(el) el.classList.add('active');
-    document.querySelectorAll('.navbtn').forEach(b=>b.classList.toggle('active', b.dataset.screen===name));
+
+    if(bottomNav){
+      const hideNav = (name === 'auth');
+      bottomNav.style.display = hideNav ? 'none' : '';
+      document.querySelectorAll('.navbtn').forEach(b=>b.classList.toggle('active', b.dataset.screen===name));
+    }
+
+    if(name==="today") renderCalendar();
+    syncHeaderVisibility();
   }
+
+  // --- Supabase Auth (1단계) ---
+  const SUPABASE_URL = "https://plwtafeydntllgqmufhc.supabase.co";
+  const SUPABASE_KEY = "sb_publishable_Famg4_KKiWfrVznxdsZ0-g_M59PKT4k";
+  const sb = window.supabase ? window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY) : null;
+  window.sb = sb;
+
+  const authCard = document.getElementById('authCard');
+  const profileCard = document.getElementById('profileCard');
+  const authId = document.getElementById('authId');
+  const authPw = document.getElementById('authPw');
+  const authMsg = document.getElementById('authMsg');
+  const btnLogin = document.getElementById('btnLogin');
+  const btnSignup = document.getElementById('btnSignup');
+
+  const profNick = document.getElementById('profNick');
+  const profWeight = document.getElementById('profWeight');
+  const profHeight = document.getElementById('profHeight');
+  const profRegion = document.getElementById('profRegion');
+  const profMsg = document.getElementById('profMsg');
+  const btnSaveProfile = document.getElementById('btnSaveProfile');
+  const profSexWrap = document.getElementById('profSex');
+
+  let chosenSex = null;
+
+  function setAuthMsg(t){ if(authMsg) authMsg.textContent = t || ""; }
+  function setProfMsg(t){ if(profMsg) profMsg.textContent = t || ""; }
+
+  function toEmail(loginId){
+    const id = (loginId||"").trim().toLowerCase().replace(/\s+/g,'');
+    // 실제 이메일 대신 ID처럼 쓰기 위한 가짜 도메인
+    return id.includes('@') ? id : (id + "@id.local");
+  }
+
+  function calcWeightClass(kg){
+    const n = Number(kg);
+    if(!isFinite(n) || n<=0) return null;
+    const base = Math.floor(n/5)*5;
+    const hi = base + 4.9;
+    return `${base}-${hi.toFixed(1)}kg`;
+  }
+
+  async function getSession(){
+    if(!sb) return null;
+    const { data } = await sb.auth.getSession();
+    return data.session || null;
+  }
+
+  async function getUser(){
+    if(!sb) return null;
+    const { data } = await sb.auth.getUser();
+    return data.user || null;
+  }
+
+  async function loadMyProfile(userId){
+    if(!sb) return null;
+    const { data, error } = await sb
+      .from('profiles')
+      .select('*')
+      .eq('id', userId)
+      .maybeSingle();
+
+    if(error){
+      // 테이블/RLS 미설정일 때도 여기로 옴
+      throw error;
+    }
+    return data; // null 가능
+  }
+
+  async function upsertMyProfile(user, loginId){
+    const nick = (profNick.value||"").trim();
+    const weight = Number((profWeight.value||"").trim());
+    const height = Number((profHeight.value||"").trim());
+    const region = (profRegion.value||"").trim();
+
+    if(!nick){ setProfMsg("닉네임은 필수야."); return false; }
+    if(!chosenSex){ setProfMsg("성별 선택해줘."); return false; }
+    if(!isFinite(weight) || weight<=0){ setProfMsg("몸무게(kg) 숫자로 적어줘."); return false; }
+
+    const payload = {
+      id: user.id,
+      login_id: (loginId||"").trim(),
+      nick,
+      sex: chosenSex,
+      height_cm: isFinite(height)&&height>0 ? Math.round(height) : null,
+      weight_kg: weight,
+      weight_class: calcWeightClass(weight),
+      region: region || null
+    };
+
+    const { error } = await sb.from('profiles').upsert(payload, { onConflict: 'id' });
+    if(error) throw error;
+    return true;
+  }
+
+  function showProfileStep(show){
+    if(profileCard) profileCard.style.display = show ? '' : 'none';
+    if(authCard) authCard.style.display = show ? 'none' : '';
+  }
+
+  async function routeByAuth(){
+    if(!sb){
+      setAuthMsg("Supabase 로딩 실패(스크립트 확인).");
+      showScreen('auth');
+      return;
+    }
+    const sess = await getSession();
+    if(!sess){
+      showProfileStep(false);
+      showScreen('auth');
+      return;
+    }
+
+    // 로그인 됨 -> 프로필 있나 확인
+    try{
+      const user = await getUser();
+      const prof = await loadMyProfile(user.id);
+      if(!prof){
+        showProfileStep(true);
+        showScreen('auth');
+      }else{
+        showProfileStep(false);
+        showScreen('today');
+      }
+    }catch(err){
+      // profiles 테이블 없거나 RLS 설정 안 된 경우
+      showProfileStep(false);
+      setAuthMsg("프로필 테이블/RLS가 아직이야. (SQL 먼저 실행해줘)");
+      showScreen('today');
+    }
+  }
+
+  // UI: 성별 칩
+  if(profSexWrap){
+    profSexWrap.querySelectorAll('.chip').forEach(ch=>{
+      ch.addEventListener('click', ()=>{
+        profSexWrap.querySelectorAll('.chip').forEach(x=>x.classList.remove('active'));
+        ch.classList.add('active');
+        chosenSex = ch.dataset.sex || null;
+        setProfMsg("");
+      });
+    });
+  }
+
+  if(btnLogin){
+    btnLogin.addEventListener('click', async ()=>{
+      try{
+        setAuthMsg("");
+        const id = (authId.value||"").trim();
+        const pw = (authPw.value||"");
+        if(!id || !pw){ setAuthMsg("아이디/비번 둘 다 적어."); return; }
+
+        const { error } = await sb.auth.signInWithPassword({ email: toEmail(id), password: pw });
+        if(error) throw error;
+
+        setAuthMsg("로그인 됐다.");
+        await routeByAuth();
+      }catch(err){
+        setAuthMsg(err?.message || String(err));
+      }
+    });
+  }
+
+  if(btnSignup){
+    btnSignup.addEventListener('click', async ()=>{
+      try{
+        setAuthMsg("");
+        const id = (authId.value||"").trim();
+        const pw = (authPw.value||"");
+        if(!id || !pw){ setAuthMsg("아이디/비번 둘 다 적어."); return; }
+        if(pw.length < 6){ setAuthMsg("비번 6자 이상으로 해줘."); return; }
+
+        const { data, error } = await sb.auth.signUp({ email: toEmail(id), password: pw });
+        if(error) throw error;
+
+        // email confirmation 켜져 있으면 session이 없을 수 있음
+        if(!data.session){
+          setAuthMsg("회원가입은 됐는데, 메일확인 설정 때문에 로그인 안 될 수 있어. (Confirm email OFF 추천)");
+          return;
+        }
+
+        setAuthMsg("회원가입 완료.");
+        await routeByAuth();
+      }catch(err){
+        setAuthMsg(err?.message || String(err));
+      }
+    });
+  }
+
+  if(btnSaveProfile){
+    btnSaveProfile.addEventListener('click', async ()=>{
+      try{
+        setProfMsg("");
+        const user = await getUser();
+        if(!user){ setProfMsg("로그인부터 해야 돼."); return; }
+
+        const loginId = (authId?.value||"").trim();
+        const ok = await upsertMyProfile(user, loginId);
+        if(!ok) return;
+
+        setProfMsg("저장 완료.");
+        showProfileStep(false);
+        showScreen('today');
+      }catch(err){
+        setProfMsg(err?.message || String(err));
+      }
+    });
+  }
+
+  // nav buttons
   document.querySelectorAll('.navbtn').forEach(b=>{
     b.addEventListener('click', (e)=>{
       e.preventDefault(); e.stopPropagation();
       showScreen(b.dataset.screen);
     });
   });
-  showScreen('today');
+
+  // auth state changes
+  if(sb){
+    sb.auth.onAuthStateChange(()=>{ routeByAuth(); });
+  }
+
+  routeByAuth();
 });
 </script>
 
