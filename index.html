@@ -161,6 +161,7 @@
   input[type="text"],input[type="password"]{width:100%;padding:12px;border-radius:12px;border:1px solid var(--line);background:#0c0e13;color:var(--txt);outline:none;font-size:16px;}
   .chipline{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}
   .chip{padding:8px 10px;border-radius:999px;border:1px solid var(--line);background:var(--card2);color:#fff;user-select:none;cursor:pointer;font-size:13px}
+  .chip.active{background:rgba(76,92,255,.18);border-color:rgba(76,92,255,.55);color:var(--accent2)}
 
   /* Summary overlay */
   .sum-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px}
@@ -246,20 +247,7 @@
 <div id="errBanner" style="display:none;position:fixed;left:10px;right:10px;top:10px;z-index:9999;padding:10px 12px;border-radius:12px;background:rgba(255,80,80,.15);border:1px solid rgba(255,80,80,.45);color:#ffd9d9;font-weight:800;font-size:12px"></div>
 
 <div class="page" id="app">
-  <div class="header">
-    <div class="ticker-wrap ticker-touch" id="tickerWrap" title="터치하면 Top10">
-      <div class="ticker" id="tickerLine"></div>
-    </div>
 
-    <div class="head-row">
-      <div class="clock" id="clockBox">
-        <div class="s">총운동시간</div>
-        <div class="t" id="clockTotal">00:00:00</div>
-      </div>
-    </div>
-  </div>
-
-  
 <div id="screen-auth" class="screen active">
   <div class="page">
     <div class="section card" id="authCard">
@@ -318,6 +306,7 @@
         <div style="flex:1">
           <div class="label">지역(선택)</div>
           <input type="text" id="profRegion" placeholder="예) 서울"/>
+          <div class="btn small ghost" id="btnRegionAuto" style="margin-top:8px">현재 위치로 자동 입력</div>
         </div>
       </div>
 
@@ -897,7 +886,7 @@ const STORAGE_KEY="health_rank_today_v12c";
 // Clock UI
   const clockBox=qs('#clockBox');
   const clockTotal=qs('#clockTotal');
-  function renderClock(){ clockTotal.textContent = fmtHMS(totalMs()); }
+  function renderClock(){ if(!clockTotal) return; clockTotal.textContent = fmtHMS(totalMs()); }
 
 
   // --- Ticker ---
@@ -949,6 +938,7 @@ function startTicker(){
 
 function renderTicker(){
   const line = qs('#tickerLine');
+  if(!line) return;
   if(!line) return;
 
   const region = state.profile?.region || "서울";
@@ -1022,7 +1012,7 @@ function renderTicker(){
   }
   closeTop10.addEventListener('click', closeTop10Fn);
   overlayTop10.addEventListener('click', e=>{ if(e.target===overlayTop10) closeTop10Fn(); });
-  tickerWrap.addEventListener('click', openTop10);
+  if(tickerWrap) tickerWrap.addEventListener('click', openTop10);
 
   // Navigation
   const partCard=qs('#partCard'), workCard=qs('#workCard');
@@ -1041,8 +1031,8 @@ function renderTicker(){
     const inPicker = (screenName==="today" && partCard.style.display!=="none" && workCard.style.display==="none");
     const onSummary = (screenName==="summary");
     const hide = inPicker || onSummary;
-    tickerWrap.classList.toggle('hidden', hide);
-    clockBox.classList.toggle('hidden', hide);
+    if(tickerWrap) tickerWrap.classList.toggle('hidden', hide);
+    if(clockBox) clockBox.classList.toggle('hidden', hide);
   }
 
   function renderCalendar(){
@@ -1959,24 +1949,6 @@ saveCardio.addEventListener('click', ()=>{
   renderClock();
   renderCalendar();
   syncHeaderVisibility();
-// --- Bottom nav routing ---
-function showScreen(name){
-  document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
-  const el = document.getElementById('screen-'+name);
-  if(el) el.classList.add('active');
-  document.querySelectorAll('.navbtn').forEach(b=>b.classList.toggle('active', b.dataset.screen===name));
-
-  if(name==="today") renderCalendar();
-  syncHeaderVisibility();
-}
-document.querySelectorAll('.navbtn').forEach(b=>{
-  b.addEventListener('click', (e)=>{
-    e.preventDefault();
-    e.stopPropagation();
-    showScreen(b.dataset.screen);
-  }, {passive:false});
-});
-showScreen('today');
 </script>
 
 <div class="bottom-nav" id="bottomNav">
@@ -1990,24 +1962,48 @@ showScreen('today');
 
 <script>
 document.addEventListener('DOMContentLoaded', ()=>{
+
+  // ---------- Error banner ----------
+  const eb = document.getElementById('errBanner');
+  function showErr(msg){
+    if(!eb) return;
+    eb.style.display = 'block';
+    eb.textContent = 'JS 오류: ' + msg;
+  }
+  window.addEventListener('error', (e)=>{ showErr(e.message || 'unknown'); });
+  window.addEventListener('unhandledrejection', (e)=>{ 
+    const r = e.reason;
+    showErr((r && r.message) ? r.message : String(r));
+  });
+
+  // ---------- Screen routing ----------
   const bottomNav = document.getElementById('bottomNav');
 
-  function showScreen(name){
+  window.showScreen = function(name){
     document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
     const el = document.getElementById('screen-'+name);
     if(el) el.classList.add('active');
 
-    if(bottomNav){
-      const hideNav = (name === 'auth');
-      bottomNav.style.display = hideNav ? 'none' : '';
-      document.querySelectorAll('.navbtn').forEach(b=>b.classList.toggle('active', b.dataset.screen===name));
-    }
+    document.querySelectorAll('.navbtn').forEach(b=>b.classList.toggle('active', b.dataset.screen===name));
 
-    if(name==="today") renderCalendar();
-    syncHeaderVisibility();
-  }
+    // auth 화면에서는 네비 숨김
+    if(bottomNav) bottomNav.style.display = (name === 'auth') ? 'none' : '';
 
-  // --- Supabase Auth (1단계) ---
+    // 필요한 화면만 새로 그림
+    if(name === 'today' && typeof window.renderCalendar === 'function') window.renderCalendar();
+    if(typeof window.syncHeaderVisibility === 'function') window.syncHeaderVisibility();
+  };
+
+  // nav buttons
+  document.querySelectorAll('.navbtn').forEach(b=>{
+    b.addEventListener('click', (e)=>{
+      e.preventDefault();
+      e.stopPropagation();
+      window.showScreen(b.dataset.screen);
+    }, {passive:false});
+  });
+
+  // ---------- Supabase Auth (Step1) ----------
   const SUPABASE_URL = "https://plwtafeydntllgqmufhc.supabase.co";
   const SUPABASE_KEY = "sb_publishable_Famg4_KKiWfrVznxdsZ0-g_M59PKT4k";
   const sb = window.supabase ? window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY) : null;
@@ -2015,6 +2011,7 @@ document.addEventListener('DOMContentLoaded', ()=>{
 
   const authCard = document.getElementById('authCard');
   const profileCard = document.getElementById('profileCard');
+
   const authId = document.getElementById('authId');
   const authPw = document.getElementById('authPw');
   const authMsg = document.getElementById('authMsg');
@@ -2025,6 +2022,7 @@ document.addEventListener('DOMContentLoaded', ()=>{
   const profWeight = document.getElementById('profWeight');
   const profHeight = document.getElementById('profHeight');
   const profRegion = document.getElementById('profRegion');
+  const btnRegionAuto = document.getElementById('btnRegionAuto');
   const profMsg = document.getElementById('profMsg');
   const btnSaveProfile = document.getElementById('btnSaveProfile');
   const profSexWrap = document.getElementById('profSex');
@@ -2036,7 +2034,6 @@ document.addEventListener('DOMContentLoaded', ()=>{
 
   function toEmail(loginId){
     const id = (loginId||"").trim().toLowerCase().replace(/\s+/g,'');
-    // 실제 이메일 대신 ID처럼 쓰기 위한 가짜 도메인
     return id.includes('@') ? id : (id + "@id.local");
   }
 
@@ -2046,6 +2043,11 @@ document.addEventListener('DOMContentLoaded', ()=>{
     const base = Math.floor(n/5)*5;
     const hi = base + 4.9;
     return `${base}-${hi.toFixed(1)}kg`;
+  }
+
+  function showProfileStep(show){
+    if(profileCard) profileCard.style.display = show ? '' : 'none';
+    if(authCard) authCard.style.display = show ? 'none' : '';
   }
 
   async function getSession(){
@@ -2067,19 +2069,15 @@ document.addEventListener('DOMContentLoaded', ()=>{
       .select('*')
       .eq('id', userId)
       .maybeSingle();
-
-    if(error){
-      // 테이블/RLS 미설정일 때도 여기로 옴
-      throw error;
-    }
+    if(error) throw error;
     return data; // null 가능
   }
 
   async function upsertMyProfile(user, loginId){
-    const nick = (profNick.value||"").trim();
-    const weight = Number((profWeight.value||"").trim());
-    const height = Number((profHeight.value||"").trim());
-    const region = (profRegion.value||"").trim();
+    const nick = (profNick?.value||"").trim();
+    const weight = Number((profWeight?.value||"").trim());
+    const height = Number((profHeight?.value||"").trim());
+    const region = (profRegion?.value||"").trim();
 
     if(!nick){ setProfMsg("닉네임은 필수야."); return false; }
     if(!chosenSex){ setProfMsg("성별 선택해줘."); return false; }
@@ -2101,44 +2099,7 @@ document.addEventListener('DOMContentLoaded', ()=>{
     return true;
   }
 
-  function showProfileStep(show){
-    if(profileCard) profileCard.style.display = show ? '' : 'none';
-    if(authCard) authCard.style.display = show ? 'none' : '';
-  }
-
-  async function routeByAuth(){
-    if(!sb){
-      setAuthMsg("Supabase 로딩 실패(스크립트 확인).");
-      showScreen('auth');
-      return;
-    }
-    const sess = await getSession();
-    if(!sess){
-      showProfileStep(false);
-      showScreen('auth');
-      return;
-    }
-
-    // 로그인 됨 -> 프로필 있나 확인
-    try{
-      const user = await getUser();
-      const prof = await loadMyProfile(user.id);
-      if(!prof){
-        showProfileStep(true);
-        showScreen('auth');
-      }else{
-        showProfileStep(false);
-        showScreen('today');
-      }
-    }catch(err){
-      // profiles 테이블 없거나 RLS 설정 안 된 경우
-      showProfileStep(false);
-      setAuthMsg("프로필 테이블/RLS가 아직이야. (SQL 먼저 실행해줘)");
-      showScreen('today');
-    }
-  }
-
-  // UI: 성별 칩
+  // 성별 칩 (시각적으로도 선택 표시)
   if(profSexWrap){
     profSexWrap.querySelectorAll('.chip').forEach(ch=>{
       ch.addEventListener('click', ()=>{
@@ -2150,12 +2111,102 @@ document.addEventListener('DOMContentLoaded', ()=>{
     });
   }
 
+  function normalizeCityName(s){
+    if(!s) return "";
+    let x = String(s).trim();
+    // 공백이 섞여 있으면 마지막 토큰을 우선(예: "경기도 수원시" -> "수원시")
+    const parts = x.split(/\s+/);
+    x = parts[parts.length-1] || x;
+
+    // "세종특별자치시" 같은 접미 제거
+    x = x.replace(/(특별자치시|특별시|광역시|자치시|시|군|구)$/,'');
+    return x.trim();
+  }
+
+  async function fillRegionFromLocation(){
+    if(!profRegion){ setProfMsg("지역 입력칸이 없어."); return; }
+    if(!navigator.geolocation){ setProfMsg("이 기기에서 위치를 못 써."); return; }
+
+    setProfMsg("위치 허용하면 지역 자동으로 넣어줄게.");
+    navigator.geolocation.getCurrentPosition(async (pos)=>{
+      try{
+        const lat = pos.coords.latitude;
+        const lon = pos.coords.longitude;
+
+        setProfMsg("지역 찾는 중...");
+        const url = `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${encodeURIComponent(lat)}&lon=${encodeURIComponent(lon)}&accept-language=ko`;
+        const res = await fetch(url, { headers: { "Accept": "application/json" } });
+        if(!res.ok) throw new Error("위치 변환 실패");
+        const j = await res.json();
+        const addr = j.address || {};
+        const raw = addr.city || addr.town || addr.municipality || addr.county || addr.state || "";
+        const city = normalizeCityName(raw);
+
+        if(city){
+          profRegion.value = city;
+          setProfMsg(`지역 자동입력: ${city}`);
+        }else{
+          setProfMsg("지역을 못 찾겠어. 직접 적어줘.");
+        }
+      }catch(err){
+        setProfMsg(err?.message || String(err));
+      }
+    }, (err)=>{
+      setProfMsg("위치 권한이 필요해. (허용 눌러줘)");
+    }, { enableHighAccuracy:false, timeout:8000, maximumAge:600000 });
+  }
+
+  if(btnRegionAuto){
+    btnRegionAuto.addEventListener('click', (e)=>{
+      e.preventDefault();
+      e.stopPropagation();
+      fillRegionFromLocation();
+    });
+  }
+
+  async function routeByAuth(){
+    // 기본: 로그인 화면
+    window.showScreen('auth');
+    if(!sb){
+      setAuthMsg("Supabase 로딩 실패(스크립트 확인).");
+      showProfileStep(false);
+      return;
+    }
+
+    const sess = await getSession();
+    if(!sess){
+      showProfileStep(false);
+      setAuthMsg("");
+      return;
+    }
+
+    try{
+      const user = await getUser();
+      const prof = await loadMyProfile(user.id);
+
+      if(!prof){
+        showProfileStep(true);
+        setAuthMsg("");
+        // 프로필 화면에서만 '위치 자동입력' 누르게
+        return;
+      }
+
+      showProfileStep(false);
+      window.showScreen('today');
+    }catch(err){
+      // profiles 테이블/RLS 미설정
+      showProfileStep(false);
+      setAuthMsg("profiles 테이블/RLS가 아직이야. (SQL 먼저 실행해줘)");
+      window.showScreen('today');
+    }
+  }
+
   if(btnLogin){
     btnLogin.addEventListener('click', async ()=>{
       try{
         setAuthMsg("");
-        const id = (authId.value||"").trim();
-        const pw = (authPw.value||"");
+        const id = (authId?.value||"").trim();
+        const pw = (authPw?.value||"");
         if(!id || !pw){ setAuthMsg("아이디/비번 둘 다 적어."); return; }
 
         const { error } = await sb.auth.signInWithPassword({ email: toEmail(id), password: pw });
@@ -2173,15 +2224,14 @@ document.addEventListener('DOMContentLoaded', ()=>{
     btnSignup.addEventListener('click', async ()=>{
       try{
         setAuthMsg("");
-        const id = (authId.value||"").trim();
-        const pw = (authPw.value||"");
+        const id = (authId?.value||"").trim();
+        const pw = (authPw?.value||"");
         if(!id || !pw){ setAuthMsg("아이디/비번 둘 다 적어."); return; }
         if(pw.length < 6){ setAuthMsg("비번 6자 이상으로 해줘."); return; }
 
         const { data, error } = await sb.auth.signUp({ email: toEmail(id), password: pw });
         if(error) throw error;
 
-        // email confirmation 켜져 있으면 session이 없을 수 있음
         if(!data.session){
           setAuthMsg("회원가입은 됐는데, 메일확인 설정 때문에 로그인 안 될 수 있어. (Confirm email OFF 추천)");
           return;
@@ -2208,62 +2258,19 @@ document.addEventListener('DOMContentLoaded', ()=>{
 
         setProfMsg("저장 완료.");
         showProfileStep(false);
-        showScreen('today');
+        window.showScreen('today');
       }catch(err){
         setProfMsg(err?.message || String(err));
       }
     });
   }
 
-  // nav buttons
-  document.querySelectorAll('.navbtn').forEach(b=>{
-    b.addEventListener('click', (e)=>{
-      e.preventDefault(); e.stopPropagation();
-      showScreen(b.dataset.screen);
-    });
-  });
-
-  // auth state changes
   if(sb){
     sb.auth.onAuthStateChange(()=>{ routeByAuth(); });
   }
 
   routeByAuth();
 });
-</script>
-
-<script>
-(function(){
-  const eb = document.getElementById('errBanner');
-  function showErr(msg){
-    if(!eb) return;
-    eb.style.display='block';
-    eb.textContent = 'JS 오류: ' + msg;
-  }
-  window.addEventListener('error', (e)=>{ showErr(e.message || 'unknown'); });
-  window.addEventListener('unhandledrejection', (e)=>{ showErr((e.reason && e.reason.message) ? e.reason.message : String(e.reason)); });
-
-  document.addEventListener('DOMContentLoaded', ()=>{
-    try{
-      // Bottom nav routing (hard rebind)
-      function showScreen(name){
-        document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
-        const el=document.getElementById('screen-'+name);
-        if(el) el.classList.add('active');
-        document.querySelectorAll('.navbtn').forEach(b=>b.classList.toggle('active', b.dataset.screen===name));
-      }
-      document.querySelectorAll('.navbtn').forEach(b=>{
-        b.addEventListener('click', (e)=>{
-          e.preventDefault(); e.stopPropagation();
-          showScreen(b.dataset.screen);
-        });
-      });
-      showScreen('today');
-    }catch(err){
-      showErr(err.message||String(err));
-    }
-  });
-})();
 </script>
 </body>
 </html>
