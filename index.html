@@ -919,8 +919,7 @@ const STORAGE_KEY="health_rank_today_v12c";
     renderExercises();
     openSetEntry(ex);
   }
-
-function endWorkout(){
+  function endWorkout(){
     stopCurrentExerciseSegment();
 
     // 종목완료를 안 눌렀어도 '운동 종료'면 전부 종료 처리
@@ -929,8 +928,8 @@ function endWorkout(){
       if(!ex.isDone){
         ex.isDone = true;
         ex.isCollapsed = true;
-              ex.setPhase = \"idle\";
-}
+        ex.setPhase = "idle";
+      }
     }
     state.timers.currentExId = null;
     state.timers.currentExStartedAt = null;
@@ -1479,7 +1478,7 @@ cells.push(
     if(currentReps<=0) return false;
     ex.weightKg = +(tempKg||0);
     ex.sets.push({w:ex.weightKg, r:currentReps, ts:Date.now()});
-    ex.setPhase = \"idle\";
+    ex.setPhase = "idle";
     saveState(); renderTicker();
     return true;
   }
@@ -1594,7 +1593,7 @@ cells.push(
       state.timers.currentExStartedAt=null;
     }
     ex.isDone=true;
-    ex.setPhase=\"idle\";
+    ex.setPhase="idle";
     ex.isCollapsed=true;
     saveState();
     renderExercises();
