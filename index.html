@@ -766,6 +766,26 @@
 
 <script>
 const STORAGE_KEY="health_rank_today_v12c";
+
+  // (디버그) 초기 로딩 에러가 나면 화면에 바로 표시
+  (function(){
+    const eb = document.getElementById('errBanner');
+    const show = (msg)=>{
+      if(!eb) return;
+      eb.textContent = msg;
+      eb.style.display = 'block';
+    };
+    window.addEventListener('error', (e)=>{
+      try{ show('에러: ' + (e && e.message ? e.message : '알 수 없음')); }catch(_){}
+    });
+    window.addEventListener('unhandledrejection', (e)=>{
+      try{
+        const r = e && e.reason;
+        show('에러: ' + (r && r.message ? r.message : String(r)));
+      }catch(_){}
+    });
+  })();
+
   const qs=(s,el=document)=>el.querySelector(s);
   const qsa=(s,el=document)=>[...el.querySelectorAll(s)];
   const safeParse=s=>{try{return JSON.parse(s)}catch{return null}};
@@ -1055,7 +1075,7 @@ function renderTicker(){
   const closeTop10=qs('#closeTop10');
   const top10Body=qs('#top10Body');
   function openTop10(){
-    tickerLine.classList.add('paused');
+    if(tickerLine) tickerLine.classList.add('paused');
     overlayTop10.classList.add('show'); overlayTop10.setAttribute('aria-hidden','false');
     const items=buildTickerItems();
     const byPart={};
@@ -1084,7 +1104,7 @@ function renderTicker(){
   }
   function closeTop10Fn(){
     overlayTop10.classList.remove('show'); overlayTop10.setAttribute('aria-hidden','true');
-    tickerLine.classList.remove('paused');
+    if(tickerLine) tickerLine.classList.remove('paused');
   }
   closeTop10.addEventListener('click', closeTop10Fn);
   overlayTop10.addEventListener('click', e=>{ if(e.target===overlayTop10) closeTop10Fn(); });
@@ -1134,11 +1154,15 @@ function renderTicker(){
   function syncHeaderVisibility(){
     const active = document.querySelector('.screen.active');
     const screenName = active ? (active.id||"").replace('screen-','') : "today";
-    const inPicker = (screenName==="today" && partCard.style.display!=="none" && workCard.style.display==="none");
+    const inPicker = (screenName==="today" && partCard && workCard && partCard.style.display!=="none" && workCard.style.display==="none");
     const onSummary = (screenName==="summary");
     const hide = inPicker || onSummary;
-    if(tickerWrap) tickerWrap.classList.toggle('hidden', hide);
-    if(clockBox) clockBox.classList.toggle('hidden', hide);
+
+    // optional elements (may not exist in some steps)
+    const _tickerWrap = document.getElementById('tickerWrap');
+    const _clockBox = document.getElementById('clockBox');
+    if(_tickerWrap) _tickerWrap.classList.toggle('hidden', hide);
+    if(_clockBox) _clockBox.classList.toggle('hidden', hide);
   }
 
   function renderCalendar(){
