@@ -240,6 +240,24 @@
   .cal-sub.muted{color:rgba(142,147,181,.75)}
   .cal-today{box-shadow:0 0 0 1px rgba(76,92,255,.40) inset;border-color:rgba(76,92,255,.55)}
 
+  /* Calendar interaction */
+  .cal-cell[data-cal-date]{cursor:pointer;transition:transform .12s ease, box-shadow .12s ease}
+  .cal-selected{transform:scale(1.06);box-shadow:0 0 0 2px rgba(255,255,255,.16) inset}
+  .cal-detail{border:1px dashed rgba(42,48,64,.7);border-radius:14px;padding:10px 10px;background:rgba(255,255,255,.02)}
+  .cal-chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+  .chip{font-size:12px;padding:6px 8px;border-radius:999px;border:1px solid rgba(42,48,64,.75);background:rgba(255,255,255,.03)}
+
+  /* Live dot: pulse only when set is active */
+  .set-row.live .live-dot{animation:none;opacity:.55}
+  .set-row.live.live-active .live-dot{animation:livePulse 1.2s ease-in-out infinite;opacity:1}
+
+  /* Collapsed feel */
+  .ex-card.collapsed{opacity:.88}
+  .ex-right{display:flex;align-items:center;gap:10px;justify-content:flex-end}
+  .chev{font-size:16px;opacity:.7;transform-origin:center;transition:transform .12s ease, opacity .12s ease}
+  .ex-card.collapsed .chev{transform:rotate(-90deg);opacity:.9}
+
+
 </style>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
@@ -335,7 +353,7 @@
       <div class="btn" data-part="어깨">어깨</div>
       <div class="btn" data-part="팔">팔</div>
       <div class="btn" data-part="복근">복근</div>
-      <div class="btn primary" data-part="유산소">유산소</div>
+      <div class="btn" data-part="유산소">유산소</div>
     </div>
   </div>
 
@@ -351,6 +369,10 @@
     <div class="divider"></div>
     <div class="cal-grid cal-dow" id="calDow"></div>
     <div class="cal-grid" id="calGrid" style="margin-top:6px"></div>
+    <div class="cal-detail" id="calDetail" style="display:none;margin-top:10px">
+      <div class="muted" id="calDetailTitle">-</div>
+      <div class="cal-chips" id="calDetailChips"></div>
+    </div>
   </div>
 <div class="section card" id="workCard" style="display:none">
     <div class="row between">
@@ -361,7 +383,13 @@
           <div style="font-weight:900" id="selectedPart">-</div>
         </div>
       </div>
-      <div class="muted" id="todaySmall"></div>
+      
+      <div style="text-align:right">
+        <div class="muted" id="todaySmall"></div>
+        <div class="muted" style="margin-top:4px;font-variant-numeric:tabular-nums">
+          총 <span id="workTotal">00:00:00</span> / 훈련 <span id="workTrain">00:00:00</span>
+        </div>
+      </div>
     </div>
 
     <div id="exerciseList" style="margin-top:10px"></div>
@@ -830,6 +858,10 @@ const STORAGE_KEY="health_rank_today_v12c";
   loadState();
   state.exercises.forEach(ex=>{
     if(typeof ex.activeMs!=="number") ex.activeMs=0;
+    if(typeof ex.setPhase!=="string") ex.setPhase = "idle";
+    if(state.timers.currentExId===ex.id && state.timers.currentExStartedAt && !state.timers.endedAt && !ex.isDone){
+      ex.setPhase = "active";
+    }
   });
 
   // Timers: start on first exercise add. Exercise timer runs from add until "종목완료"
@@ -861,7 +893,34 @@ const STORAGE_KEY="health_rank_today_v12c";
     state.timers.currentExStartedAt = now();
     saveState();
   }
-  function endWorkout(){
+
+  // Set-based timing (2세트부터 시작 버튼)
+  function startSet(ex){
+    if(!ex || ex.isDone || state.timers.endedAt) return;
+    // 다른 종목이 진행중이면 정지 처리
+    state.exercises.forEach(o=>{
+      if(o && o.id!==ex.id && o.setPhase==="active") o.setPhase="idle";
+    });
+    stopCurrentExerciseSegment();
+    ensureStarted();
+    state.timers.currentExId = ex.id;
+    state.timers.currentExStartedAt = now();
+    ex.setPhase = "active";
+    ex.isCollapsed = false;
+    saveState();
+    renderExercises();
+  }
+
+  function finishSet(ex){
+    if(!ex || ex.isDone || state.timers.endedAt) return;
+    if(state.timers.currentExId===ex.id) stopCurrentExerciseSegment();
+    ex.setPhase = "entry"; // 입력 대기
+    saveState();
+    renderExercises();
+    openSetEntry(ex);
+  }
+
+function endWorkout(){
     stopCurrentExerciseSegment();
 
     // 종목완료를 안 눌렀어도 '운동 종료'면 전부 종료 처리
@@ -870,7 +929,8 @@ const STORAGE_KEY="health_rank_today_v12c";
       if(!ex.isDone){
         ex.isDone = true;
         ex.isCollapsed = true;
-      }
+              ex.setPhase = \"idle\";
+}
     }
     state.timers.currentExId = null;
     state.timers.currentExStartedAt = null;
@@ -884,9 +944,26 @@ const STORAGE_KEY="health_rank_today_v12c";
     return Math.max(0, end - state.timers.startedAt);
   }
 // Clock UI
-  const clockBox=qs('#clockBox');
-  const clockTotal=qs('#clockTotal');
-  function renderClock(){ if(!clockTotal) return; clockTotal.textContent = fmtHMS(totalMs()); }
+  const workTotal=qs('#workTotal');
+  const workTrain=qs('#workTrain');
+
+  function trainMs(){
+    let ms = 0;
+    for(const ex of state.exercises){
+      ms += (ex.activeMs||0);
+    }
+    if(state.timers.currentExId && state.timers.currentExStartedAt && !state.timers.endedAt){
+      ms += Math.max(0, now()-state.timers.currentExStartedAt);
+    }
+    return ms;
+  }
+
+  function renderClock(){
+    const tTotal = fmtHMS(totalMs());
+    const tTrain = fmtHMS(trainMs());
+    if(workTotal) workTotal.textContent = tTotal;
+    if(workTrain) workTrain.textContent = tTrain;
+  }
 
 
   // --- Ticker ---
@@ -1025,6 +1102,36 @@ function renderTicker(){
   const calDow=qs('#calDow');
   const calGrid=qs('#calGrid');
 
+  const calDetail=qs('#calDetail');
+  const calDetailTitle=qs('#calDetailTitle');
+  const calDetailChips=qs('#calDetailChips');
+  let calSelectedDate = null;
+
+  function renderCalDetail(ds){
+    if(!calDetail || !calDetailTitle || !calDetailChips) return;
+    if(!ds){
+      calDetail.style.display="none";
+      return;
+    }
+    const parts = (history.days[ds]?.parts)||[];
+    calDetailTitle.textContent = ds + " 운동부위";
+    calDetailChips.innerHTML = parts.length
+      ? parts.map(p=>`<span class="chip">${p}</span>`).join("")
+      : `<div class="muted">기록 없음</div>`;
+    calDetail.style.display="";
+  }
+
+  if(calGrid){
+    calGrid.addEventListener('click',(e)=>{
+      const cell = e.target.closest('.cal-cell[data-cal-date]');
+      if(!cell) return;
+      calSelectedDate = cell.getAttribute('data-cal-date');
+      renderCalendar();
+      renderCalDetail(calSelectedDate);
+    });
+  }
+
+
   function syncHeaderVisibility(){
     const active = document.querySelector('.screen.active');
     const screenName = active ? (active.id||"").replace('screen-','') : "today";
@@ -1060,8 +1167,10 @@ function renderTicker(){
       const sub = parts.length ? (shown.join('·') + (more>0 ? " +"+more : "")) : "";
       const isToday = ds===todayStr();
 
-      cells.push(
-        `<div class="cal-cell ${isToday?"cal-today":""}">`
+      
+      const isSel = (calSelectedDate && ds===calSelectedDate);
+cells.push(
+        `<div class="cal-cell ${isToday?"cal-today":""} ${isSel?"cal-selected":""}" data-cal-date="${ds}">`
         + `<div class="cal-day">${day}</div>`
         + `<div class="cal-sub ${parts.length? "":"muted"}">${sub}</div>`
         + `</div>`
@@ -1070,7 +1179,9 @@ function renderTicker(){
 
     while(cells.length<42) cells.push('<div class="cal-cell blank"></div>');
     calGrid.innerHTML = cells.join("");
-  }
+  
+    if(calSelectedDate) renderCalDetail(calSelectedDate);
+}
 
 
   function showPartPicker(){
@@ -1175,6 +1286,7 @@ function renderTicker(){
       isCollapsed:false,
       isDone:false,
       activeMs:0,
+      setPhase:"active",
       timePaused:false,
       timePausedAt:null,
       timePausedMs:0
@@ -1185,8 +1297,8 @@ function renderTicker(){
     // 캘린더용: 오늘 운동한 부위 기록
     logPartsForToday(ex.part);
 
-    // 종목 추가 순간부터 "종목 타이머" 시작
-    setCurrentExercise(ex.id);
+    // 1세트는 자동 시작
+    startSet(ex);
 
     saveState(); renderTicker();
     closePromptFn();
@@ -1252,7 +1364,6 @@ function renderTicker(){
   function openSetEntry(ex){
     ex.isCollapsed=false;
     saveState();
-    setCurrentExercise(ex.id);
 
     currentExId=ex.id;
     const nextNo=(ex.sets?.length||0)+1;
@@ -1280,6 +1391,7 @@ function renderTicker(){
     overlaySet.classList.remove('show'); overlaySet.setAttribute('aria-hidden','true');
     currentExId=null; unit="kg"; lbStr=""; tempKg=0;
     showStep("weight");
+    renderExercises();
   }
   closeSet.addEventListener('click',closeSetFn);
   overlaySet.addEventListener('click',e=>{if(e.target===overlaySet) closeSetFn();});
@@ -1367,6 +1479,7 @@ function renderTicker(){
     if(currentReps<=0) return false;
     ex.weightKg = +(tempKg||0);
     ex.sets.push({w:ex.weightKg, r:currentReps, ts:Date.now()});
+    ex.setPhase = \"idle\";
     saveState(); renderTicker();
     return true;
   }
@@ -1481,6 +1594,7 @@ function renderTicker(){
       state.timers.currentExStartedAt=null;
     }
     ex.isDone=true;
+    ex.setPhase=\"idle\";
     ex.isCollapsed=true;
     saveState();
     renderExercises();
@@ -1559,9 +1673,10 @@ function updateExerciseTimeBadges(){
         const vol=totalVolume(ex);
         const prevVol = (typeof ex.prevWorkoutVolume==="number") ? ex.prevWorkoutVolume : null;
         const nextNo=sets.length+1;
-
-        const isActive = (state.timers.currentExId===ex.id) && !ex.isDone;
+        const phase = (state.timers.endedAt || ex.isDone) ? "idle" : (ex.setPhase||"idle");
+        const isActive = (phase==="active");
         if(isActive) card.classList.add('active');
+        if(ex.isCollapsed) card.classList.add('collapsed');
         const head = document.createElement('div');
         head.className="ex-head";
         head.innerHTML = `
@@ -1569,21 +1684,24 @@ function updateExerciseTimeBadges(){
           <div class="ex-left">
             <div class="muted">${ex.part}</div>
             <div class="ex-title">${ex.name}</div>
-            <div class="ex-sub">${ex.isDone ? "완료됨" : (isActive ? "진행중" : "대기중")}</div>
+            <div class="ex-sub">${
+              ex.isDone ? "완료됨"
+              : (phase==="active" ? "진행중" : (phase==="entry" ? "입력대기" : "대기중"))
+            }</div>
           </div>
           <div class="ex-meta">
             <div class="ex-actions">
-              <div class="pill tap" data-action="time" data-ex-time="${ex.id}" title="터치: 일시정지/재개" style="padding:6px 10px;${ex.isDone?'opacity:.45;pointer-events:none':''}">00:00:00</div>
-              <div class="btn small good" data-action="done">종목완료</div>
+              <div class="btn small good" data-action="done" ${ex.isDone?'style=\'opacity:.45;pointer-events:none\'':''}>종목완료</div>
             </div>
-            <div class="ex-vol">${ex.type==="cardio" ? ((ex.cardio?.distanceKm||0)+"km") : (vol.toLocaleString()+"kg")}</div>
+            <div class="ex-right">
+              <div class="ex-vol">${ex.type==="cardio" ? ((ex.cardio?.distanceKm||0)+"km") : (vol.toLocaleString()+"kg")}</div>
+              <div class="chev" aria-hidden="true">${ex.isCollapsed ? "▸" : "▾"}</div>
+            </div>
           </div>
         `;
         head.addEventListener('click',(ev)=>{
           const a=ev.target.closest('[data-action]');
           if(a) return;
-          // 종목 눌렀으면 그 종목이 "진행중"으로 간주 (타이머도 그 종목으로 스위치)
-          if(!ex.isDone) setCurrentExercise(ex.id);
           toggleCollapse(ex);
         });
 
@@ -1615,13 +1733,23 @@ function updateExerciseTimeBadges(){
           ? `<div class="prev-date">${prev.date}</div><div class="prev-val">${fmtKg(prev.w)}kg*${prev.r}reps</div>`
           : `<div class="prev-date">이전 없음</div><div class="prev-val">-</div>`;
 
+                const disabled = ex.isDone || !!state.timers.endedAt;
+        let liveBtn = "";
+        if(phase==="active"){
+          liveBtn = `<div class="btn ghost small" data-action="finishset" ${disabled?"style='opacity:.45;pointer-events:none'":""}>완료</div>`;
+        }else if(phase==="entry"){
+          liveBtn = `<div class="btn ghost small" data-action="set" ${disabled?"style='opacity:.45;pointer-events:none'":""}>입력</div>`;
+        }else{
+          liveBtn = `<div class="btn ghost small" data-action="startset" ${disabled?"style='opacity:.45;pointer-events:none'":""}>시작</div>`;
+        }
+
         const liveRow = `
-          <div class="set-row live">
+          <div class="set-row live ${phase==="active" ? "live-active" : ""} ${phase==="entry" ? "live-entry" : ""}">
             <div class="set-left">
               <div class="set-no"><span class="live-dot"></span>${nextNo}세트</div>
               <div class="set-val prev-box ghosttext">${ghost}</div>
             </div>
-            <div class="btn ghost small" data-action="set" ${ex.isDone?"style='opacity:.45;pointer-events:none'":""}>완료</div>
+            ${liveBtn}
           </div>
         `;
 
@@ -1680,12 +1808,13 @@ function updateExerciseTimeBadges(){
           if(!a) return;
           ev.preventDefault(); ev.stopPropagation();
           const action=a.dataset.action;
+          if(action==="startset") startSet(ex);
+          if(action==="finishset") finishSet(ex);
           if(action==="set") openSetEntry(ex);
           if(action==="cardio") openCardioEntry(ex);
           if(action==="del") deleteSet(ex, parseInt(a.dataset.idx,10));
           if(action==="done") markDone(ex);
           if(action==="x") deleteExercise(ex);
-          if(action==="time") toggleTimePause(ex);
         });
 
         card.appendChild(head);
@@ -1697,8 +1826,6 @@ function updateExerciseTimeBadges(){
         if(ex.isDone) { doneBtn.textContent="완료됨"; doneBtn.style.opacity=".55"; doneBtn.style.pointerEvents="none"; }
       });
     });
-
-    updateExerciseTimeBadges();
   }
 
 // --- Cardio overlay ---
