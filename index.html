@@ -2085,11 +2085,10 @@ document.addEventListener('DOMContentLoaded', ()=>{
 
     const payload = {
       id: user.id,
-      login_id: (loginId||"").trim(),
       nick,
       sex: chosenSex,
       height_cm: isFinite(height)&&height>0 ? Math.round(height) : null,
-      weight_kg: weight,
+      bodyweight_kg: weight,
       weight_class: calcWeightClass(weight),
       region: region || null
     };
