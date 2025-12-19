@@ -747,6 +747,9 @@ const STORAGE_KEY="health_rank_today_v12c";
   const kgToLb=kg=>kg*2.2046226218;
   const lbToKg=lb=>lb/2.2046226218;
 
+  // 공통 헤더(티커/시간)를 제거했어도 기존 호출이 터지지 않게 호환 함수 유지
+  function syncHeaderVisibility(){ /* no-op */ }
+
   const HISTORY_KEY="health_rank_history_v1";
   const MAX_HISTORY_DAYS=365;
   const history={days:{}};
@@ -1315,32 +1318,46 @@ function renderTicker(){
   function closeCalPop(){
     if(!calPop) return;
     calPop.classList.add('hidden');
+    calPop.style.visibility = 'visible';
     calPop.setAttribute('aria-hidden','true');
   }
 
   function openCalPop(ds, cell){
-    if(!calPop || !cell) return;
-    const parts = (history.days?.[ds]?.parts)||[];
-    const top = topPartLabel(ds);
+  if(!calPop || !cell) return;
+  const parts = (history.days?.[ds]?.parts)||[];
+  const top = topPartLabel(ds);
 
-    calPop.innerHTML = `
-      <div class="t">${ds}</div>
-      <div class="s">${top ? `최대볼륨: ${top}` : "기록 없음"}</div>
-      <div class="chips">
-        ${parts.length ? parts.map(p=>`<span class="chip">${p}</span>`).join("") : `<span class="muted">-</span>`}
-      </div>
-    `;
+  calPop.innerHTML = `
+    <div class="t">${ds}</div>
+    <div class="s">${top ? `최대볼륨: ${top}` : "기록 없음"}</div>
+    <div class="chips">
+      ${parts.length ? parts.map(p=>`<span class="chip">${p}</span>`).join("") : `<span class="muted">-</span>`}
+    </div>
+  `;
 
-    // position near tapped cell
-    const r = cell.getBoundingClientRect();
-    const popW = 340;
-    const left = clamp(Math.round(r.left + r.width/2 - popW/2), 8, window.innerWidth - popW - 8);
-    let topPx = Math.round(r.bottom + 8);
-    // if near bottom, show above
-    const estH = 130;
-    if(topPx + estH > window.innerHeight - 8){
-      topPx = Math.round(r.top - estH - 8);
-    }
+  // 먼저 표시(하지만 안 보이게)해서 실제 크기 측정
+  calPop.classList.remove('hidden');
+  calPop.style.visibility = 'hidden';
+  calPop.setAttribute('aria-hidden','false');
+
+  const r = cell.getBoundingClientRect();
+  const pr = calPop.getBoundingClientRect();
+  const popW = pr.width || 320;
+  const popH = pr.height || 140;
+
+  // 기본은 '누른 날짜 위'에 띄움. 위가 부족하면 아래로.
+  let left = clamp(Math.round(r.left + r.width/2 - popW/2), 8, window.innerWidth - popW - 8);
+  let topPx = Math.round(r.top - popH - 10);
+  if(topPx < 8) topPx = Math.round(r.bottom + 10);
+
+  // 화면 밖으로 나가지 않게 보정
+  if(topPx + popH > window.innerHeight - 8) topPx = Math.round(window.innerHeight - popH - 8);
+  if(topPx < 8) topPx = 8;
+
+  calPop.style.left = left + "px";
+  calPop.style.top = topPx + "px";
+  calPop.style.visibility = 'visible';
+}
 
     calPop.style.left = left + "px";
     calPop.style.top = topPx + "px";
@@ -1362,24 +1379,28 @@ function renderTicker(){
   if(calNext) calNext.addEventListener('click',(e)=>{ e.preventDefault(); e.stopPropagation(); shiftMonth(1); });
 
   if(calGrid){
-    calGrid.addEventListener('click',(e)=>{
-      const cell = e.target.closest('.cal-cell[data-cal-date]');
-      if(!cell) return;
-      const ds = cell.getAttribute('data-cal-date');
-      if(!ds) return;
+  calGrid.addEventListener('click',(e)=>{
+    const cell0 = e.target.closest('.cal-cell[data-cal-date]');
+    if(!cell0) return;
+    const ds = cell0.getAttribute('data-cal-date');
+    if(!ds) return;
 
-      // toggle
-      if(calSelectedDate===ds && calPop && !calPop.classList.contains('hidden')){
-        calSelectedDate=null;
-        closeCalPop();
-        renderCalendar();
-        return;
-      }
-      calSelectedDate = ds;
+    // toggle
+    if(calSelectedDate===ds && calPop && !calPop.classList.contains('hidden')){
+      calSelectedDate=null;
+      closeCalPop();
       renderCalendar();
-      openCalPop(ds, cell);
-    });
-  }
+      return;
+    }
+
+    calSelectedDate = ds;
+    renderCalendar();
+
+    // renderCalendar가 DOM을 다시 그려서 cell이 교체되므로, 새 셀을 다시 찾는다
+    const cell = calGrid.querySelector(`.cal-cell[data-cal-date="${ds}"]`);
+    if(cell) openCalPop(ds, cell);
+  });
+}
 
   document.addEventListener('click',(e)=>{
     if(!calPop || calPop.classList.contains('hidden')) return;
