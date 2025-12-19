@@ -63,6 +63,17 @@
   .input{width:100%;padding:12px;border-radius:12px;border:1px solid #23283a;background:rgba(255,255,255,.03);color:var(--txt);outline:none}
   .input:focus{border-color:rgba(76,92,255,.55)}
   .pill{padding:6px 10px;border-radius:999px;border:1px solid var(--line);user-select:none}
+
+  .tier-pill{font-weight:900}
+  .tier-bronze{background:rgba(205,127,50,.18);border-color:rgba(205,127,50,.35)}
+  .tier-silver{background:rgba(192,192,192,.12);border-color:rgba(192,192,192,.28)}
+  .tier-gold{background:rgba(255,215,0,.12);border-color:rgba(255,215,0,.30)}
+  .tier-platinum{background:rgba(120,225,255,.10);border-color:rgba(120,225,255,.28)}
+  .tier-diamond{background:rgba(120,140,255,.10);border-color:rgba(120,140,255,.30)}
+  .tier-master{background:rgba(255,120,180,.10);border-color:rgba(255,120,180,.30)}
+  .tier-grandmaster{background:rgba(255,90,90,.10);border-color:rgba(255,90,90,.30)}
+  .tier-challenger{background:rgba(120,255,200,.10);border-color:rgba(120,255,200,.30)}
+
   .pill.tap{cursor:pointer}
   .time-paused{background:rgba(255,255,255,.06);border-color:rgba(255,255,255,.35)}
   .divider{height:1px;background:var(--line);margin:10px 0;opacity:.8}
@@ -194,8 +205,8 @@
     color:var(--mut);font-weight:800;font-size:12px;
   }
   .navbtn.active{border-color:rgba(76,92,255,.55);color:var(--accent2);background:rgba(76,92,255,.10)}
-  .navbtn .dot{width:6px;height:6px;border-radius:50%;background:transparent}
-  .navbtn.active .dot{background:var(--accent)}
+  .navbtn .icon{width:28px;height:28px;border-radius:10px;display:flex;align-items:center;justify-content:center;border:1px solid var(--line);background:rgba(255,255,255,.03);color:var(--mut)}
+  .navbtn.active .icon{border-color:rgba(76,92,255,.45);background:rgba(76,92,255,.12);color:var(--accent2)}
   /* leave space for nav */
   .page{padding-bottom:110px}
 
@@ -243,6 +254,23 @@
   /* Calendar interaction */
   .cal-cell[data-cal-date]{cursor:pointer;transition:transform .12s ease, box-shadow .12s ease}
   .cal-selected{transform:scale(1.06);box-shadow:0 0 0 2px rgba(255,255,255,.16) inset}
+  .cal-has{border-color:rgba(76,92,255,.35);background:rgba(76,92,255,.08)}
+  .cal-pop{
+    position:fixed;
+    z-index:9998;
+    max-width:min(360px,92vw);
+    padding:10px 10px;
+    border-radius:14px;
+    border:1px solid rgba(42,48,64,.85);
+    background:rgba(18,20,29,.96);
+    box-shadow:0 18px 50px rgba(0,0,0,.55);
+    backdrop-filter: blur(8px);
+  }
+  .cal-pop.hidden{display:none}
+  .cal-pop .t{font-weight:900;margin-bottom:6px}
+  .cal-pop .s{color:rgba(142,147,181,.85);font-size:12px;margin-bottom:8px}
+  .cal-pop .chips{display:flex;flex-wrap:wrap;gap:6px}
+
   .cal-detail{border:1px dashed rgba(42,48,64,.7);border-radius:14px;padding:10px 10px;background:rgba(255,255,255,.02)}
   .cal-chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
   .chip{font-size:12px;padding:6px 8px;border-radius:999px;border:1px solid rgba(42,48,64,.75);background:rgba(255,255,255,.03)}
@@ -338,11 +366,26 @@
 
 
 <div id="screen-today" class="screen">
+
+  <div class="section card" id="tierCard">
+    <div class="row between">
+      <div>
+        <div class="muted">내 티어</div>
+        <div style="font-weight:900;font-size:22px;margin-top:2px" id="tierName">언랭크</div>
+        <div class="muted" id="tierSub" style="margin-top:6px">초기화 진행: 0/5</div>
+      </div>
+      <div style="text-align:right">
+        <div class="pill" id="tierBadge">0 pt</div>
+        <div class="muted" id="tierDelta" style="margin-top:6px;min-height:16px"></div>
+      </div>
+    </div>
+  </div>
+
   <div class="section card" id="partCard">
     <div class="row between">
       <div>
-        <div class="muted">오늘 운동</div>
-        <div style="font-weight:900;margin-top:2px">부위 선택</div>
+        <div class="muted">오늘 기록</div>
+        <div style="font-weight:900;margin-top:2px">어떤 부위 했어?</div>
       </div>
     </div>
     <div class="divider"></div>
@@ -353,8 +396,7 @@
       <div class="btn" data-part="어깨">어깨</div>
       <div class="btn" data-part="팔">팔</div>
       <div class="btn" data-part="복근">복근</div>
-      <div class="btn" data-part="유산소">유산소</div>
-    </div>
+          </div>
   </div>
 
   
@@ -364,14 +406,20 @@
         <div class="muted">달력</div>
         <div style="font-weight:900;margin-top:2px" id="calTitle">-</div>
       </div>
-      <div class="muted">운동한 부위 (최대 2개)</div>
+      <div style="text-align:right">
+        <div class="row" style="gap:8px;justify-content:flex-end;align-items:center">
+          <div class="btn small ghost" id="calPrev" title="이전 달">←</div>
+          <div class="btn small ghost" id="calNext" title="다음 달">→</div>
+        </div>
+        <div class="muted" style="margin-top:6px">최대볼륨 부위 표시</div>
+      </div>
     </div>
     <div class="divider"></div>
     <div class="cal-grid cal-dow" id="calDow"></div>
     <div class="cal-grid" id="calGrid" style="margin-top:6px"></div>
-    <div class="cal-detail" id="calDetail" style="display:none;margin-top:10px">
-      <div class="muted" id="calDetailTitle">-</div>
-      <div class="cal-chips" id="calDetailChips"></div>
+    <div id="calPop" class="cal-pop hidden" aria-hidden="true"></div>
+
+<div class="cal-chips" id="calDetailChips"></div>
     </div>
   </div>
 <div class="section card" id="workCard" style="display:none">
@@ -530,69 +578,6 @@
   </div>
 </div>
 
-<!-- Cardio entry overlay -->
-<div class="overlay" id="overlayCardio" aria-hidden="true">
-  <div class="drawer" role="dialog" aria-modal="true" aria-label="유산소 기록">
-    <div class="drawer-head">
-      <div>
-        <div class="drawer-title" id="cardioTitle">유산소 기록</div>
-        <div class="drawer-sub" id="cardioSub">-</div>
-      </div>
-      <div class="btn ghost small" id="closeCardio">닫기</div>
-    </div>
-    <div class="drawer-body">
-      <div class="card" style="padding:12px">
-        <div class="row between">
-          <div>
-            <div class="muted">구분</div>
-            <div class="row" style="margin-top:6px">
-              <div class="pill tap" id="cardioOutdoor">야외</div>
-              <div class="pill tap" id="cardioIndoor">실내</div>
-            </div>
-          </div>
-          <div style="text-align:right">
-            <div class="muted">페이스</div>
-            <div style="font-weight:900;font-variant-numeric:tabular-nums" id="cardioPace">-</div>
-          </div>
-        </div>
-        <div class="divider"></div>
-
-        <div class="row" style="gap:10px">
-          <div style="flex:1">
-            <div class="muted">거리 (km)</div>
-            <div class="big center" id="distVal">0</div>
-          </div>
-          <div style="flex:1">
-            <div class="muted">시간</div>
-            <div class="big center"><span id="minVal">0</span>m <span id="secVal">00</span>s</div>
-          </div>
-        </div>
-
-        <div class="divider"></div>
-
-        <div class="muted" style="margin-bottom:8px">입력</div>
-        <div class="row" style="justify-content:center;margin-bottom:10px">
-          <div class="pill tap" id="cardioFocusDist">거리</div>
-          <div class="pill tap" id="cardioFocusTime">시간</div>
-        </div>
-
-        <div class="kbd" id="cardioKbd">
-          <div class="key" data-c="1">1</div><div class="key" data-c="2">2</div><div class="key" data-c="3">3</div>
-          <div class="key" data-c="4">4</div><div class="key" data-c="5">5</div><div class="key" data-c="6">6</div>
-          <div class="key" data-c="7">7</div><div class="key" data-c="8">8</div><div class="key" data-c="9">9</div>
-          <div class="key" id="cardioDot">.</div><div class="key" data-c="0">0</div><div class="key" id="cardioBack">←</div>
-        </div>
-
-        <div class="row" style="margin-top:14px">
-          <div class="btn primary" style="flex:1;padding:16px" id="saveCardio">입력</div>
-        </div>
-      </div>
-    </div>
-  </div>
-</div>
-</div>
-
-
 <div id="screen-summary" class="screen">
   <div class="page">
     <div class="section card">
@@ -629,37 +614,6 @@
       <div class="row" style="margin-top:12px">
         <div class="btn primary" style="flex:1;padding:16px" id="addMoreToday">오늘 운동 더하기</div>
       </div>
-    </div>
-  </div>
-</div>
-
-<div id="screen-rank" class="screen">
-  <div class="section card">
-    <div class="row between">
-      <div>
-        <div class="muted">랭킹</div>
-        <div style="font-weight:900;margin-top:2px">Top 10</div>
-      </div>
-      <div class="pill" id="rankScope">내 체급 · 내 성별</div>
-    </div>
-    <div class="divider"></div>
-    <div class="row" style="gap:8px">
-      <select class="btn" id="rankPart" style="flex:1;text-align:left">
-        <option value="가슴">가슴</option>
-        <option value="등">등</option>
-        <option value="하체">하체</option>
-        <option value="어깨">어깨</option>
-        <option value="팔">팔</option>
-        <option value="복근">복근</option>
-      </select>
-      <div class="btn" id="rankRefresh">새로고침</div>
-    </div>
-    <div class="divider"></div>
-    <div id="rankList"></div>
-    <div class="divider"></div>
-    <div class="row between">
-      <div class="muted">내 위치</div>
-      <div style="font-weight:900" id="rankMe">-</div>
     </div>
   </div>
 </div>
@@ -825,6 +779,34 @@ const STORAGE_KEY="health_rank_today_v12c";
     history.days[ds]=day;
     saveHistory();
   }
+
+  function logDayStats(ds, byPartVol){
+    if(!ds) return;
+    const day = history.days[ds] || {parts:[], updatedAt:0, volByPart:{}, topPart:null};
+    day.volByPart = day.volByPart || {};
+    const entries = byPartVol && typeof byPartVol==="object" ? Object.entries(byPartVol) : [];
+    entries.forEach(([p,v])=>{
+      if(!p) return;
+      const vv = Math.max(0, Number(v)||0);
+      day.volByPart[p] = Math.round(vv);
+      if(!day.parts.includes(p)) day.parts.push(p);
+    });
+    // top part
+    let bestP=null, bestV=-1;
+    for(const [p,v] of Object.entries(day.volByPart||{})){
+      const vv=Number(v)||0;
+      if(vv>bestV){bestV=vv; bestP=p;}
+    }
+    day.topPart = bestP;
+    day.updatedAt = Date.now();
+    history.days[ds]=day;
+    saveHistory();
+  }
+
+  function logTodayStats(byPartVol){
+    logDayStats(todayStr(), byPartVol);
+  }
+
   loadHistory();
 
 
@@ -1032,6 +1014,188 @@ function startTicker(){
   });
 }
 
+
+  // ----- Score & Tier (local) -----
+  const SCORE_KEY = "health_rank_score_v1";
+  const CORE_MUSCLES = ["가슴","등","어깨","팔","하체"];
+
+  let score = {
+    points: 0,
+    lastByMuscle: {},   // {가슴:{vol, ds}, ...}
+    baselineComplete: false,
+    lastActivity: null, // YYYY-MM-DD
+    penalizedFor: null, // YYYY-MM-DD (lastActivity 기준으로 1회만)
+    lastDelta: 0
+  };
+
+  function loadScore(){
+    try{
+      const raw = localStorage.getItem(SCORE_KEY);
+      if(!raw) return;
+      const j = JSON.parse(raw);
+      if(j && typeof j==="object"){
+        score = Object.assign(score, j);
+        score.lastByMuscle = j.lastByMuscle && typeof j.lastByMuscle==="object" ? j.lastByMuscle : {};
+        score.points = Number(score.points)||0;
+        score.lastDelta = Number(score.lastDelta)||0;
+      }
+    }catch(_){}
+  }
+  function saveScore(){
+    try{ localStorage.setItem(SCORE_KEY, JSON.stringify(score)); }catch(_){}
+  }
+
+  function daysBetween(a,b){
+    // a,b: YYYY-MM-DD
+    const da = new Date(a+"T00:00:00");
+    const db = new Date(b+"T00:00:00");
+    return Math.round((db-da)/86400000);
+  }
+
+  function tierOf(points){
+    const p = Math.max(0, Math.floor(Number(points)||0));
+    const tiers = [
+      {name:"브론즈", min:0},
+      {name:"실버", min:200},
+      {name:"골드", min:500},
+      {name:"플래티넘", min:1000},
+      {name:"다이아", min:1700},
+      {name:"마스터", min:2600},
+      {name:"그랜드마스터", min:3600},
+      {name:"챌린저", min:4800},
+    ];
+    let cur = tiers[0];
+    for(const t of tiers){ if(p>=t.min) cur=t; }
+    return cur.name;
+  }
+
+  function baselineProgress(){
+    let c=0;
+    CORE_MUSCLES.forEach(m=>{ if(score.lastByMuscle && score.lastByMuscle[m] && (Number(score.lastByMuscle[m].vol)||0)>0) c+=1; });
+    return c;
+  }
+
+  function recomputeBaselineComplete(){
+    score.baselineComplete = (baselineProgress() >= CORE_MUSCLES.length);
+  }
+
+  function applyInactivityPenaltyIfNeeded(){
+    if(!score.lastActivity) return;
+    const today = todayStr();
+    const diff = daysBetween(score.lastActivity, today);
+    if(diff < 3) return; // 3일 이상부터
+    // 같은 lastActivity에 대해 1회만 패널티
+    if(score.penalizedFor === score.lastActivity) return;
+
+    const penalty = 15 + (diff-3)*5; // 3일:15, 4일:20, ...
+    score.points = Math.max(0, (Number(score.points)||0) - penalty);
+    score.lastDelta = -penalty;
+    score.penalizedFor = score.lastActivity;
+    saveScore();
+  }
+
+  function applyScoreForSession(byPartVol, ds){
+    if(!ds) ds = todayStr();
+    const todayVol = byPartVol && typeof byPartVol==="object" ? byPartVol : {};
+    // baseline 저장(점수 없음)
+    let touchedCore = false;
+    CORE_MUSCLES.forEach(m=>{
+      const v = Number(todayVol[m])||0;
+      if(v>0){
+        touchedCore = true;
+        if(!score.lastByMuscle[m]){
+          score.lastByMuscle[m] = { vol: Math.round(v), ds };
+        }
+      }
+    });
+
+    recomputeBaselineComplete();
+
+    // baseline 완성 전에는 점수 없음
+    if(!score.baselineComplete){
+      score.lastDelta = 0;
+      score.lastActivity = ds;
+      saveScore();
+      return;
+    }
+
+    // 이번 세션은 '하나의 부위'가 일반적이라 가정: 해당 부위만 점수
+    let deltaTotal = 0;
+    CORE_MUSCLES.forEach(m=>{
+      const v = Number(todayVol[m])||0;
+      if(!(v>0)) return;
+      touchedCore = true;
+
+      const prev = score.lastByMuscle[m];
+      if(!prev || !(Number(prev.vol)||0)){
+        score.lastByMuscle[m] = { vol: Math.round(v), ds };
+        return;
+      }
+
+      const pv = Number(prev.vol)||0;
+      const diff = v - pv;
+      const ratio = pv>0 ? (diff/pv) : 0;
+
+      let d = 0;
+      if(diff > 0){
+        // 이김: 기본 + 개선폭
+        d = 20 + Math.floor(200 * ratio);
+        d = clamp(d, 10, 120);
+      }else if(Math.abs(ratio) <= 0.02){
+        // 거의 비슷
+        d = 5;
+      }else{
+        // 졌음
+        d = -(10 + Math.floor(120 * Math.abs(ratio)));
+        d = clamp(d, -120, -5);
+      }
+
+      deltaTotal += d;
+      // 최신 기록 갱신
+      score.lastByMuscle[m] = { vol: Math.round(v), ds };
+    });
+
+    score.points = Math.max(0, (Number(score.points)||0) + deltaTotal);
+    score.lastDelta = deltaTotal;
+    if(touchedCore) score.lastActivity = ds;
+    saveScore();
+  }
+
+  function updateTierUI(){
+    const tierNameEl = document.getElementById('tierName');
+    const tierSubEl  = document.getElementById('tierSub');
+    const tierBadgeEl= document.getElementById('tierBadge');
+    const tierDeltaEl= document.getElementById('tierDelta');
+    if(!tierNameEl || !tierSubEl || !tierBadgeEl) return;
+
+    const prog = baselineProgress();
+    let tierLabel = "언랭크";
+    let tierKey = "bronze";
+    if(!score.baselineComplete){
+      tierLabel = "언랭크";
+      tierKey = "bronze";
+      tierNameEl.textContent = tierLabel;
+      tierSubEl.textContent = `초기화 진행: ${prog}/${CORE_MUSCLES.length} (유산소 제외)`;
+    }else{
+      tierLabel = tierOf(score.points);
+      tierNameEl.textContent = tierLabel;
+      tierSubEl.textContent = `이번주 누적이 아니라, 어제의 나를 이기는 점수제`;
+      const map = {"브론즈":"bronze","실버":"silver","골드":"gold","플래티넘":"platinum","다이아":"diamond","마스터":"master","그랜드마스터":"grandmaster","챌린저":"challenger"};
+      tierKey = map[tierLabel] || "bronze";
+    }
+    tierBadgeEl.className = `pill tier-pill tier-${tierKey}`;
+    tierBadgeEl.textContent = `${Math.max(0, Math.floor(score.points||0))} pt`;
+    if(tierDeltaEl){
+      const d = Number(score.lastDelta)||0;
+      if(d===0) tierDeltaEl.textContent = "";
+      else tierDeltaEl.textContent = (d>0?`+${d}`:`${d}`) + " pt";
+    }
+  }
+
+  loadScore();
+  applyInactivityPenaltyIfNeeded();
+  updateTierUI();
+
 function renderTicker(){
   const line = qs('#tickerLine');
   if(!line) return;
@@ -1041,7 +1205,7 @@ function renderTicker(){
   const gym = state.profile?.gym || "헬스장";
   const me = state.profile?.nick || "나";
 
-  const parts = ["가슴","등","하체","어깨","팔","복근","유산소"];
+  const parts = ["가슴","등","하체","어깨","팔","복근"];
   const items=[];
   parts.forEach((p, i)=>{
     items.push({part:p, rank:1, nick:"익명1", region:"서울", gym:"A짐", vol: 5200 - i*320});
@@ -1050,11 +1214,11 @@ function renderTicker(){
   });
 
   const myPart = state.selectedPart || "가슴";
-  const myVol = (myPart==="유산소") ? 0 : computeMyTodayPartVolume(myPart);
+  const myVol = computeMyTodayPartVolume(myPart);
   items.push({part:myPart, rank:4, nick:me, region, gym, vol: Math.round(myVol)});
 
   const htmlItems = items.map(it=>{
-    const volTxt = (it.part==="유산소") ? `${Math.round(it.vol)}km` : `${Math.round(it.vol).toLocaleString()}kg`;
+    const volTxt = `${Math.round(it.vol).toLocaleString()}kg`;
     return `<span class="tick-item">`
       + (()=>{
           const medal = (it.rank===1) ? "🥇" : (it.rank===2) ? "🥈" : (it.rank===3) ? "🥉" : (it.nick===me ? "🏅" : "");
@@ -1117,59 +1281,122 @@ function renderTicker(){
   const backBtn=qs('#backBtn'), addExerciseBtn=qs('#addExerciseBtn');
   const endBtn=qs('#endBtn');
 
+  
   const calTitle=qs('#calTitle');
   const calDow=qs('#calDow');
   const calGrid=qs('#calGrid');
+  const calPrev=qs('#calPrev');
+  const calNext=qs('#calNext');
+  const calPop=qs('#calPop');
 
-  const calDetail=qs('#calDetail');
-  const calDetailTitle=qs('#calDetailTitle');
-  const calDetailChips=qs('#calDetailChips');
   let calSelectedDate = null;
+  let calViewY = (new Date()).getFullYear();
+  let calViewM = (new Date()).getMonth();
 
-  function renderCalDetail(ds){
-    if(!calDetail || !calDetailTitle || !calDetailChips) return;
-    if(!ds){
-      calDetail.style.display="none";
-      return;
+  function clamp(n, a, b){ return Math.max(a, Math.min(b, n)); }
+
+  function topPartLabel(ds){
+    const day = history.days?.[ds];
+    if(!day) return "";
+    if(day.topPart) return day.topPart;
+    const vb = day.volByPart;
+    if(vb && typeof vb==="object"){
+      let bestP=null, bestV=-1;
+      for(const [p,v] of Object.entries(vb)){
+        const vv=Number(v)||0;
+        if(vv>bestV){bestV=vv; bestP=p;}
+      }
+      if(bestP) return bestP;
     }
-    const parts = (history.days[ds]?.parts)||[];
-    calDetailTitle.textContent = ds + " 운동부위";
-    calDetailChips.innerHTML = parts.length
-      ? parts.map(p=>`<span class="chip">${p}</span>`).join("")
-      : `<div class="muted">기록 없음</div>`;
-    calDetail.style.display="";
+    const parts = day.parts || [];
+    return parts[0] || "";
   }
+
+  function closeCalPop(){
+    if(!calPop) return;
+    calPop.classList.add('hidden');
+    calPop.setAttribute('aria-hidden','true');
+  }
+
+  function openCalPop(ds, cell){
+    if(!calPop || !cell) return;
+    const parts = (history.days?.[ds]?.parts)||[];
+    const top = topPartLabel(ds);
+
+    calPop.innerHTML = `
+      <div class="t">${ds}</div>
+      <div class="s">${top ? `최대볼륨: ${top}` : "기록 없음"}</div>
+      <div class="chips">
+        ${parts.length ? parts.map(p=>`<span class="chip">${p}</span>`).join("") : `<span class="muted">-</span>`}
+      </div>
+    `;
+
+    // position near tapped cell
+    const r = cell.getBoundingClientRect();
+    const popW = 340;
+    const left = clamp(Math.round(r.left + r.width/2 - popW/2), 8, window.innerWidth - popW - 8);
+    let topPx = Math.round(r.bottom + 8);
+    // if near bottom, show above
+    const estH = 130;
+    if(topPx + estH > window.innerHeight - 8){
+      topPx = Math.round(r.top - estH - 8);
+    }
+
+    calPop.style.left = left + "px";
+    calPop.style.top = topPx + "px";
+    calPop.classList.remove('hidden');
+    calPop.setAttribute('aria-hidden','false');
+  }
+
+  function shiftMonth(delta){
+    let y = calViewY, m = calViewM + delta;
+    if(m<0){ m=11; y-=1; }
+    if(m>11){ m=0; y+=1; }
+    calViewY=y; calViewM=m;
+    calSelectedDate=null;
+    closeCalPop();
+    renderCalendar();
+  }
+
+  if(calPrev) calPrev.addEventListener('click',(e)=>{ e.preventDefault(); e.stopPropagation(); shiftMonth(-1); });
+  if(calNext) calNext.addEventListener('click',(e)=>{ e.preventDefault(); e.stopPropagation(); shiftMonth(1); });
 
   if(calGrid){
     calGrid.addEventListener('click',(e)=>{
       const cell = e.target.closest('.cal-cell[data-cal-date]');
       if(!cell) return;
-      calSelectedDate = cell.getAttribute('data-cal-date');
+      const ds = cell.getAttribute('data-cal-date');
+      if(!ds) return;
+
+      // toggle
+      if(calSelectedDate===ds && calPop && !calPop.classList.contains('hidden')){
+        calSelectedDate=null;
+        closeCalPop();
+        renderCalendar();
+        return;
+      }
+      calSelectedDate = ds;
       renderCalendar();
-      renderCalDetail(calSelectedDate);
+      openCalPop(ds, cell);
     });
   }
 
-
-  function syncHeaderVisibility(){
-    const active = document.querySelector('.screen.active');
-    const screenName = active ? (active.id||"").replace('screen-','') : "today";
-    const inPicker = (screenName==="today" && partCard && workCard && partCard.style.display!=="none" && workCard.style.display==="none");
-    const onSummary = (screenName==="summary");
-    const hide = inPicker || onSummary;
-
-    // optional elements (may not exist in some steps)
-    const _tickerWrap = document.getElementById('tickerWrap');
-    const _clockBox = document.getElementById('clockBox');
-    if(_tickerWrap) _tickerWrap.classList.toggle('hidden', hide);
-    if(_clockBox) _clockBox.classList.toggle('hidden', hide);
-  }
+  document.addEventListener('click',(e)=>{
+    if(!calPop || calPop.classList.contains('hidden')) return;
+    const insidePop = e.target.closest('#calPop');
+    const insideCell = e.target.closest('.cal-cell[data-cal-date]');
+    const insideCalNav = e.target.closest('#calPrev') || e.target.closest('#calNext');
+    if(insidePop || insideCell || insideCalNav) return;
+    calSelectedDate=null;
+    closeCalPop();
+    renderCalendar();
+  });
 
   function renderCalendar(){
     if(!calendarCard || !calTitle || !calDow || !calGrid) return;
-    const d = new Date();
-    const y = d.getFullYear();
-    const m = d.getMonth(); // 0-based
+    const y = calViewY;
+    const m = calViewM; // 0-based
+
     calTitle.textContent = `${y}-${String(m+1).padStart(2,'0')}`;
 
     const dows = ["일","월","화","수","목","금","토"];
@@ -1177,37 +1404,33 @@ function renderTicker(){
 
     const first = new Date(y, m, 1);
     const lastDay = new Date(y, m+1, 0).getDate();
-    const start = first.getDay(); // Sunday=0
+    const start = first.getDay();
 
     const cells = [];
     for(let i=0;i<start;i++) cells.push('<div class="cal-cell blank"></div>');
 
     for(let day=1; day<=lastDay; day++){
       const ds = `${y}-${String(m+1).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
-      const parts = (history.days[ds]?.parts)||[];
-      const shown = parts.slice(0,2);
-      const more = parts.length - shown.length;
-      const sub = parts.length ? (shown.join('·') + (more>0 ? " +"+more : "")) : "";
+      const parts = (history.days?.[ds]?.parts)||[];
+      const has = parts.length>0;
+      const top = has ? topPartLabel(ds) : "";
       const isToday = ds===todayStr();
-
-      
       const isSel = (calSelectedDate && ds===calSelectedDate);
-cells.push(
-        `<div class="cal-cell ${isToday?"cal-today":""} ${isSel?"cal-selected":""}" data-cal-date="${ds}">`
+
+      cells.push(
+        `<div class="cal-cell ${isToday?"cal-today":""} ${has?"cal-has":""} ${isSel?"cal-selected":""}" data-cal-date="${ds}">`
         + `<div class="cal-day">${day}</div>`
-        + `<div class="cal-sub ${parts.length? "":"muted"}">${sub}</div>`
+        + `<div class="cal-sub ${has? "":"muted"}">${has ? top : ""}</div>`
         + `</div>`
       );
     }
 
     while(cells.length<42) cells.push('<div class="cal-cell blank"></div>');
     calGrid.innerHTML = cells.join("");
-  
-    if(calSelectedDate) renderCalDetail(calSelectedDate);
-}
+  }
 
 
-  function showPartPicker(){
+function showPartPicker(){
     partCard.style.display="";
     if(calendarCard) calendarCard.style.display="";
     workCard.style.display="none";
@@ -1239,9 +1462,7 @@ cells.push(
     "하체":["스쿼트","레그프레스","런지","힙쓰러스트","레그익스텐션","레그컬","카프레이즈"],
     "어깨":["오버헤드프레스","사이드레터럴레이즈","숄더프레스","리어델트플라이"],
     "팔":["바벨컬","덤벨컬","해머컬","푸시다운","스컬크러셔"],
-    "복근":["크런치","행잉 레그레이즈","플랭크","케이블 크런치"],
-    "유산소":["러닝","사이클","계단"]
-  };
+    "복근":["크런치","행잉 레그레이즈","플랭크","케이블 크런치"],};
   function seedPrevWorkoutRecord(ex){
     if(ex.prevWorkoutRecord) return;
     const d=new Date(Date.now()-86400000*3);
@@ -1677,7 +1898,7 @@ function updateExerciseTimeBadges(){
       return;
     }
 
-    const order=["가슴","등","하체","어깨","팔","복근","유산소"];
+    const order=["가슴","등","하체","어깨","팔","복근"];
     const groups = {};
     state.exercises.forEach(e=>{ (groups[e.part]=groups[e.part]||[]).push(e); });
 
@@ -1717,7 +1938,7 @@ function updateExerciseTimeBadges(){
               <div class="btn small good" data-action="done" ${ex.isDone?'style=\'opacity:.45;pointer-events:none\'':''}>종목완료</div>
             </div>
             <div class="ex-right">
-              <div class="ex-vol">${ex.type==="cardio" ? ((ex.cardio?.distanceKm||0)+"km") : (vol.toLocaleString()+"kg")}</div>
+              <div class="ex-vol">${vol.toLocaleString()+"kg"}</div>
               <div class="chev" aria-hidden="true">${ex.isCollapsed ? "▸" : "▾"}</div>
             </div>
           </div>
@@ -1779,36 +2000,7 @@ function updateExerciseTimeBadges(){
         const prevNote = prev ? `(${prev.date})` : "(이전 없음)";
         const prevLine = prevVol!=null ? `${Math.round(prevVol).toLocaleString()}kg` : "-";
 
-        if(ex.type==="cardio"){
-  const c=ex.cardio||{mode:"야외",distanceKm:0,minutes:0,seconds:0,paceSecPerKm:null};
-  const dist=+(c.distanceKm||0);
-  const durSec=(+(c.minutes||0)*60)+(+(c.seconds||0));
-  const pace = (dist>0 && durSec>0) ? Math.round(durSec/dist) : null;
-  const paceTxt = pace!=null ? `${Math.floor(pace/60)}m ${String(pace%60).padStart(2,'0')}s/km` : "-";
-  const durTxt = `${c.minutes||0}m ${String(c.seconds||0).padStart(2,'0')}s`;
-  body.innerHTML = `
-    <div class="set-row" style="padding:10px 10px;border:1px dashed rgba(42,48,64,.7);border-radius:12px">
-      <div class="set-left">
-        <div class="set-no">기록</div>
-        <div class="set-val">${c.mode} · ${dist}km · ${durTxt}</div>
-      </div>
-      <div class="btn ghost small" data-action="cardio" ${ex.isDone?"style='opacity:.45;pointer-events:none'":""}>완료</div>
-    </div>
-    <div class="compare">
-      <div class="box">
-        <div class="k">페이스</div>
-        <div class="v">${paceTxt}</div>
-        <div class="s">Distance : ${dist}km</div>
-      </div>
-      <div class="box">
-        <div class="k">훈련시간</div>
-        <div class="v"><span data-ex-time="${ex.id}">00:00:00</span></div>
-        <div class="s">${c.mode} · 야외/실내</div>
-      </div>
-    </div>
-  `;
-} else {
-  body.innerHTML = `
+        body.innerHTML = `
     ${setRows}
     ${liveRow}
     <div class="compare">
@@ -1824,9 +2016,7 @@ function updateExerciseTimeBadges(){
       </div>
     </div>
   `;
-}
-
-        card.addEventListener('click',(ev)=>{
+card.addEventListener('click',(ev)=>{
           const a=ev.target.closest('[data-action]');
           if(!a) return;
           ev.preventDefault(); ev.stopPropagation();
@@ -1834,7 +2024,6 @@ function updateExerciseTimeBadges(){
           if(action==="startset") startSet(ex);
           if(action==="finishset") finishSet(ex);
           if(action==="set") openSetEntry(ex);
-          if(action==="cardio") openCardioEntry(ex);
           if(action==="del") deleteSet(ex, parseInt(a.dataset.idx,10));
           if(action==="done") markDone(ex);
           if(action==="x") deleteExercise(ex);
@@ -1850,146 +2039,6 @@ function updateExerciseTimeBadges(){
       });
     });
   }
-
-// --- Cardio overlay ---
-const overlayCardio=qs('#overlayCardio');
-const closeCardio=qs('#closeCardio');
-const cardioTitle=qs('#cardioTitle');
-const cardioSub=qs('#cardioSub');
-const cardioOutdoor=qs('#cardioOutdoor');
-const cardioIndoor=qs('#cardioIndoor');
-const cardioPace=qs('#cardioPace');
-const distVal=qs('#distVal');
-const minVal=qs('#minVal');
-const secVal=qs('#secVal');
-const cardioFocusDist=qs('#cardioFocusDist');
-const cardioFocusTime=qs('#cardioFocusTime');
-const cardioBack=qs('#cardioBack');
-const cardioDot=qs('#cardioDot');
-const saveCardio=qs('#saveCardio');
-
-let cardioExId=null;
-let cardioFocus="dist";
-let distStr="", minStr="", secStr="";
-
-function setPill(el,on){
-  el.style.borderColor = on ? "var(--accent)" : "var(--line)";
-  el.style.color = on ? "var(--accent2)" : "var(--txt)";
-}
-function paceText(dist, mins, secs){
-  const d=dist, t=mins*60+secs;
-  if(!(d>0 && t>0)) return "-";
-  const p=Math.round(t/d);
-  return `${Math.floor(p/60)}m ${String(p%60).padStart(2,'0')}s/km`;
-}
-function updateCardioUI(){
-  distVal.textContent = distStr==="" ? "0" : distStr;
-  const mins = parseInt(minStr||"0",10)||0;
-  const secs = parseInt(secStr||"0",10)||0;
-  minVal.textContent = String(mins);
-  secVal.textContent = String(secs).padStart(2,'0');
-  const dist = parseFloat(distStr||"0")||0;
-  cardioPace.textContent = paceText(dist, mins, secs);
-
-  setPill(cardioFocusDist, cardioFocus==="dist");
-  setPill(cardioFocusTime, cardioFocus==="time");
-}
-
-function openCardioEntry(ex){
-  ex.isCollapsed=false;
-  saveState();
-  // 타이머는 시계가 멈춰있으면 돌지 않음
-  setCurrentExercise(ex.id);
-
-  cardioExId=ex.id;
-  cardioTitle.textContent = ex.name || "유산소";
-  cardioSub.textContent = `${ex.part} · ${ex.name}`;
-
-  const c=ex.cardio||{mode:"야외",distanceKm:0,minutes:0,seconds:0};
-  distStr = c.distanceKm ? String(c.distanceKm) : "";
-  minStr  = c.minutes ? String(c.minutes) : "";
-  secStr  = c.seconds ? String(c.seconds) : "";
-
-  function applyMode(m){
-    ex.cardio = ex.cardio || {};
-    ex.cardio.mode = m;
-    setPill(cardioOutdoor, m==="야외");
-    setPill(cardioIndoor, m==="실내");
-    saveState();
-  }
-  cardioOutdoor.onclick = ()=>applyMode("야외");
-  cardioIndoor.onclick = ()=>applyMode("실내");
-  applyMode(c.mode||"야외");
-
-  cardioFocus="dist";
-  updateCardioUI();
-
-  overlayCardio.classList.add('show');
-  overlayCardio.setAttribute('aria-hidden','false');
-}
-function closeCardioFn(){
-  overlayCardio.classList.remove('show');
-  overlayCardio.setAttribute('aria-hidden','true');
-  cardioExId=null;
-}
-closeCardio.addEventListener('click', closeCardioFn);
-overlayCardio.addEventListener('click', e=>{ if(e.target===overlayCardio) closeCardioFn(); });
-
-cardioFocusDist.addEventListener('click', ()=>{cardioFocus="dist"; updateCardioUI();});
-cardioFocusTime.addEventListener('click', ()=>{cardioFocus="time"; updateCardioUI();});
-
-qsa('#cardioKbd .key[data-c]').forEach(k=>k.addEventListener('click', ()=>{
-  const ch=k.dataset.c;
-  if(cardioFocus==="dist"){
-    if(distStr.length>=6) return;
-    distStr += ch;
-  }else{
-    // time 입력: mmss 누적
-    const mm = (minStr||"").replace(/\D/g,"");
-    const ss = (secStr||"").replace(/\D/g,"").padStart(2,"0");
-    const combined = (mm+ss+ch).replace(/^0+/,"").slice(-4).padStart(4,"0");
-    const mins = parseInt(combined.slice(0,2),10)||0;
-    const secs = parseInt(combined.slice(2,4),10)||0;
-    minStr = String(mins);
-    secStr = String(secs);
-  }
-  updateCardioUI();
-}));
-cardioDot.addEventListener('click', ()=>{
-  if(cardioFocus!=="dist") return;
-  if(distStr.includes(".")) return;
-  distStr = distStr==="" ? "0." : (distStr + ".");
-  updateCardioUI();
-});
-cardioBack.addEventListener('click', ()=>{
-  if(cardioFocus==="dist"){
-    distStr = distStr.slice(0,-1);
-  }else{
-    const mm=(minStr||"").padStart(2,"0");
-    const ss=(secStr||"").padStart(2,"0");
-    const combined=(mm+ss).slice(0,-1).padStart(4,"0");
-    minStr=String(parseInt(combined.slice(0,2),10)||0);
-    secStr=String(parseInt(combined.slice(2,4),10)||0);
-  }
-  updateCardioUI();
-});
-
-saveCardio.addEventListener('click', ()=>{
-  const ex=state.exercises.find(e=>e.id===cardioExId);
-  if(!ex) return;
-  const dist=parseFloat(distStr||"0")||0;
-  const mins=parseInt(minStr||"0",10)||0;
-  const secs=parseInt(secStr||"0",10)||0;
-  ex.cardio = ex.cardio || {};
-  ex.cardio.distanceKm=dist;
-  ex.cardio.minutes=mins;
-  ex.cardio.seconds=secs;
-  const dur=mins*60+secs;
-  ex.cardio.paceSecPerKm = (dist>0 && dur>0) ? Math.round(dur/dist) : null;
-  saveState();
-  closeCardioFn();
-  renderExercises();
-});
 
   // Summary screen (page)
   const sumDate=qs('#sumDate');
@@ -2037,7 +2086,7 @@ saveCardio.addEventListener('click', ()=>{
   }
 
   function closeAllOverlays(){
-    [overlayPrompt, overlayStart, overlaySet, overlayCardio, overlayTop10].forEach(o=>{
+    [overlayPrompt, overlayStart, overlaySet, overlayTop10].forEach(o=>{
       if(o && o.classList.contains('show')){
         o.classList.remove('show');
         o.setAttribute('aria-hidden','true');
@@ -2062,9 +2111,21 @@ saveCardio.addEventListener('click', ()=>{
     closeAllOverlays();
     endWorkout();
 
-    // 캘린더용 기록(부위)
+    // 캘린더용 기록(부위/볼륨)
     const touched=getTouchedParts();
     if(touched.length) logPartsForToday(touched);
+
+    // 날짜별 최대볼륨 부위 표시용
+    const byPartVol={};
+    state.exercises.forEach(ex=>{
+      const p=ex.part||"-";
+      byPartVol[p]=(byPartVol[p]||0)+totalVolume(ex);
+    });
+    logTodayStats(byPartVol);
+
+    // 점수/티어 갱신
+    applyScoreForSession(byPartVol, todayStr());
+    updateTierUI();
 
     renderSummaryScreen();
     showScreen('summary');
@@ -2101,11 +2162,42 @@ saveCardio.addEventListener('click', ()=>{
   syncHeaderVisibility();
 </script>
 
+
 <div class="bottom-nav" id="bottomNav">
   <div class="wrap">
-    <div class="navbtn active" data-screen="today"><div class="dot"></div><div>오늘</div></div>
-    <div class="navbtn" data-screen="rank"><div class="dot"></div><div>랭킹</div></div>
-    <div class="navbtn" data-screen="more"><div class="dot"></div><div>더보기</div></div>
+    <div class="navbtn active" data-screen="today">
+      <div class="icon" aria-hidden="true">
+        <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M6 20v-6a3 3 0 0 1 3-3h6a3 3 0 0 1 3 3v6"></path>
+          <path d="M8 11V7a4 4 0 0 1 8 0v4"></path>
+        </svg>
+      </div>
+      <div>진행</div>
+    </div>
+    <div class="navbtn" data-screen="summary">
+      <div class="icon" aria-hidden="true">
+        <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M4 19V5"></path>
+          <path d="M4 19h16"></path>
+          <path d="M8 17v-6"></path>
+          <path d="M12 17V7"></path>
+          <path d="M16 17v-3"></path>
+        </svg>
+      </div>
+      <div>요약</div>
+    </div>
+    <div class="navbtn" data-screen="more">
+      <div class="icon" aria-hidden="true">
+        <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor">
+          <circle cx="5" cy="12" r="2"></circle>
+          <circle cx="12" cy="12" r="2"></circle>
+          <circle cx="19" cy="12" r="2"></circle>
+        </svg>
+      </div>
+      <div>···</div>
+    </div>
+  </div>
+</div>
   </div>
 </div>
 
@@ -2140,7 +2232,7 @@ document.addEventListener('DOMContentLoaded', ()=>{
     if(bottomNav) bottomNav.style.display = (name === 'auth') ? 'none' : '';
 
     // 필요한 화면만 새로 그림
-    if(name === 'today' && typeof window.renderCalendar === 'function') window.renderCalendar();
+    if(name === 'today'){ if(typeof window.renderCalendar === 'function') window.renderCalendar(); if(typeof window.updateTierUI === 'function') window.updateTierUI(); }
     if(typeof window.syncHeaderVisibility === 'function') window.syncHeaderVisibility();
   };
 
