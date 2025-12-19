@@ -280,10 +280,34 @@
   .set-row.live.live-active .live-dot{animation:livePulse 1.2s ease-in-out infinite;opacity:1}
 
   /* Collapsed feel */
-  .ex-card.collapsed{opacity:.88}
+  .ex-card{position:relative}
+  .ex-card.collapsed{
+    opacity:.92;
+    border-style:dashed;
+    background:
+      linear-gradient(180deg, rgba(255,255,255,.04), rgba(255,255,255,0)),
+      var(--card);
+  }
+  .ex-card.collapsed:after{
+    content:"";
+    position:absolute;left:12px;right:12px;bottom:10px;height:10px;
+    background:linear-gradient(180deg, rgba(0,0,0,0), rgba(0,0,0,.35));
+    pointer-events:none;border-radius:12px;
+  }
   .ex-right{display:flex;align-items:center;gap:10px;justify-content:flex-end}
-  .chev{font-size:16px;opacity:.7;transform-origin:center;transition:transform .12s ease, opacity .12s ease}
-  .ex-card.collapsed .chev{transform:rotate(-90deg);opacity:.9}
+  .collapsed-hint{
+    display:none;
+    font-size:11px;
+    padding:4px 8px;
+    border-radius:999px;
+    border:1px solid rgba(42,48,64,.75);
+    background:rgba(255,255,255,.03);
+    color:rgba(207,211,255,.82);
+    font-weight:800;
+  }
+  .ex-card.collapsed .collapsed-hint{display:inline-flex}
+  .chev{font-size:18px;opacity:.7;transform-origin:center;transition:transform .12s ease, opacity .12s ease}
+  .ex-card.collapsed .chev{transform:rotate(-90deg);opacity:.95}
 
 
 </style>
@@ -719,6 +743,7 @@
 </div>
 
 <script>
+
 const STORAGE_KEY="health_rank_today_v12c";
 
   // (디버그) 초기 로딩 에러가 나면 화면에 바로 표시
@@ -1359,12 +1384,6 @@ function renderTicker(){
   calPop.style.visibility = 'visible';
 }
 
-    calPop.style.left = left + "px";
-    calPop.style.top = topPx + "px";
-    calPop.classList.remove('hidden');
-    calPop.setAttribute('aria-hidden','false');
-  }
-
   function shiftMonth(delta){
     let y = calViewY, m = calViewM + delta;
     if(m<0){ m=11; y-=1; }
@@ -1944,15 +1963,18 @@ function updateExerciseTimeBadges(){
         if(ex.isCollapsed) card.classList.add('collapsed');
         const head = document.createElement('div');
         head.className="ex-head";
-        head.innerHTML = `
+        
+        const statusText = ex.isDone ? "완료됨"
+          : (phase==="active" ? "진행중" : (phase==="entry" ? "입력대기" : "대기중"));
+        const subText = ex.isCollapsed
+          ? `접힘 · ${sets.length}세트 · ${Math.round(vol).toLocaleString()}kg`
+          : statusText;
+head.innerHTML = `
           <div class="ex-x" data-action="x" title="종목삭제">✕</div>
           <div class="ex-left">
             <div class="muted">${ex.part}</div>
             <div class="ex-title">${ex.name}</div>
-            <div class="ex-sub">${
-              ex.isDone ? "완료됨"
-              : (phase==="active" ? "진행중" : (phase==="entry" ? "입력대기" : "대기중"))
-            }</div>
+            <div class=\"ex-sub\">${subText}</div>
           </div>
           <div class="ex-meta">
             <div class="ex-actions">
@@ -1960,6 +1982,7 @@ function updateExerciseTimeBadges(){
             </div>
             <div class="ex-right">
               <div class="ex-vol">${vol.toLocaleString()+"kg"}</div>
+              <div class="collapsed-hint">펼치기</div>
               <div class="chev" aria-hidden="true">${ex.isCollapsed ? "▸" : "▾"}</div>
             </div>
           </div>
@@ -2018,12 +2041,15 @@ function updateExerciseTimeBadges(){
           </div>
         `;
 
+        const showLive = !(state.timers.endedAt || ex.isDone);
+        const liveRowHtml = showLive ? liveRow : "";
+
         const prevNote = prev ? `(${prev.date})` : "(이전 없음)";
         const prevLine = prevVol!=null ? `${Math.round(prevVol).toLocaleString()}kg` : "-";
 
         body.innerHTML = `
     ${setRows}
-    ${liveRow}
+    ${liveRowHtml}
     <div class="compare">
       <div class="box">
         <div class="k">이전 운동 볼륨</div>
@@ -2181,6 +2207,7 @@ card.addEventListener('click',(ev)=>{
   renderClock();
   renderCalendar();
   syncHeaderVisibility();
+
 </script>
 
 
