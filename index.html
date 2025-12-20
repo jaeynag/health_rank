@@ -190,14 +190,24 @@
   .screen.active{display:block}
   .bottom-nav{
     position:fixed;left:10px;right:10px;bottom:12px;
-    background:rgba(15,17,21,.92);
-    border:1px solid #1f2430;
+    background:rgba(15,17,21,.55);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border:1px solid rgba(255,255,255,.10);
     border-radius:16px;
+    overflow:hidden;
+    background-clip: padding-box;
     padding:8px 10px calc(8px + env(safe-area-inset-bottom));
     z-index:30;
+    isolation:isolate;
     box-shadow:0 10px 30px rgba(0,0,0,.45);
   }
-  .bottom-nav .wrap{max-width:480px;margin:0 auto;display:flex;gap:8px}
+  .bottom-nav::before{
+    content:"";position:absolute;inset:0;
+    background:linear-gradient(to bottom, rgba(255,255,255,.10), rgba(255,255,255,0));
+    pointer-events:none;
+  }
+  .bottom-nav .wrap{max-width:480px;margin:0 auto;display:flex;gap:8px;position:relative;z-index:1}
   .navbtn{
     flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;
     gap:2px;padding:10px 8px;border-radius:12px;
@@ -2309,7 +2319,6 @@ card.addEventListener('click',(ev)=>{
     </div>
   </div>
 </div>
-  </div>
 </div>
 
 
@@ -2337,9 +2346,17 @@ document.addEventListener('DOMContentLoaded', ()=>{
     try{ window.scrollTo({top:0,left:0,behavior:"auto"}); }catch(e){ try{ window.scrollTo(0,0);}catch(e2){} }
     try{ document.documentElement.scrollTop = 0; document.body.scrollTop = 0; }catch(e){}
 
-    document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
+    document.querySelectorAll('.screen').forEach(s=>{
+      s.classList.remove('active');
+      s.style.display = 'none';
+      s.setAttribute('aria-hidden','true');
+    });
     const el = document.getElementById('screen-'+name);
-    if(el) el.classList.add('active');
+    if(el){
+      el.classList.add('active');
+      el.style.display = 'block';
+      el.removeAttribute('aria-hidden');
+    }
 
     document.querySelectorAll('.navbtn').forEach(b=>b.classList.toggle('active', b.dataset.screen===name));
 
