@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no"/>
-<title>Health Rank - App (Step31)</title>
+<title>Health Rank - App (Step41)</title>
 <style>
   :root{
     --bg:#0f1115; --card:#141826; --card2:#1b1f2a; --line:#2a3040;
@@ -310,6 +310,43 @@
   .ex-card.collapsed .chev{transform:rotate(-90deg);opacity:.95}
 
 
+
+  /* Bottom nav: glass + icon-only */
+  .bottom-nav{
+    background:rgba(15,17,21,.60);
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+    overflow:hidden;
+  }
+  .bottom-nav:before{
+    content:"";
+    position:absolute; inset:0;
+    background:linear-gradient(180deg, rgba(255,255,255,.12), rgba(255,255,255,0));
+    opacity:.22;
+    pointer-events:none;
+    border-radius:16px;
+  }
+  .bottom-nav .wrap{position:relative; z-index:1;}
+  .navbtn{gap:0;font-size:0;padding:12px 8px;}
+  .navbtn .icon{margin:0;}
+  .sr-only{
+    position:absolute !important;
+    width:1px;height:1px;
+    padding:0;margin:-1px;
+    overflow:hidden;
+    clip:rect(0,0,0,0);
+    white-space:nowrap;
+    border:0;
+  }
+  .notice{
+    margin:10px 0 0;
+    padding:12px;
+    border-radius:14px;
+    border:1px solid rgba(255,107,107,.25);
+    background:rgba(255,107,107,.10);
+  }
+
+
 </style>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
@@ -443,10 +480,10 @@
     <div class="cal-grid" id="calGrid" style="margin-top:6px"></div>
     <div id="calPop" class="cal-pop hidden" aria-hidden="true"></div>
 
-<div class="cal-chips" id="calDetailChips"></div>
-    </div>
+    <div class="cal-chips" id="calDetailChips"></div>
   </div>
-<div class="section card" id="workCard" style="display:none">
+
+  <div class="section card" id="workCard" style="display:none">
     <div class="row between">
       <div class="row" style="gap:10px">
         <div class="btn small ghost" id="backBtn" title="부위 다시 선택">←</div>
@@ -610,6 +647,11 @@
           <div class="muted">오늘 요약</div>
           <div style="font-weight:900;margin-top:2px" id="sumDate">-</div>
         </div>
+      </div>
+
+      <div id="sumNotice" class="notice hidden" aria-hidden="true">
+        <div style="font-weight:900">완료 안 된 종목이 있었어</div>
+        <div class="muted" id="sumNoticeText" style="margin-top:6px;white-space:pre-line"></div>
       </div>
 
       <div class="divider"></div>
@@ -2089,6 +2131,8 @@ card.addEventListener('click',(ev)=>{
 
   // Summary screen (page)
   const sumDate=qs('#sumDate');
+  const sumNotice=qs('#sumNotice');
+  const sumNoticeText=qs('#sumNoticeText');
   const sumTotalVol2=qs('#sumTotalVol2');
   const sumTotalTime2=qs('#sumTotalTime2');
   const sumParts2=qs('#sumParts2');
@@ -2115,6 +2159,18 @@ card.addEventListener('click',(ev)=>{
   function renderSummaryScreen(){
     const s=computeSummary();
     if(sumDate) sumDate.textContent = s.ds;
+    if(sumNotice && sumNoticeText){
+      const n = state.lastEndNotice;
+      if(n && n.date===todayStr() && n.text){
+        sumNotice.classList.remove("hidden");
+        sumNotice.setAttribute("aria-hidden","false");
+        sumNoticeText.textContent = n.text;
+      }else{
+        sumNotice.classList.add("hidden");
+        sumNotice.setAttribute("aria-hidden","true");
+        sumNoticeText.textContent = "";
+      }
+    }
     if(sumTotalVol2) sumTotalVol2.textContent = Math.round(s.total).toLocaleString()+"kg";
     if(sumTotalTime2) sumTotalTime2.textContent = s.totalTimeTxt;
 
@@ -2140,6 +2196,7 @@ card.addEventListener('click',(ev)=>{
       }
     });
   }
+  window.closeAllOverlays = closeAllOverlays;
 
   endBtn.addEventListener('click',()=>{
     const pending = state.exercises.filter(ex=>!ex.isDone);
@@ -2153,7 +2210,13 @@ card.addEventListener('click',(ev)=>{
       });
       msg = lines.join("\n") + "\n\n종목을 완료하고 운동을 종료할까요?";
     }
-    if(!confirm(msg)) return;
+    if(pending.length){
+      const text = msg.replace(/\n\n종목을 완료하고 운동을 종료할까요\?\s*$/,'');
+      state.lastEndNotice = { date: todayStr(), text };
+    }else{
+      state.lastEndNotice = null;
+    }
+    saveState();
 
     closeAllOverlays();
     endWorkout();
@@ -2220,7 +2283,7 @@ card.addEventListener('click',(ev)=>{
           <path d="M8 11V7a4 4 0 0 1 8 0v4"></path>
         </svg>
       </div>
-      <div>진행</div>
+      <span class="sr-only">진행</span>
     </div>
     <div class="navbtn" data-screen="summary">
       <div class="icon" aria-hidden="true">
@@ -2232,7 +2295,7 @@ card.addEventListener('click',(ev)=>{
           <path d="M16 17v-3"></path>
         </svg>
       </div>
-      <div>요약</div>
+      <span class="sr-only">요약</span>
     </div>
     <div class="navbtn" data-screen="more">
       <div class="icon" aria-hidden="true">
@@ -2242,7 +2305,7 @@ card.addEventListener('click',(ev)=>{
           <circle cx="19" cy="12" r="2"></circle>
         </svg>
       </div>
-      <div>···</div>
+      <span class="sr-only">더보기</span>
     </div>
   </div>
 </div>
@@ -2270,6 +2333,10 @@ document.addEventListener('DOMContentLoaded', ()=>{
   const bottomNav = document.getElementById('bottomNav');
 
   window.showScreen = function(name){
+    try{ if(typeof window.closeAllOverlays==="function") window.closeAllOverlays(); }catch(e){}
+    try{ window.scrollTo({top:0,left:0,behavior:"auto"}); }catch(e){ try{ window.scrollTo(0,0);}catch(e2){} }
+    try{ document.documentElement.scrollTop = 0; document.body.scrollTop = 0; }catch(e){}
+
     document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
     const el = document.getElementById('screen-'+name);
     if(el) el.classList.add('active');
