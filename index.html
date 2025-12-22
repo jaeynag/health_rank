@@ -1,641 +1,1535 @@
 <!doctype html>
+
 <html lang="ko">
+
 <head>
+
 <meta charset="utf-8"/>
+
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no"/>
-<title>Health Rank - Step42 (Fixed)</title>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+<title>Health Rank - App (Step41)</title>
+
 <style>
+
   :root{
+
     --bg:#0f1115; --card:#141826; --card2:#1b1f2a; --line:#2a3040;
+
     --txt:#eaeaf0; --mut:#8e93b5; --accent:#4c5cff; --accent2:#cfd3ff;
+
     --danger:#ff4c6a; --good:#36d399;
+
   }
+
   *{box-sizing:border-box}
+
   body{margin:0;font-family:-apple-system,BlinkMacSystemFont,system-ui,Segoe UI,Roboto,Apple SD Gothic Neo,Noto Sans KR,sans-serif;background:var(--bg);color:var(--txt)}
-  .page{max-width:480px;margin:0 auto;padding:12px 12px 100px} /* Nav space */
-  
-  /* Utils */
+
+  .page{max-width:480px;margin:0 auto;padding:12px 12px 24px}
+
+  .header{position:sticky;top:0;background:var(--bg);padding:6px 0 10px;border-bottom:1px solid #1f2430;z-index:20}
+
+
+
+  /* Compact clock */
+
+  .head-row{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:8px}
+
+  .clock{
+
+    flex:1;display:flex;align-items:center;justify-content:space-between;
+
+    border:1px solid #23283a;border-radius:12px;
+
+    background:rgba(255,255,255,.03);
+
+    padding:10px 12px;
+
+    user-select:none;
+
+  }
+
+  .clock .s{color:var(--mut);font-size:12px}
+
+  .clock .t{font-variant-numeric:tabular-nums;letter-spacing:.08em;font-weight:900}
+
+
+
+  /* Ticker */
+
+  .tick-item{display:inline-flex;gap:8px;align-items:center}
+
+  .tick-part{font-weight:900;color:#e7e9ff}
+
+  .tick-rank{font-weight:900;color:var(--accent2)}
+
+  .tick-loc{color:var(--mut)}
+
+  .tick-nick{font-weight:900}
+
+  .tick-vol{font-weight:900}
+
+  .tick-sep{opacity:.35;margin:0 10px}
+
+  .tick-medal{font-size:14px;line-height:1;transform:translateY(-1px)}
+
+
+
+  .ticker-wrap{overflow:hidden;white-space:nowrap;border-radius:10px;background:rgba(255,255,255,.03);border:1px solid #23283a}
+
+  .ticker-touch{cursor:pointer}
+
+  .ticker{display:inline-block;padding-left:100%;animation: marquee 18s linear infinite;will-change:transform}
+
+  .ticker.paused{animation-play-state:paused}
+
+  .ticker span{display:inline-block;margin-right:24px;color:var(--accent2)}
+
+  .ticker.paused span{}
+
+  @keyframes marquee{0%{transform:translateX(0)}100%{transform:translateX(-100%)}}
+
+  /* ticker: no extra effects */
+
+/* UI */
+
   .section{margin:12px 0}
+
   .card{position:relative;background:var(--card);border:1px solid var(--line);border-radius:14px;padding:12px}
-  .card.active{border-color:rgba(76,92,255,.5)}
+
+  .card.ex-card.active{border-color:rgba(255,214,102,.24);box-shadow:0 0 0 1px rgba(255,214,102,.14) inset}
+
+
+
   .row{display:flex;gap:8px;align-items:center}
+
   .row.between{justify-content:space-between}
+
   .muted{color:var(--mut);font-size:12px}
-  .divider{height:1px;background:var(--line);margin:12px 0;opacity:.5}
+
+  .grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+
+  .btn{background:var(--card2);border:1px solid var(--line);color:#fff;border-radius:10px;padding:12px;text-align:center;user-select:none}
+
+  .btn.primary{background:var(--accent);border-color:var(--accent)}
+
+  .btn.good{background:rgba(54,211,153,.16);border-color:rgba(54,211,153,.35);color:#c9ffe9}
+
+  .btn.ghost{background:var(--card);border-color:var(--line)}
+
+  .btn.small{padding:8px 10px;border-radius:12px}
+
+  .btn.danger{background:rgba(255,76,106,.14);border-color:rgba(255,76,106,.40);color:#ffd0d8}
+
+  .input{width:100%;padding:12px;border-radius:12px;border:1px solid #23283a;background:rgba(255,255,255,.03);color:var(--txt);outline:none}
+
+  .input:focus{border-color:rgba(76,92,255,.55)}
+
+  .pill{padding:6px 10px;border-radius:999px;border:1px solid var(--line);user-select:none}
+
+
+
+  .tier-pill{font-weight:900}
+
+  .tier-bronze{background:rgba(205,127,50,.18);border-color:rgba(205,127,50,.35)}
+
+  .tier-silver{background:rgba(192,192,192,.12);border-color:rgba(192,192,192,.28)}
+
+  .tier-gold{background:rgba(255,215,0,.12);border-color:rgba(255,215,0,.30)}
+
+  .tier-platinum{background:rgba(120,225,255,.10);border-color:rgba(120,225,255,.28)}
+
+  .tier-diamond{background:rgba(120,140,255,.10);border-color:rgba(120,140,255,.30)}
+
+  .tier-master{background:rgba(255,120,180,.10);border-color:rgba(255,120,180,.30)}
+
+  .tier-grandmaster{background:rgba(255,90,90,.10);border-color:rgba(255,90,90,.30)}
+
+  .tier-challenger{background:rgba(120,255,200,.10);border-color:rgba(120,255,200,.30)}
+
+
+
+  .pill.tap{cursor:pointer}
+
+  .time-paused{background:rgba(255,255,255,.06);border-color:rgba(255,255,255,.35)}
+
+  .divider{height:1px;background:var(--line);margin:10px 0;opacity:.8}
+
   .hidden{display:none !important}
 
-  /* Buttons & Inputs */
-  .btn{background:var(--card2);border:1px solid var(--line);color:#fff;border-radius:10px;padding:12px;text-align:center;user-select:none;cursor:pointer}
-  .btn.primary{background:var(--accent);border-color:var(--accent)}
-  .btn.ghost{background:var(--card);border-color:var(--line)}
-  .btn.small{padding:8px 12px;font-size:12px}
-  .btn.danger{background:rgba(255,76,106,.14);border-color:rgba(255,76,106,.40);color:#ffd0d8}
-  .input{width:100%;padding:12px;border-radius:12px;border:1px solid #23283a;background:rgba(255,255,255,.03);color:var(--txt);outline:none;font-size:16px}
-  .input:focus{border-color:var(--accent)}
-  .pill{padding:4px 10px;border-radius:99px;border:1px solid var(--line);font-size:12px;background:var(--card2);display:inline-block}
-  
-  /* Calendar */
-  .cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:6px}
-  .cal-dow .cal-cell{color:var(--mut);font-size:11px;text-align:center;border:none;background:transparent;min-height:auto;padding:4px 0}
-  .cal-cell{
-    border:1px solid rgba(42,48,64,.7);background:rgba(255,255,255,.02);
-    border-radius:10px;padding:6px 4px;min-height:54px;
-    display:flex;flex-direction:column;align-items:center;gap:2px;cursor:pointer;
-  }
-  .cal-cell.today{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent) inset}
-  .cal-day{font-weight:900;font-size:13px}
-  .cal-sub{font-size:10px;color:var(--accent2);width:100%;text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-  
-  /* Exercise Accordion (Original Style) */
-  .ex-card{margin-top:10px;border:1px solid var(--line);border-radius:12px;background:rgba(255,255,255,.03);overflow:hidden}
-  .ex-head{padding:12px;display:flex;justify-content:space-between;align-items:center;cursor:pointer;background:var(--card)}
-  .ex-title{font-weight:900}
-  .ex-sub{font-size:11px;color:var(--mut);margin-top:2px}
-  .ex-body{border-top:1px solid var(--line);background:rgba(0,0,0,.1)}
-  .ex-body.collapsed{display:none}
 
-  /* Set Row & Swipe */
-  .swipe{position:relative;overflow:hidden;border-bottom:1px solid rgba(255,255,255,.05);touch-action:pan-y}
-  .swipe:last-child{border-bottom:none}
-  .swipe-actions{position:absolute;top:0;right:0;bottom:0;width:80px;background:rgba(255,76,106,.2);display:flex;align-items:center;justify-content:center;color:#ff4c6a;font-weight:bold;font-size:12px;z-index:0}
-  .swipe-front{position:relative;z-index:1;padding:12px;background:var(--card);transition:transform .2s ease;display:flex;justify-content:space-between;align-items:center}
-  .swipe.open .swipe-front{transform:translateX(-80px)}
-  .swipe-front.done{background:rgba(54,211,153,.08)}
-  .swipe-front.done .set-val{color:var(--good)}
-  
-  .set-idx{width:30px;color:var(--mut);font-size:12px}
-  .set-val{font-weight:900;font-variant-numeric:tabular-nums}
-  .live-dot{width:6px;height:6px;border-radius:50%;background:var(--accent);margin-right:8px;display:inline-block;opacity:0}
-  .swipe-front.active .live-dot{opacity:1;animation:pulse 1.5s infinite}
-  @keyframes pulse{0%{opacity:.5;transform:scale(1)}50%{opacity:1;transform:scale(1.5)}100%{opacity:.5;transform:scale(1)}}
+
+  /* Exercise accordion */
+
+  .ex-head{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;cursor:pointer}
+
+  .ex-title{font-weight:900}
+
+  .ex-sub{color:var(--mut);font-size:12px;margin-top:2px}
+
+  .ex-meta{display:flex;flex-direction:column;align-items:flex-end;gap:6px}
+
+  .ex-vol{color:var(--mut);font-size:12px}
+
+  .ex-actions{display:flex;gap:8px;align-items:center;flex-wrap:wrap;justify-content:flex-end}
+
+  .ex-time{color:var(--mut);font-size:12px;font-variant-numeric:tabular-nums;letter-spacing:.04em}
+
+
+
+  .ex-x{
+
+    position:absolute;left:6px;top:6px;
+
+    width:20px;height:20px;border-radius:8px;
+
+    display:flex;align-items:center;justify-content:center;
+
+    border:1px solid rgba(255,255,255,.18);
+
+    background:rgba(255,255,255,.04);
+
+    color:#cfd3ff;
+
+    font-weight:900;
+
+    font-size:13px;
+
+    line-height:1;
+
+    user-select:none;
+
+  }
+
+  .ex-left{padding-left:22px}
+
+
+
+
+
+  .part-label{margin:10px 0 6px;color:var(--mut);font-size:12px;letter-spacing:.02em}
+
+  .part-label strong{color:var(--accent2)}
+
+
+
+  /* Footer compare row */
+
+  .compare{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px}
+
+  .compare .box{border:1px solid var(--line);border-radius:12px;padding:10px;background:rgba(255,255,255,.02);overflow:hidden}
+
+  .compare .k{color:var(--mut);font-size:12px}
+
+  .compare .v{font-weight:900;margin-top:4px;font-variant-numeric:tabular-nums}
+
+  .compare .s{color:var(--mut);font-size:11px;margin-top:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+
+
+
+  /* Swipe row */
+
+  .swipe{position:relative; overflow:hidden; border-radius:12px; margin:6px 0;background:var(--card); border:1px dashed rgba(42,48,64,.7); touch-action: pan-y;}
+
+  .swipe-actions{position:absolute; top:0; right:0; bottom:0; width:86px;display:flex; align-items:center; justify-content:center; padding:8px;background:rgba(255,76,106,.12); border-left:1px solid rgba(255,76,106,.25); z-index:0; opacity:0; pointer-events:none; transition:opacity 120ms ease;}
+
+  .swipe-front{position:relative; z-index:1; transform:translateX(0px);transition:transform 140ms ease-out; will-change:transform;background:var(--card); padding:10px 10px;}
+
+  .swipe-front.done{background:linear-gradient(180deg, rgba(54,211,153,.18), rgba(54,211,153,.06)), var(--card); border:1px solid rgba(54,211,153,.22)}
+
+  .swipe-front.done .set-no{color:#c9ffe9}
+
+  .swipe-front.done .set-val{color:#c9ffe9}
+
+  .swipe-front.done .set-vol{color:rgba(201,255,233,.85)}
+
+  .check{display:inline-flex;align-items:center;justify-content:center;width:16px;height:16px;border-radius:99px;margin-right:6px;background:rgba(54,211,153,.22);border:1px solid rgba(54,211,153,.35);color:#c9ffe9;font-size:11px;font-weight:900;transform:translateY(-1px)}
+
+  .set-row.live{padding:10px 10px;border:1px solid rgba(255,214,102,.35);background:rgba(255,214,102,.06);border-radius:12px}
+
+  .live-dot{display:inline-block;width:8px;height:8px;border-radius:99px;background:var(--accent2);margin-right:6px;animation:livePulse 1.2s ease-in-out infinite}
+
+  @keyframes livePulse{0%{transform:scale(1);opacity:.55}50%{transform:scale(1.7);opacity:1}100%{transform:scale(1);opacity:.55}}
+
+  .prev-box{display:flex;flex-direction:column;gap:2px;white-space:normal;line-height:1.15}
+
+  .prev-date{font-size:12px;opacity:.6}
+
+  .prev-val{font-size:13px;opacity:.75;font-variant-numeric:tabular-nums}
+
+
+
+  .swipe.open .swipe-front{transform:translateX(-86px)}
+
+  .swipe.open .swipe-actions{opacity:1;pointer-events:auto}
+
+  .set-row{display:flex;justify-content:space-between;align-items:center;gap:8px}
+
+  .set-row.done{opacity:.98}
+
+
+
+  .set-left{display:flex;gap:10px;align-items:center;min-width:0;flex:1}
+
+  .set-no{color:var(--mut);width:70px;flex:0 0 auto}
+
+  .set-val{font-variant-numeric:tabular-nums;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+
+  .set-vol{color:var(--mut);font-size:12px;flex:0 0 auto}
+
+  .ghosttext{color:rgba(142,147,181,.85)}
+
+
 
   /* Overlays */
-  .overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:100;align-items:center;justify-content:center;padding:16px}
-  .overlay.show{display:flex}
-  .drawer{width:100%;max-width:420px;background:var(--card);border:1px solid var(--line);border-radius:16px;overflow:hidden;display:flex;flex-direction:column;max-height:85vh}
-  .drawer-head{padding:14px;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;align-items:center;background:var(--card2)}
-  .drawer-body{padding:16px;overflow-y:auto;flex:1}
-  
-  /* Chips */
-  .chipline{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:12px}
-  .chip{padding:8px 14px;border-radius:99px;border:1px solid var(--line);background:var(--card2);color:var(--mut);font-size:13px;cursor:pointer}
-  .chip.active{background:rgba(76,92,255,.2);border-color:var(--accent);color:var(--accent2);font-weight:bold}
-  
-  /* Keypad */
-  .kbd{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-top:12px}
-  .key{background:var(--card2);border:1px solid var(--line);padding:14px;border-radius:10px;text-align:center;font-size:18px;font-weight:bold;cursor:pointer;user-select:none}
-  .key:active{background:rgba(255,255,255,.1)}
-  
-  /* Toast */
-  #toast{position:fixed;top:60px;left:50%;transform:translateX(-50%);background:rgba(76,92,255,.95);color:#fff;padding:12px 24px;border-radius:30px;font-size:14px;font-weight:bold;z-index:9999;box-shadow:0 10px 30px rgba(0,0,0,.5);opacity:0;pointer-events:none;transition:opacity .3s;white-space:nowrap}
-  #toast.show{opacity:1}
 
-  /* Screens */
+  .overlay{
+
+    display:none;
+
+    position:fixed;inset:0;
+
+    background:rgba(0,0,0,.62);
+
+    z-index:60;
+
+    pointer-events:none;
+
+  }
+
+  .overlay.show{
+
+    display:flex;
+
+    align-items:flex-end;
+
+    pointer-events:auto;
+
+  }
+
+  .overlay.center.show{align-items:center;}
+
+  .overlay.center .drawer{margin-top:0;margin-bottom:0;}
+
+  #overlayPrompt .drawer{width:min(520px,92vw);}
+
+
+
+  .drawer{width:min(480px,100%);margin-top:56px;background:var(--card);border:1px solid var(--line);border-radius:16px;overflow:hidden}
+
+  .drawer-head{display:flex;align-items:center;justify-content:space-between;padding:12px;border-bottom:1px solid var(--line)}
+
+  .drawer-title{font-weight:900}
+
+  .drawer-sub{color:var(--mut);font-size:12px;margin-top:2px}
+
+  .drawer-body{max-height:82vh;overflow:auto;padding:12px}
+
+
+
+  .kbd{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+
+  .key{padding:14px;border-radius:12px;background:var(--card2);border:1px solid var(--line);text-align:center;user-select:none}
+
+  .key.disabled{opacity:.4;pointer-events:none}
+
+  .big{font-size:28px;letter-spacing:.08em;font-variant-numeric:tabular-nums}
+
+  .center{text-align:center}
+
+
+
+  input[type="text"],input[type="password"]{width:100%;padding:12px;border-radius:12px;border:1px solid var(--line);background:#0c0e13;color:var(--txt);outline:none;font-size:16px;}
+
+  .chipline{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}
+
+  .chip{padding:8px 10px;border-radius:999px;border:1px solid var(--line);background:var(--card2);color:#fff;user-select:none;cursor:pointer;font-size:13px}
+
+  .chip.active{background:rgba(76,92,255,.18);border-color:rgba(76,92,255,.55);color:var(--accent2)}
+
+
+
+  /* Summary overlay */
+
+  .sum-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px}
+
+  .sum-item{border:1px solid var(--line);border-radius:12px;padding:10px;background:rgba(255,255,255,.02)}
+
+  .sum-item .k{color:var(--mut);font-size:12px}
+
+  .sum-item .v{font-weight:900;margin-top:2px}
+
+
+
+  /* Top10 list */
+
+  .top10-item{padding:10px;border:1px solid var(--line);border-radius:12px;background:rgba(255,255,255,.02);margin-top:8px}
+
+  .top10-item .a{display:flex;justify-content:space-between;gap:10px}
+
+  .top10-item .b{color:var(--mut);font-size:12px;margin-top:4px}
+
+
+
+  /* Screens & bottom nav */
+
   .screen{display:none}
+
   .screen.active{display:block}
-  
-  /* Stat Bar for Detail */
-  .stat-row{display:flex;align-items:center;gap:10px;margin-bottom:8px;font-size:13px}
-  .stat-bar-bg{flex:1;height:6px;background:rgba(255,255,255,.1);border-radius:3px;overflow:hidden}
-  .stat-bar-fill{height:100%;background:var(--accent)}
+
+  .bottom-nav{
+
+    position:fixed;left:10px;right:10px;bottom:12px;
+
+    background:rgba(15,17,21,.55);
+
+    backdrop-filter: blur(16px);
+
+    -webkit-backdrop-filter: blur(16px);
+
+    border:1px solid rgba(255,255,255,.10);
+
+    border-radius:16px;
+
+    overflow:hidden;
+
+    background-clip: padding-box;
+
+    padding:8px 10px calc(8px + env(safe-area-inset-bottom));
+
+    z-index:30;
+
+    isolation:isolate;
+
+    box-shadow:0 10px 30px rgba(0,0,0,.45);
+
+  }
+
+  .bottom-nav::before{
+
+    content:"";position:absolute;inset:0;
+
+    background:linear-gradient(to bottom, rgba(255,255,255,.10), rgba(255,255,255,0));
+
+    pointer-events:none;
+
+  }
+
+  .bottom-nav .wrap{max-width:480px;margin:0 auto;display:flex;gap:8px;position:relative;z-index:1}
+
+  .navbtn{
+
+    flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;
+
+    gap:2px;padding:10px 8px;border-radius:12px;
+
+    border:1px solid #23283a;background:rgba(255,255,255,.03);
+
+    color:var(--mut);font-weight:800;font-size:12px;
+
+  }
+
+  .navbtn.active{border-color:rgba(76,92,255,.55);color:var(--accent2);background:rgba(76,92,255,.10)}
+
+  .navbtn .icon{width:28px;height:28px;border-radius:10px;display:flex;align-items:center;justify-content:center;border:1px solid var(--line);background:rgba(255,255,255,.03);color:var(--mut)}
+
+  .navbtn.active .icon{border-color:rgba(76,92,255,.45);background:rgba(76,92,255,.12);color:var(--accent2)}
+
+  /* leave space for nav */
+
+  .page{padding-bottom:110px}
+
+
+
+
+
+  /* Ticker motion (2x content) */
+
+  #tickerWrap{overflow:hidden;white-space:nowrap;position:relative}
+
+  #tickerLine{
+
+    display:inline-block;
+
+    padding-left:0;
+
+    will-change:transform;
+
+    animation: tickerScroll 18s linear infinite;
+
+  }
+
+  #tickerLine.paused{animation-play-state:paused}
+
+  @keyframes tickerScroll{
+
+    0%{ transform: translateX(0); }
+
+    100%{ transform: translateX(-50%); }
+
+  }
+
+
+
+
+
+  /* Center overlay (start notice) */
+
+  .overlay.center.show{align-items:center;justify-content:center;padding:16px}
+
+  .overlay.center .drawer{margin-top:0;width:min(420px,92vw)}
+
+  .overlay.center .drawer-body{max-height:72vh}
+
+
+
+  /* Calendar */
+
+  .cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:6px}
+
+  .cal-dow .cal-cell{color:var(--mut);font-size:11px;text-align:center;padding:4px 0;border:none;background:transparent;min-height:auto}
+
+  .cal-cell{
+
+    border:1px solid rgba(42,48,64,.7);
+
+    background:rgba(255,255,255,.02);
+
+    border-radius:12px;
+
+    padding:8px 6px;
+
+    min-height:54px;
+
+    display:flex;
+
+    flex-direction:column;
+
+    gap:4px;
+
+    overflow:hidden;
+
+  }
+
+  .cal-cell.blank{opacity:.18}
+
+  .cal-day{font-weight:900;font-size:13px;font-variant-numeric:tabular-nums}
+
+  .cal-sub{font-size:11px;color:rgba(207,211,255,.85);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+
+  .cal-sub.muted{color:rgba(142,147,181,.75)}
+
+  .cal-today{box-shadow:0 0 0 1px rgba(76,92,255,.40) inset;border-color:rgba(76,92,255,.55)}
+
+
+
+  /* Calendar interaction */
+
+  .cal-cell[data-cal-date]{cursor:pointer;transition:transform .12s ease, box-shadow .12s ease}
+
+  .cal-selected{transform:scale(1.06);box-shadow:0 0 0 2px rgba(255,255,255,.16) inset}
+
+  .cal-has{border-color:rgba(76,92,255,.35);background:rgba(76,92,255,.08)}
+
+  .cal-pop{
+
+    position:fixed;
+
+    z-index:9998;
+
+    max-width:min(360px,92vw);
+
+    padding:10px 10px;
+
+    border-radius:14px;
+
+    border:1px solid rgba(42,48,64,.85);
+
+    background:rgba(18,20,29,.96);
+
+    box-shadow:0 18px 50px rgba(0,0,0,.55);
+
+    backdrop-filter: blur(8px);
+
+  }
+
+  .cal-pop.hidden{display:none}
+
+  .cal-pop .t{font-weight:900;margin-bottom:6px}
+
+  .cal-pop .s{color:rgba(142,147,181,.85);font-size:12px;margin-bottom:8px}
+
+  .cal-pop .chips{display:flex;flex-wrap:wrap;gap:6px}
+
+
+
+  .cal-detail{border:1px dashed rgba(42,48,64,.7);border-radius:14px;padding:10px 10px;background:rgba(255,255,255,.02)}
+
+  .cal-chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+
+  .chip{font-size:12px;padding:6px 8px;border-radius:999px;border:1px solid rgba(42,48,64,.75);background:rgba(255,255,255,.03)}
+
+
+
+  /* Live dot: pulse only when set is active */
+
+  .set-row.live .live-dot{animation:none;opacity:.55}
+
+  .set-row.live.live-active .live-dot{animation:livePulse 1.2s ease-in-out infinite;opacity:1}
+
+
+
+  /* Collapsed feel */
+
+  .ex-card{position:relative}
+
+  .ex-card.collapsed{
+
+    opacity:.92;
+
+    border-style:dashed;
+
+    background:
+
+      linear-gradient(180deg, rgba(255,255,255,.04), rgba(255,255,255,0)),
+
+      var(--card);
+
+  }
+
+  .ex-card.collapsed:after{
+
+    content:"";
+
+    position:absolute;left:12px;right:12px;bottom:10px;height:10px;
+
+    background:linear-gradient(180deg, rgba(0,0,0,0), rgba(0,0,0,.35));
+
+    pointer-events:none;border-radius:12px;
+
+  }
+
+  .ex-right{display:flex;align-items:center;gap:10px;justify-content:flex-end}
+
+  .collapsed-hint{
+
+    display:none;
+
+    font-size:11px;
+
+    padding:4px 8px;
+
+    border-radius:999px;
+
+    border:1px solid rgba(42,48,64,.75);
+
+    background:rgba(255,255,255,.03);
+
+    color:rgba(207,211,255,.82);
+
+    font-weight:800;
+
+  }
+
+  .ex-card.collapsed .collapsed-hint{display:inline-flex}
+
+  .chev{font-size:18px;opacity:.7;transform-origin:center;transition:transform .12s ease, opacity .12s ease}
+
+  .ex-card.collapsed .chev{transform:rotate(-90deg);opacity:.95}
+
+
+
+
+
+
+
+  /* Bottom nav: glass + icon-only */
+
+  .bottom-nav{
+
+    background:rgba(15,17,21,.60);
+
+    backdrop-filter: blur(14px);
+
+    -webkit-backdrop-filter: blur(14px);
+
+    overflow:hidden;
+
+  }
+
+  .bottom-nav:before{
+
+    content:"";
+
+    position:absolute; inset:0;
+
+    background:linear-gradient(180deg, rgba(255,255,255,.12), rgba(255,255,255,0));
+
+    opacity:.22;
+
+    pointer-events:none;
+
+    border-radius:16px;
+
+  }
+
+  .bottom-nav .wrap{position:relative; z-index:1;}
+
+  .navbtn{gap:0;font-size:0;padding:12px 8px;}
+
+  .navbtn .icon{margin:0;}
+
+  .sr-only{
+
+    position:absolute !important;
+
+    width:1px;height:1px;
+
+    padding:0;margin:-1px;
+
+    overflow:hidden;
+
+    clip:rect(0,0,0,0);
+
+    white-space:nowrap;
+
+    border:0;
+
+  }
+
+  .notice{
+
+    margin:10px 0 0;
+
+    padding:12px;
+
+    border-radius:14px;
+
+    border:1px solid rgba(255,107,107,.25);
+
+    background:rgba(255,107,107,.10);
+
+  }
+
+
+
+
+
 </style>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
 </head>
+
 <body>
 
-<div id="toast"></div>
+<div id="errBanner" style="display:none;position:fixed;left:10px;right:10px;top:10px;z-index:9999;padding:10px 12px;border-radius:12px;background:rgba(255,80,80,.15);border:1px solid rgba(255,80,80,.45);color:#ffd9d9;font-weight:800;font-size:12px"></div>
+
+
+
+<div class="page" id="app">
+
+
 
 <div id="screen-auth" class="screen active">
-  <div class="page" style="display:flex;flex-direction:column;justify-content:center;min-height:80vh">
-    <div class="card" style="padding:24px">
-      <h2 style="margin:0 0 8px">Health Rank</h2>
-      <p class="muted" style="margin:0 0 20px">로그인</p>
-      <input type="text" id="authId" class="input" style="margin-bottom:10px" placeholder="아이디">
-      <input type="password" id="authPw" class="input" style="margin-bottom:20px" placeholder="비밀번호">
-      <div class="btn primary" id="btnLogin">로그인</div>
-      <div class="muted" style="margin-top:12px;text-align:center" id="authMsg"></div>
-    </div>
-  </div>
-</div>
 
-<div id="screen-main" class="screen">
   <div class="page">
-    <div class="row between" style="margin-bottom:12px">
-      <div style="font-weight:900;font-size:18px">오늘</div>
-      <div class="muted" id="clock">00:00</div>
-    </div>
 
-    <div class="section card">
+    <div class="section card" id="authCard">
+
       <div class="row between">
+
         <div>
-          <div class="muted">내 티어</div>
-          <div style="font-weight:900;font-size:24px;margin-top:4px" id="tierName">Unranked</div>
+
+          <div class="h1">로그인</div>
+
+          <div class="muted">아이디/비번으로 들어가자.</div>
+
         </div>
-        <div style="text-align:right">
-          <div class="pill" id="tierScore">0 pt</div>
-        </div>
+
       </div>
+
       <div class="divider"></div>
-      <div class="btn primary" id="btnStartWork">운동 시작하기</div>
+
+
+
+      <div class="label">아이디</div>
+
+      <input type="text" id="authId" placeholder="아이디"/>
+
+
+
+      <div class="label" style="margin-top:10px">비밀번호</div>
+
+      <input type="password" id="authPw" placeholder="비밀번호"/>
+
+
+
+      <div class="row" style="margin-top:12px">
+
+        <div class="btn primary" id="btnLogin" style="flex:1">로그인</div>
+
+        <div class="btn ghost" id="btnSignup" style="flex:1">회원가입</div>
+
+      </div>
+
+      <div class="muted" id="authMsg" style="margin-top:10px;min-height:18px"></div>
+
     </div>
+
+
+
+    <div class="section card" id="profileCard" style="display:none">
+
+      <div class="row between">
+
+        <div>
+
+          <div class="h1">프로필</div>
+
+          <div class="muted">처음 한 번만 입력해줘.</div>
+
+        </div>
+
+      </div>
+
+      <div class="divider"></div>
+
+
+
+      <div class="label">닉네임</div>
+
+      <input type="text" id="profNick" placeholder="예) 재양"/>
+
+
+
+      <div class="row" style="gap:10px;margin-top:10px">
+
+        <div style="flex:1">
+
+          <div class="label">성별</div>
+
+          <div class="chipline" id="profSex">
+
+            <div class="chip" data-sex="M">남</div>
+
+            <div class="chip" data-sex="F">여</div>
+
+          </div>
+
+        </div>
+
+        <div style="flex:1">
+
+          <div class="label">몸무게(kg)</div>
+
+          <input type="text" id="profWeight" placeholder="예) 78.5"/>
+
+        </div>
+
+      </div>
+
+
+
+      <div class="row" style="gap:10px;margin-top:10px">
+
+        <div style="flex:1">
+
+          <div class="label">키(cm)</div>
+
+          <input type="text" id="profHeight" placeholder="예) 175"/>
+
+        </div>
+
+        <div style="flex:1">
+
+          <div class="label">지역(선택)</div>
+
+          <input type="text" id="profRegion" placeholder="예) 서울"/>
+
+          <div class="btn small ghost" id="btnRegionAuto" style="margin-top:8px">현재 위치로 자동 입력</div>
+
+        </div>
+
+      </div>
+
+
+
+      <div class="row" style="margin-top:12px">
+
+        <div class="btn primary" id="btnSaveProfile" style="flex:1">저장하고 시작</div>
+
+      </div>
+
+      <div class="muted" id="profMsg" style="margin-top:10px;min-height:18px"></div>
+
+    </div>
+
+  </div>
+
+</div>
+
+
+
+
+
+<div id="screen-today" class="screen">
+
+
+
+  <div class="section card" id="tierCard">
+
+    <div class="row between">
+
+      <div>
+
+        <div class="muted">내 티어</div>
+
+        <div style="font-weight:900;font-size:22px;margin-top:2px" id="tierName">언랭크</div>
+
+        <div class="muted" id="tierSub" style="margin-top:6px">초기화 진행: 0/5</div>
+
+      </div>
+
+      <div style="text-align:right">
+
+        <div class="pill" id="tierBadge">0 pt</div>
+
+        <div class="muted" id="tierDelta" style="margin-top:6px;min-height:16px"></div>
+
+      </div>
+
+    </div>
+
+  </div>
+
+
+
+  <div class="section card" id="partCard">
+
+    <div class="row between">
+
+      <div>
+
+        <div class="muted">오늘 기록</div>
+
+        <div style="font-weight:900;margin-top:2px">어떤 부위 했어?</div>
+
+      </div>
+
+    </div>
+
+    <div class="divider"></div>
+
+    <div class="grid" id="partGrid">
+
+      <div class="btn" data-part="가슴">가슴</div>
+
+      <div class="btn" data-part="등">등</div>
+
+      <div class="btn" data-part="하체">하체</div>
+
+      <div class="btn" data-part="어깨">어깨</div>
+
+      <div class="btn" data-part="팔">팔</div>
+
+      <div class="btn" data-part="복근">복근</div>
+
+          </div>
+
+  </div>
+
+
+
+  
+
+  <div class="section card" id="calendarCard">
+
+    <div class="row between">
+
+      <div>
+
+        <div class="muted">달력</div>
+
+        <div style="font-weight:900;margin-top:2px" id="calTitle">-</div>
+
+      </div>
+
+      <div style="text-align:right">
+
+        <div class="row" style="gap:8px;justify-content:flex-end;align-items:center">
+
+          <div class="btn small ghost" id="calPrev" title="이전 달">←</div>
+
+          <div class="btn small ghost" id="calNext" title="다음 달">→</div>
+
+        </div>
+
+        <div class="muted" style="margin-top:6px">최대볼륨 부위 표시</div>
+
+      </div>
+
+    </div>
+
+    <div class="divider"></div>
+
+    <div class="cal-grid cal-dow" id="calDow"></div>
+
+    <div class="cal-grid" id="calGrid" style="margin-top:6px"></div>
+
+    <div id="calPop" class="cal-pop hidden" aria-hidden="true"></div>
+
+
+
+    <div class="cal-chips" id="calDetailChips"></div>
+
+  </div>
+
+
+
+  <div class="section card" id="workCard" style="display:none">
+
+    <div class="row between">
+
+      <div class="row" style="gap:10px">
+
+        <div class="btn small ghost" id="backBtn" title="부위 다시 선택">←</div>
+
+        <div>
+
+          <div class="muted">지금 추가할 부위</div>
+
+          <div style="font-weight:900" id="selectedPart">-</div>
+
+        </div>
+
+      </div>
+
+      
+
+      <div style="text-align:right">
+
+        <div class="muted" id="todaySmall"></div>
+
+        <div class="muted" style="margin-top:4px;font-variant-numeric:tabular-nums">
+
+          총 <span id="workTotal">00:00:00</span> / 훈련 <span id="workTrain">00:00:00</span>
+
+        </div>
+
+      </div>
+
+    </div>
+
+
+
+    <div id="exerciseList" style="margin-top:10px"></div>
+
+
+
+    <div class="divider"></div>
+
+    <div class="row">
+
+      <div class="btn ghost" style="flex:1" id="addExerciseBtn">종목 추가</div>
+
+    </div>
+
+
+
+    <div class="divider"></div>
+
+    <div class="row">
+
+      <div class="btn danger" style="flex:1" id="endBtn">운동 종료</div>
+
+    </div>
+
+  </div>
+
+</div>
+
+
+
+<!-- Top10 overlay -->
+
+<div class="overlay" id="overlayTop10" aria-hidden="true">
+
+  <div class="drawer" role="dialog" aria-modal="true" aria-label="Top10">
+
+    <div class="drawer-head">
+
+      <div>
+
+        <div class="drawer-title">Top 10</div>
+
+        <div class="drawer-sub">부위별 볼륨 랭킹 (데모)</div>
+
+      </div>
+
+      <div class="btn ghost small" id="closeTop10">닫기</div>
+
+    </div>
+
+    <div class="drawer-body" id="top10Body"></div>
+
+  </div>
+
+</div>
+
+
+
+<!-- Add exercise overlay -->
+
+<div class="overlay center" id="overlayPrompt" aria-hidden="true">
+
+  <div class="drawer" role="dialog" aria-modal="true" aria-label="종목 추가">
+
+    <div class="drawer-head">
+
+      <div>
+
+        <div class="drawer-title">종목 추가</div>
+
+        <div class="drawer-sub" id="promptSub">-</div>
+
+      </div>
+
+      <div class="btn ghost small" id="closePrompt">닫기</div>
+
+    </div>
+
+    <div class="drawer-body">
+
+      <input type="text" id="exerciseName" placeholder="예) 스쿼트"/>
+
+      <div class="chipline" id="exerciseChips"></div>
+
+      <div class="row" style="margin-top:12px">
+
+        <div class="btn primary" style="flex:1" id="confirmAdd">추가</div>
+
+      </div>
+
+    </div>
+
+  </div>
+
+</div>
+
+
+
+<!-- Start overlay -->
+
+<div class="overlay center" id="overlayStart" aria-hidden="true">
+
+  <div class="drawer" role="dialog" aria-modal="true" aria-label="운동 시작 안내">
+
+    <div class="drawer-head">
+
+      <div>
+
+        <div class="drawer-title">바로 운동 시작</div>
+
+        <div class="drawer-sub" id="startSub">-</div>
+
+      </div>
+
+      <div class="btn ghost small" id="closeStart">닫기</div>
+
+    </div>
+
+    <div class="drawer-body">
+
+      <div class="card" style="padding:12px">
+
+        <div style="font-weight:900" id="startCount">10초 후 자동으로 닫힙니다.</div>
+
+        <div class="muted" style="margin-top:8px">바로 운동을 시작하세요.</div>
+
+        <div class="muted" style="margin-top:6px">- 무게 및 랩스는 진행 완료 후 입력 -</div>
+
+      </div>
+
+    </div>
+
+  </div>
+
+</div>
+
+
+
+<!-- Set entry overlay -->
+
+<div class="overlay" id="overlaySet" aria-hidden="true">
+
+  <div class="drawer" role="dialog" aria-modal="true" aria-label="세트 입력">
+
+    <div class="drawer-head">
+
+      <div>
+
+        <div class="drawer-title" id="setTitle">1세트 입력</div>
+
+        <div class="drawer-sub" id="setSub">-</div>
+
+      </div>
+
+      <div class="btn ghost small" id="closeSet">닫기</div>
+
+    </div>
+
+    <div class="drawer-body">
+
+      <div id="stepWeight">
+
+        <div class="center">
+
+          <div class="muted">무게</div>
+
+          <div class="big">
+
+            <span id="setWeightVal">0.0</span>
+
+            <span class="pill tap" id="unitToggle">KG</span>
+
+          </div>
+
+        </div>
+
+        <div class="row" style="justify-content:center;margin:10px 0">
+
+          <div class="pill tap" id="incBtn">증</div>
+
+          <div class="pill tap" id="decBtn">감</div>
+
+        </div>
+
+        <div id="kbdKg">
+
+          <div class="kbd">
+
+            <div class="key" id="barKey">BAR</div>
+
+            <div class="key" data-d="0.25">0.25</div>
+
+            <div class="key" data-d="0.5">0.5</div>
+
+            <div class="key" data-d="1">1</div>
+
+            <div class="key" data-d="2.5">2.5</div>
+
+            <div class="key" data-d="5">5</div>
+
+            <div class="key" data-d="10">10</div>
+
+            <div class="key" data-d="20">20</div>
+
+            <div class="key" id="backKey">←</div>
+
+          </div>
+
+        </div>
+
+        <div id="kbdLb" class="hidden">
+
+          <div class="kbd">
+
+            <div class="key" data-lb="1">1</div><div class="key" data-lb="2">2</div><div class="key" data-lb="3">3</div>
+
+            <div class="key" data-lb="4">4</div><div class="key" data-lb="5">5</div><div class="key" data-lb="6">6</div>
+
+            <div class="key" data-lb="7">7</div><div class="key" data-lb="8">8</div><div class="key" data-lb="9">9</div>
+
+            <div class="key" data-lb=".">.</div><div class="key" data-lb="0">0</div><div class="key" id="lbBack">←</div>
+
+          </div>
+
+          <div class="muted" style="margin-top:10px;text-align:center">LB 입력은 직접 숫자로. (내부 계산은 KG)</div>
+
+        </div>
+
+        <div class="row" style="margin-top:14px">
+
+          <div class="btn primary" style="flex:1;padding:16px" id="nextToReps">다음</div>
+
+        </div>
+
+      </div>
+
+
+
+      <div id="stepReps" class="hidden">
+
+        <div class="center">
+
+          <div class="muted">횟수</div>
+
+          <div class="big"><span id="setRepsVal">0</span> reps</div>
+
+        </div>
+
+        <div class="kbd" style="margin-top:10px">
+
+          <div class="key" data-n="1">1</div><div class="key" data-n="2">2</div><div class="key" data-n="3">3</div>
+
+          <div class="key" data-n="4">4</div><div class="key" data-n="5">5</div><div class="key" data-n="6">6</div>
+
+          <div class="key" data-n="7">7</div><div class="key" data-n="8">8</div><div class="key" data-n="9">9</div>
+
+          <div class="key" id="repsClear">C</div><div class="key" data-n="0">0</div><div class="key" id="repsBack">←</div>
+
+        </div>
+
+        <div class="row" style="margin-top:14px;gap:10px">
+
+          <div class="btn ghost" style="flex:0.35;padding:16px" id="backToWeight">이전</div>
+
+          <div class="btn primary" style="flex:0.65;padding:16px" id="saveSetBtn">입력</div>
+
+        </div>
+
+      </div>
+
+    </div>
+
+  </div>
+
+</div>
+
+
+
+<div id="screen-summary" class="screen">
+
+  <div class="page">
 
     <div class="section card">
-      <div class="row between" style="margin-bottom:12px">
-        <div class="muted" id="calMonth">2025. 12</div>
-        <div class="row">
-          <div class="btn small ghost" id="calPrev">&lt;</div>
-          <div class="btn small ghost" id="calNext">&gt;</div>
-        </div>
-      </div>
-      <div class="cal-grid cal-dow">
-        <div class="cal-cell">일</div><div class="cal-cell">월</div><div class="cal-cell">화</div><div class="cal-cell">수</div>
-        <div class="cal-cell">목</div><div class="cal-cell">금</div><div class="cal-cell">토</div>
-      </div>
-      <div class="cal-grid" id="calBody" style="margin-top:6px"></div>
-    </div>
-  </div>
-</div>
 
-<div id="screen-work" class="screen">
-  <div class="page">
-    <div class="card" style="position:sticky;top:12px;z-index:10;border-color:var(--accent);margin-bottom:12px">
       <div class="row between">
-        <div class="row">
-          <div class="live-dot" style="opacity:1;background:var(--danger)"></div>
-          <div style="font-weight:900">운동 진행 중</div>
+
+        <div>
+
+          <div class="muted">오늘 요약</div>
+
+          <div style="font-weight:900;margin-top:2px" id="sumDate">-</div>
+
         </div>
-        <div class="pill" id="workTimer">00:00:00</div>
+
       </div>
+
+
+
+      <div id="sumNotice" class="notice hidden" aria-hidden="true">
+
+        <div style="font-weight:900">완료 안 된 종목이 있었어</div>
+
+        <div class="muted" id="sumNoticeText" style="margin-top:6px;white-space:pre-line"></div>
+
+      </div>
+
+
+
       <div class="divider"></div>
-      <div class="row">
-        <div class="btn primary" style="flex:1" id="btnAddPopup">종목 추가</div>
-        <div class="btn danger" style="width:80px" id="btnEndWork">종료</div>
+
+
+
+      <div class="row between">
+
+        <div>
+
+          <div class="muted">오늘 총 볼륨</div>
+
+          <div style="font-weight:900;font-size:22px" id="sumTotalVol2">0kg</div>
+
+        </div>
+
+        <div style="text-align:right">
+
+          <div class="muted">총운동시간</div>
+
+          <div style="font-weight:900;font-size:22px" id="sumTotalTime2">00:00:00</div>
+
+        </div>
+
       </div>
+
+
+
+      <div class="divider"></div>
+
+
+
+      <div class="muted">부위별 볼륨</div>
+
+      <div class="sum-grid" id="sumParts2"></div>
+
+
+
+      <div class="divider"></div>
+
+
+
+      <div class="muted">부위별 훈련시간</div>
+
+      <div class="sum-grid" id="sumPartTimes2"></div>
+
+
+
+      <div class="row" style="margin-top:12px">
+
+        <div class="btn primary" style="flex:1;padding:16px" id="addMoreToday">오늘 운동 더하기</div>
+
+      </div>
+
     </div>
 
-    <div id="exerciseList">
-      <div class="muted" style="text-align:center;padding:40px 0">운동을 추가해주세요.</div>
-    </div>
   </div>
+
 </div>
 
-<div class="overlay" id="overlayAdd">
-  <div class="drawer">
-    <div class="drawer-head">
-      <div class="drawer-title">종목 추가</div>
-      <div class="btn small ghost" onclick="closeOverlay('overlayAdd')">닫기</div>
+
+
+<div id="screen-more" class="screen">
+
+  <div class="section card">
+
+    <div class="row between">
+
+      <div>
+
+        <div class="muted">더보기</div>
+
+        <div style="font-weight:900;margin-top:2px">프로필 · 설정</div>
+
+      </div>
+
     </div>
+
+    <div class="divider"></div>
+
+    <div class="row between">
+
+      <div>
+
+        <div style="font-weight:900" id="meNick">-</div>
+
+        <div class="muted" id="meMeta">-</div>
+
+      </div>
+
+      <div class="pill" id="editProfile">수정</div>
+
+    </div>
+
+    <div class="divider"></div>
+
+    <div class="row between">
+
+      <div>
+
+        <div style="font-weight:900">표시 단위</div>
+
+        <div class="muted">기본은 kg</div>
+
+      </div>
+
+      <div class="row" style="gap:8px">
+
+        <div class="pill tap" id="unitKg">KG</div>
+
+        <div class="pill tap" id="unitLb">LB</div>
+
+      </div>
+
+    </div>
+
+    <div class="divider"></div>
+
+    <div class="row between">
+
+      <div>
+
+        <div style="font-weight:900">데이터</div>
+
+        <div class="muted">로컬 저장(새로고침 유지)</div>
+
+      </div>
+
+      <div class="btn danger" id="resetAll">초기화</div>
+
+    </div>
+
+  </div>
+
+</div>
+
+
+
+
+
+<!-- Profile overlay -->
+
+<div class="overlay" id="overlayProfile" aria-hidden="true">
+
+  <div class="drawer" role="dialog" aria-modal="true" aria-label="프로필 설정">
+
+    <div class="drawer-head">
+
+      <div>
+
+        <div class="drawer-title">프로필 설정</div>
+
+        <div class="drawer-sub">처음 1회만 하면 돼. (언제든 더보기에서 수정)</div>
+
+      </div>
+
+      <div class="btn ghost small" id="closeProfile">닫기</div>
+
+    </div>
+
     <div class="drawer-body">
-      <div class="muted" style="margin-bottom:8px">부위 선택</div>
-      <div class="chipline" id="partChips">
+
+      <div class="card" style="padding:12px">
+
+        <div class="muted">닉네임</div>
+
+        <input class="input" id="pfNick" placeholder="예: jae" maxlength="16" />
+
+
+
+        <div class="row" style="gap:8px;margin-top:10px">
+
+          <div style="flex:1">
+
+            <div class="muted">성별</div>
+
+            <select class="input" id="pfSex">
+
+              <option value="M">남</option>
+
+              <option value="F">여</option>
+
+            </select>
+
+          </div>
+
+          <div style="flex:1">
+
+            <div class="muted">키 (cm)</div>
+
+            <input class="input" id="pfHeight" inputmode="numeric" placeholder="170" />
+
+          </div>
+
         </div>
-      
-      <div class="muted" style="margin-bottom:8px;margin-top:12px">종목명</div>
-      <input type="text" class="input" id="exNameInput" placeholder="예: 벤치프레스">
-      
-      <div class="btn primary" style="margin-top:20px" id="btnConfirmAdd">추가하기</div>
-    </div>
-  </div>
-</div>
-
-<div class="overlay" id="overlaySet">
-  <div class="drawer">
-    <div class="drawer-head">
-      <div>
-        <div class="drawer-title" id="setTitle">1세트</div>
-        <div class="muted" id="setSub" style="font-size:11px">-</div>
-      </div>
-      <div class="btn small ghost" onclick="closeOverlay('overlaySet')">닫기</div>
-    </div>
-    <div class="drawer-body">
-      <div id="stepWeight">
-        <div style="text-align:center;margin:10px 0">
-          <div class="muted">무게 (KG)</div>
-          <div style="font-size:36px;font-weight:900" id="valWeight">20</div>
-        </div>
-        <div class="kbd" id="kbdWeight"></div>
-        <div class="btn primary" style="margin-top:20px" id="btnNextReps">다음 (횟수)</div>
-      </div>
-      <div id="stepReps" class="hidden">
-        <div style="text-align:center;margin:10px 0">
-          <div class="muted">횟수</div>
-          <div style="font-size:36px;font-weight:900" id="valReps">10</div>
-        </div>
-        <div class="kbd" id="kbdReps"></div>
-        <div class="row" style="margin-top:20px;gap:10px">
-          <div class="btn ghost" style="flex:1" id="btnPrevWeight">이전</div>
-          <div class="btn primary" style="flex:2" id="btnSaveSet">저장</div>
-        </div>
-      </div>
-    </div>
-  </div>
-</div>
-
-<div class="overlay" id="overlayDetail">
-  <div class="drawer">
-    <div class="drawer-head">
-      <div>
-        <div class="drawer-title" id="detailDate">날짜</div>
-        <div class="muted">부위별 볼륨 (높은순)</div>
-      </div>
-      <div class="btn small ghost" onclick="closeOverlay('overlayDetail')">닫기</div>
-    </div>
-    <div class="drawer-body" id="detailBody"></div>
-  </div>
-</div>
-
-<script>
-// --- State & Config ---
-const PARTS = ['가슴','등','하체','어깨','팔','복근','유산소'];
-let state = {
-  user: null,
-  lastSelectedPart: '가슴', // Remember last choice
-  workout: {
-    active: false,
-    startTime: null,
-    list: [] // {id, part, name, sets:[{kg,reps,done}]}
-  },
-  calendar: {
-    year: new Date().getFullYear(),
-    month: new Date().getMonth()+1,
-    data: {} // Mock Data
-  }
-};
-
-// --- Helper Funcs ---
-const $ = s => document.querySelector(s);
-const $$ = s => document.querySelectorAll(s);
-const pad = n => n.toString().padStart(2,'0');
-
-function showToast(msg) {
-  const t = $('#toast');
-  t.textContent = msg;
-  t.classList.add('show');
-  setTimeout(() => t.classList.remove('show'), 2000);
-}
-
-function openOverlay(id) { $(`#${id}`).classList.add('show'); }
-function closeOverlay(id) { $(`#${id}`).classList.remove('show'); }
-
-// --- Auth & Init ---
-$('#btnLogin').onclick = () => {
-  const id = $('#authId').value;
-  if(!id) return alert('아이디를 입력하세요.');
-  const user = { id: 'u1', nick: '헬창꿈나무' };
-  localStorage.setItem('hr_user', JSON.stringify(user));
-  loginSuccess(user, false);
-};
-
-function checkSession() {
-  const s = localStorage.getItem('hr_user');
-  if(s) loginSuccess(JSON.parse(s), true);
-  else $('#screen-auth').classList.add('active');
-}
-
-function loginSuccess(user, isAuto) {
-  state.user = user;
-  $('#screen-auth').classList.remove('active');
-  $('#screen-main').classList.add('active');
-  
-  $('#tierName').textContent = 'Silver';
-  $('#tierScore').textContent = '1250 pt';
-  
-  generateMockData();
-  renderCalendar();
-  
-  if(isAuto) {
-    showToast(`이전 로그인한 '${user.nick}'님으로 자동 로그인 됐습니다.`);
-  }
-}
-
-// --- Main Screen ---
-$('#btnStartWork').onclick = () => {
-  state.workout.active = true;
-  state.workout.startTime = Date.now();
-  state.workout.list = [];
-  startTimer();
-  renderWorkoutList();
-  
-  $('#screen-main').classList.remove('active');
-  $('#screen-work').classList.add('active');
-};
-
-let timerInt;
-function startTimer() {
-  if(timerInt) clearInterval(timerInt);
-  const tick = () => {
-    const diff = Math.floor((Date.now() - state.workout.startTime)/1000);
-    const h = Math.floor(diff/3600);
-    const m = Math.floor((diff%3600)/60);
-    const s = diff%60;
-    $('#workTimer').textContent = `${pad(h)}:${pad(m)}:${pad(s)}`;
-  };
-  timerInt = setInterval(tick, 1000);
-  tick();
-}
-
-// --- Workout Logic (Original List Style) ---
-$('#btnEndWork').onclick = () => {
-  if(!confirm('운동을 종료하시겠습니까?')) return;
-  
-  // Save Mock
-  const k = getTodayKey();
-  let d = state.calendar.data[k] || {parts:{}, vol:0};
-  state.workout.list.forEach(ex => {
-    ex.sets.forEach(s => {
-      const v = s.kg * s.reps;
-      d.vol += v;
-      d.parts[ex.part] = (d.parts[ex.part]||0) + v;
-    });
-  });
-  state.calendar.data[k] = d;
-  
-  state.workout.active = false;
-  clearInterval(timerInt);
-  $('#screen-work').classList.remove('active');
-  $('#screen-main').classList.add('active');
-  renderCalendar();
-  showToast('운동이 저장되었습니다.');
-};
-
-// Add Exercise Button -> Popup
-$('#btnAddPopup').onclick = () => {
-  // Render Chips
-  const box = $('#partChips');
-  box.innerHTML = '';
-  PARTS.forEach(p => {
-    const chip = document.createElement('div');
-    chip.className = `chip ${p === state.lastSelectedPart ? 'active' : ''}`;
-    chip.textContent = p;
-    chip.onclick = () => {
-      state.lastSelectedPart = p;
-      $$('#partChips .chip').forEach(c => c.classList.remove('active'));
-      chip.classList.add('active');
-    };
-    box.appendChild(chip);
-  });
-  
-  $('#exNameInput').value = '';
-  openOverlay('overlayAdd');
-  $('#exNameInput').focus();
-};
-
-$('#btnConfirmAdd').onclick = () => {
-  const name = $('#exNameInput').value.trim();
-  if(!name) return alert('종목명을 입력하세요.');
-  
-  state.workout.list.push({
-    id: Date.now(),
-    part: state.lastSelectedPart,
-    name: name,
-    sets: []
-  });
-  closeOverlay('overlayAdd');
-  renderWorkoutList();
-};
-
-// Render Exercise Cards (Accordion)
-function renderWorkoutList() {
-  const con = $('#exerciseList');
-  con.innerHTML = '';
-  if(state.workout.list.length === 0) {
-    con.innerHTML = `<div class="muted" style="text-align:center;padding:40px 0">운동을 추가해주세요.</div>`;
-    return;
-  }
-  
-  state.workout.list.forEach((ex, idx) => {
-    const card = document.createElement('div');
-    card.className = 'ex-card';
-    
-    // Header
-    const head = document.createElement('div');
-    head.className = 'ex-head';
-    head.innerHTML = `
-      <div>
-        <div class="ex-title">${ex.name}</div>
-        <div class="ex-sub">${ex.part} · ${ex.sets.length}세트</div>
-      </div>
-      <div class="btn small primary" onclick="event.stopPropagation(); addSet(${idx})">+ 세트</div>
-    `;
-    
-    // Body
-    const body = document.createElement('div');
-    body.className = 'ex-body';
-    
-    ex.sets.forEach((s, sIdx) => {
-      const swipe = document.createElement('div');
-      swipe.className = 'swipe';
-      
-      // Swipe Actions (Delete)
-      const act = document.createElement('div');
-      act.className = 'swipe-actions';
-      act.textContent = '삭제';
-      act.onclick = () => { ex.sets.splice(sIdx,1); renderWorkoutList(); };
-      
-      // Front Content
-      const front = document.createElement('div');
-      front.className = `swipe-front ${s.done ? 'done' : ''}`;
-      front.innerHTML = `
-        <div class="row">
-          <div class="live-dot"></div>
-          <div class="set-idx">${sIdx+1}</div>
-          <div class="set-val">${s.kg}kg x ${s.reps}</div>
-        </div>
-        <div class="muted" style="font-size:11px">${s.done ? '완료' : '진행전'}</div>
-      `;
-      
-      // Swipe Logic
-      let tx = 0;
-      front.ontouchstart = e => { tx = e.touches[0].clientX; };
-      front.ontouchend = e => {
-        if(tx - e.changedTouches[0].clientX > 50) swipe.classList.add('open');
-        else swipe.classList.remove('open');
-      };
-      front.onclick = () => {
-        // Toggle Done
-        if(!swipe.classList.contains('open')) {
-          s.done = !s.done;
-          renderWorkoutList();
-        }
-      };
-
-      swipe.append(act, front);
-      body.appendChild(swipe);
-    });
-
-    // Accordion Toggle
-    head.onclick = () => {
-      body.classList.toggle('collapsed');
-    };
-    
-    card.append(head, body);
-    con.appendChild(card);
-  });
-}
-
-// --- Set Input (Keypad) ---
-let currentExIdx = null;
-let tempSet = {kg:20, reps:10};
-
-window.addSet = (idx) => {
-  currentExIdx = idx;
-  const ex = state.workout.list[idx];
-  // Copy last set
-  if(ex.sets.length > 0) tempSet = {...ex.sets[ex.sets.length-1], done:false};
-  
-  $('#setTitle').textContent = `${ex.sets.length+1}세트`;
-  $('#setSub').textContent = ex.name;
-  
-  $('#stepWeight').classList.remove('hidden');
-  $('#stepReps').classList.add('hidden');
-  updateSetVal();
-  openOverlay('overlaySet');
-};
-
-function updateSetVal() {
-  $('#valWeight').textContent = tempSet.kg;
-  $('#valReps').textContent = tempSet.reps;
-}
-
-// Draw Keypads
-const drawKeys = (id, keys, cb) => {
-  const b = $(id); b.innerHTML = '';
-  keys.forEach(k => {
-    const d = document.createElement('div');
-    d.className = 'key';
-    d.textContent = k;
-    d.onclick = () => cb(k);
-    b.appendChild(d);
-  });
-};
-
-drawKeys('#kbdWeight', ['-5','-1','+1','+5','C','←'], k => {
-  if(k==='C') tempSet.kg = 0;
-  else if(k==='←') tempSet.kg = Math.floor(tempSet.kg/10);
-  else tempSet.kg += parseInt(k);
-  if(tempSet.kg<0) tempSet.kg=0;
-  updateSetVal();
-});
-
-drawKeys('#kbdReps', ['-5','-1','+1','+5','10','12'], k => {
-  tempSet.reps += parseInt(k);
-  if(tempSet.reps<1) tempSet.reps=1;
-  updateSetVal();
-});
-
-$('#btnNextReps').onclick = () => {
-  $('#stepWeight').classList.add('hidden');
-  $('#stepReps').classList.remove('hidden');
-};
-$('#btnPrevWeight').onclick = () => {
-  $('#stepReps').classList.add('hidden');
-  $('#stepWeight').classList.remove('hidden');
-};
-$('#btnSaveSet').onclick = () => {
-  if(currentExIdx !== null) {
-    state.workout.list[currentExIdx].sets.push({...tempSet});
-    renderWorkoutList();
-    closeOverlay('overlaySet');
-  }
-};
 
 
-// --- Calendar Logic ---
-function getTodayKey() {
-  const d = new Date();
-  return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
-}
 
-function generateMockData() {
-  const y = state.calendar.year, m = state.calendar.month;
-  for(let i=1; i<25; i++) {
-    if(Math.random()>.4) {
-      state.calendar.data[`${y}-${pad(m)}-${pad(i)}`] = {
-        vol: Math.floor(Math.random()*10000),
-        parts: { '가슴': 5000, '삼두': 2000, '어깨': 1500 } // Simply hardcoded for demo
-      };
-    }
-  }
-}
+        <div class="row" style="gap:8px;margin-top:10px">
 
-function renderCalendar() {
-  const y = state.calendar.year, m = state.calendar.month;
-  $('#calMonth').textContent = `${y}. ${pad(m)}`;
-  
-  const fDay = new Date(y, m-1, 1).getDay();
-  const lDate = new Date(y, m, 0).getDate();
-  const b = $('#calBody'); b.innerHTML = '';
-  
-  for(let i=0; i<fDay; i++) b.appendChild(document.createElement('div'));
-  
-  for(let d=1; d<=lDate; d++) {
-    const k = `${y}-${pad(m)}-${pad(d)}`;
-    const data = state.calendar.data[k];
-    const el = document.createElement('div');
-    el.className = 'cal-cell';
-    
-    const today = new Date();
-    if(today.getFullYear()===y && today.getMonth()+1===m && today.getDate()===d) el.classList.add('today');
-    
-    let sub = '';
-    if(data) {
-      // Find Max
-      const sorted = Object.entries(data.parts).sort((a,b)=>b[1]-a[1]);
-      if(sorted.length>0) sub = `<div class="cal-sub">${sorted[0][0]}</div>`;
-      el.onclick = () => openCalDetail(k, data);
-    }
-    
-    el.innerHTML = `<div class="cal-day">${d}</div>${sub}`;
-    b.appendChild(el);
-  }
-}
+          <div style="flex:1">
 
-$('#calPrev').onclick = () => {
-  state.calendar.month--;
-  if(state.calendar.month<1){state.calendar.month=12;state.calendar.year--;}
-  renderCalendar();
-};
-$('#calNext').onclick = () => {
-  state.calendar.month++;
-  if(state.calendar.month>12){state.calendar.month=1;state.calendar.year++;}
-  renderCalendar();
-};
+            <div class="muted">몸무게 (kg)</div>
 
-function openCalDetail(date, data) {
-  $('#detailDate').textContent = date;
-  const b = $('#detailBody'); b.innerHTML = '';
-  
-  const sorted = Object.entries(data.parts).sort((a,b)=>b[1]-a[1]);
-  if(sorted.length===0) return;
-  
-  const max = sorted[0][1];
-  
-  sorted.forEach(([p, v]) => {
-    const row = document.createElement('div');
-    row.innerHTML = `
-      <div class="row between" style="margin-bottom:4px;font-size:13px">
-        <span style="font-weight:bold">${p}</span>
-        <span class="muted">${v.toLocaleString()} kg</span>
-      </div>
-      <div class="stat-bar-bg">
-        <div class="stat-bar-fill" style="width:${(v/max)*100}%"></div>
-      </div>
-      <div style="height:12px"></div>
-    `;
-    b.appendChild(row);
-  });
-  openOverlay('overlayDetail');
-}
-
-// Clock
-setInterval(() => {
-  const d = new Date();
-  $('#clock').textContent = `${pad(d.getHours())}:${pad(d.getMinutes())}`;
-}, 1000);
-
-// Init
-checkSession();
-
-</script>
-</body>
-</html>
+            <input class="input" id="pfWeight" inputmode="decimal" placeholde
