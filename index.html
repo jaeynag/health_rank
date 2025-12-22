@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no"/>
-<title>Health Rank - App (Step42)</title>
+<title>Health Rank - Step42 (Fixed)</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
   :root{
@@ -13,105 +13,92 @@
   }
   *{box-sizing:border-box}
   body{margin:0;font-family:-apple-system,BlinkMacSystemFont,system-ui,Segoe UI,Roboto,Apple SD Gothic Neo,Noto Sans KR,sans-serif;background:var(--bg);color:var(--txt)}
-  .page{max-width:480px;margin:0 auto;padding:12px 12px 80px} /* padding-bottom increased for nav */
-
-  /* UI Components */
+  .page{max-width:480px;margin:0 auto;padding:12px 12px 100px} /* Nav space */
+  
+  /* Utils */
   .section{margin:12px 0}
   .card{position:relative;background:var(--card);border:1px solid var(--line);border-radius:14px;padding:12px}
+  .card.active{border-color:rgba(76,92,255,.5)}
   .row{display:flex;gap:8px;align-items:center}
   .row.between{justify-content:space-between}
   .muted{color:var(--mut);font-size:12px}
-  .btn{background:var(--card2);border:1px solid var(--line);color:#fff;border-radius:10px;padding:12px;text-align:center;user-select:none;cursor:pointer;display:flex;align-items:center;justify-content:center}
-  .btn.primary{background:var(--accent);border-color:var(--accent)}
-  .btn.ghost{background:var(--card);border-color:var(--line)}
-  .btn.small{padding:8px 12px;font-size:12px;height:32px}
-  .btn.danger{background:rgba(255,76,106,.14);border-color:rgba(255,76,106,.40);color:#ffd0d8}
-  
-  .input{width:100%;padding:12px;border-radius:12px;border:1px solid #23283a;background:rgba(255,255,255,.03);color:var(--txt);outline:none;font-size:16px}
-  .input:focus{border-color:rgba(76,92,255,.55)}
-  
-  .pill{padding:4px 10px;border-radius:99px;border:1px solid var(--line);font-size:12px;background:var(--card2)}
-  .pill.tap{cursor:pointer}
   .divider{height:1px;background:var(--line);margin:12px 0;opacity:.5}
   .hidden{display:none !important}
 
-  /* Tier Badges */
-  .tier-pill{font-weight:900}
+  /* Buttons & Inputs */
+  .btn{background:var(--card2);border:1px solid var(--line);color:#fff;border-radius:10px;padding:12px;text-align:center;user-select:none;cursor:pointer}
+  .btn.primary{background:var(--accent);border-color:var(--accent)}
+  .btn.ghost{background:var(--card);border-color:var(--line)}
+  .btn.small{padding:8px 12px;font-size:12px}
+  .btn.danger{background:rgba(255,76,106,.14);border-color:rgba(255,76,106,.40);color:#ffd0d8}
+  .input{width:100%;padding:12px;border-radius:12px;border:1px solid #23283a;background:rgba(255,255,255,.03);color:var(--txt);outline:none;font-size:16px}
+  .input:focus{border-color:var(--accent)}
+  .pill{padding:4px 10px;border-radius:99px;border:1px solid var(--line);font-size:12px;background:var(--card2);display:inline-block}
   
   /* Calendar */
   .cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:6px}
-  .cal-dow .cal-cell{color:var(--mut);font-size:11px;text-align:center;padding:4px 0;border:none;background:transparent;min-height:auto}
+  .cal-dow .cal-cell{color:var(--mut);font-size:11px;text-align:center;border:none;background:transparent;min-height:auto;padding:4px 0}
   .cal-cell{
-    border:1px solid rgba(42,48,64,.7);
-    background:rgba(255,255,255,.02);
-    border-radius:10px;
-    padding:6px 4px;
-    min-height:50px;
-    display:flex;
-    flex-direction:column;
-    gap:2px;
-    align-items:center;
-    cursor:pointer;
+    border:1px solid rgba(42,48,64,.7);background:rgba(255,255,255,.02);
+    border-radius:10px;padding:6px 4px;min-height:54px;
+    display:flex;flex-direction:column;align-items:center;gap:2px;cursor:pointer;
   }
   .cal-cell.today{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent) inset}
   .cal-day{font-weight:900;font-size:13px}
-  .cal-sub{font-size:10px;color:var(--accent2);text-align:center;line-height:1.2;margin-top:2px;white-space:nowrap;overflow:hidden;width:100%;text-overflow:ellipsis}
-
-  /* Exercise Item */
-  .ex-item{background:rgba(255,255,255,.03);border:1px solid var(--line);border-radius:12px;padding:12px;margin-top:8px}
-  .ex-head{display:flex;justify-content:space-between;align-items:center}
-  .ex-name{font-weight:bold;font-size:15px}
-  .ex-part{font-size:11px;color:var(--mut);margin-top:2px}
-  .set-row{display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid rgba(255,255,255,.05);font-size:13px}
-  .set-row:last-child{border-bottom:none}
+  .cal-sub{font-size:10px;color:var(--accent2);width:100%;text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   
+  /* Exercise Accordion (Original Style) */
+  .ex-card{margin-top:10px;border:1px solid var(--line);border-radius:12px;background:rgba(255,255,255,.03);overflow:hidden}
+  .ex-head{padding:12px;display:flex;justify-content:space-between;align-items:center;cursor:pointer;background:var(--card)}
+  .ex-title{font-weight:900}
+  .ex-sub{font-size:11px;color:var(--mut);margin-top:2px}
+  .ex-body{border-top:1px solid var(--line);background:rgba(0,0,0,.1)}
+  .ex-body.collapsed{display:none}
+
+  /* Set Row & Swipe */
+  .swipe{position:relative;overflow:hidden;border-bottom:1px solid rgba(255,255,255,.05);touch-action:pan-y}
+  .swipe:last-child{border-bottom:none}
+  .swipe-actions{position:absolute;top:0;right:0;bottom:0;width:80px;background:rgba(255,76,106,.2);display:flex;align-items:center;justify-content:center;color:#ff4c6a;font-weight:bold;font-size:12px;z-index:0}
+  .swipe-front{position:relative;z-index:1;padding:12px;background:var(--card);transition:transform .2s ease;display:flex;justify-content:space-between;align-items:center}
+  .swipe.open .swipe-front{transform:translateX(-80px)}
+  .swipe-front.done{background:rgba(54,211,153,.08)}
+  .swipe-front.done .set-val{color:var(--good)}
+  
+  .set-idx{width:30px;color:var(--mut);font-size:12px}
+  .set-val{font-weight:900;font-variant-numeric:tabular-nums}
+  .live-dot{width:6px;height:6px;border-radius:50%;background:var(--accent);margin-right:8px;display:inline-block;opacity:0}
+  .swipe-front.active .live-dot{opacity:1;animation:pulse 1.5s infinite}
+  @keyframes pulse{0%{opacity:.5;transform:scale(1)}50%{opacity:1;transform:scale(1.5)}100%{opacity:.5;transform:scale(1)}}
+
   /* Overlays */
-  .overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:100;align-items:center;justify-content:center;padding:20px}
+  .overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:100;align-items:center;justify-content:center;padding:16px}
   .overlay.show{display:flex}
-  .drawer{width:100%;max-width:400px;background:var(--card);border:1px solid var(--line);border-radius:16px;overflow:hidden;box-shadow:0 20px 40px rgba(0,0,0,.6)}
+  .drawer{width:100%;max-width:420px;background:var(--card);border:1px solid var(--line);border-radius:16px;overflow:hidden;display:flex;flex-direction:column;max-height:85vh}
   .drawer-head{padding:14px;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;align-items:center;background:var(--card2)}
-  .drawer-title{font-weight:900}
-  .drawer-body{padding:16px;max-height:60vh;overflow-y:auto}
-
-  /* Part Chips in Modal */
+  .drawer-body{padding:16px;overflow-y:auto;flex:1}
+  
+  /* Chips */
   .chipline{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:12px}
-  .chip{padding:8px 14px;border-radius:99px;border:1px solid var(--line);background:var(--card2);color:var(--mut);font-size:13px;cursor:pointer;transition:all .2s}
+  .chip{padding:8px 14px;border-radius:99px;border:1px solid var(--line);background:var(--card2);color:var(--mut);font-size:13px;cursor:pointer}
   .chip.active{background:rgba(76,92,255,.2);border-color:var(--accent);color:var(--accent2);font-weight:bold}
-
-  /* Auto Login Toast */
-  #toast{
-    position:fixed;top:20px;left:50%;transform:translateX(-50%);
-    background:rgba(76,92,255,.9);color:#fff;
-    padding:12px 20px;border-radius:20px;
-    font-size:14px;font-weight:bold;
-    box-shadow:0 10px 30px rgba(0,0,0,.5);
-    z-index:9999;
-    opacity:0;transition:opacity .3s;pointer-events:none;
-    text-align:center;width:max-content;max-width:90vw;
-  }
+  
+  /* Keypad */
+  .kbd{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-top:12px}
+  .key{background:var(--card2);border:1px solid var(--line);padding:14px;border-radius:10px;text-align:center;font-size:18px;font-weight:bold;cursor:pointer;user-select:none}
+  .key:active{background:rgba(255,255,255,.1)}
+  
+  /* Toast */
+  #toast{position:fixed;top:60px;left:50%;transform:translateX(-50%);background:rgba(76,92,255,.95);color:#fff;padding:12px 24px;border-radius:30px;font-size:14px;font-weight:bold;z-index:9999;box-shadow:0 10px 30px rgba(0,0,0,.5);opacity:0;pointer-events:none;transition:opacity .3s;white-space:nowrap}
   #toast.show{opacity:1}
-
-  /* Bottom Nav */
-  .bottom-nav{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);width:min(460px, 94%);background:rgba(20,24,38,.85);backdrop-filter:blur(12px);border:1px solid var(--line);border-radius:20px;display:flex;padding:6px;z-index:90;box-shadow:0 10px 30px rgba(0,0,0,.5)}
-  .navbtn{flex:1;background:transparent;border:none;color:var(--mut);font-size:11px;flex-direction:column;gap:4px;padding:8px 0}
-  .navbtn.active{color:var(--accent2)}
-  .nav-icon{width:24px;height:24px;border-radius:8px;background:rgba(255,255,255,.05);display:flex;align-items:center;justify-content:center;margin-bottom:2px}
-  .navbtn.active .nav-icon{background:var(--accent);color:#fff}
 
   /* Screens */
   .screen{display:none}
-  .screen.active{display:block;animation:fadeIn .3s ease}
-  @keyframes fadeIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
-
-  /* Keypad */
-  .kbd{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-top:12px}
-  .key{background:var(--card2);border:1px solid var(--line);padding:14px;border-radius:10px;text-align:center;font-size:18px;font-weight:bold;cursor:pointer}
-  .key:active{background:rgba(255,255,255,.1)}
-
-  /* Compare Grid for Cal Detail */
-  .stat-grid{display:grid;grid-template-columns:1fr auto;gap:10px;padding:8px 0;border-bottom:1px solid var(--line)}
-  .stat-bar-bg{height:6px;background:rgba(255,255,255,.1);border-radius:3px;margin-top:6px;overflow:hidden}
-  .stat-bar-fill{height:100%;background:var(--accent);width:0}
+  .screen.active{display:block}
+  
+  /* Stat Bar for Detail */
+  .stat-row{display:flex;align-items:center;gap:10px;margin-bottom:8px;font-size:13px}
+  .stat-bar-bg{flex:1;height:6px;background:rgba(255,255,255,.1);border-radius:3px;overflow:hidden}
+  .stat-bar-fill{height:100%;background:var(--accent)}
 </style>
 </head>
 <body>
@@ -122,29 +109,23 @@
   <div class="page" style="display:flex;flex-direction:column;justify-content:center;min-height:80vh">
     <div class="card" style="padding:24px">
       <h2 style="margin:0 0 8px">Health Rank</h2>
-      <p class="muted" style="margin:0 0 20px">로그인하여 기록을 시작하세요.</p>
-      
-      <div class="muted">아이디</div>
-      <input type="text" id="authId" class="input" style="margin-bottom:12px" placeholder="ID">
-      <div class="muted">비밀번호</div>
-      <input type="password" id="authPw" class="input" style="margin-bottom:20px" placeholder="PW">
-      
+      <p class="muted" style="margin:0 0 20px">로그인</p>
+      <input type="text" id="authId" class="input" style="margin-bottom:10px" placeholder="아이디">
+      <input type="password" id="authPw" class="input" style="margin-bottom:20px" placeholder="비밀번호">
       <div class="btn primary" id="btnLogin">로그인</div>
-      <div class="btn ghost" id="btnSignup" style="margin-top:10px">회원가입</div>
-      <div id="authMsg" class="muted" style="margin-top:12px;text-align:center;min-height:20px;color:var(--danger)"></div>
+      <div class="muted" style="margin-top:12px;text-align:center" id="authMsg"></div>
     </div>
   </div>
 </div>
 
 <div id="screen-main" class="screen">
   <div class="page">
-    
     <div class="row between" style="margin-bottom:12px">
       <div style="font-weight:900;font-size:18px">오늘</div>
       <div class="muted" id="clock">00:00</div>
     </div>
 
-    <div class="section card" id="tierCard">
+    <div class="section card">
       <div class="row between">
         <div>
           <div class="muted">내 티어</div>
@@ -152,16 +133,15 @@
         </div>
         <div style="text-align:right">
           <div class="pill" id="tierScore">0 pt</div>
-          <div class="muted" style="margin-top:4px;font-size:11px">상위 --%</div>
         </div>
       </div>
       <div class="divider"></div>
-      <div class="btn primary" id="btnStartMain">운동 시작하기</div>
+      <div class="btn primary" id="btnStartWork">운동 시작하기</div>
     </div>
 
     <div class="section card">
       <div class="row between" style="margin-bottom:12px">
-        <div class="muted" id="calMonthTitle">2025. 12</div>
+        <div class="muted" id="calMonth">2025. 12</div>
         <div class="row">
           <div class="btn small ghost" id="calPrev">&lt;</div>
           <div class="btn small ghost" id="calNext">&gt;</div>
@@ -173,44 +153,47 @@
       </div>
       <div class="cal-grid" id="calBody" style="margin-top:6px"></div>
     </div>
-
   </div>
 </div>
 
 <div id="screen-work" class="screen">
   <div class="page">
-    <div class="card" style="position:sticky;top:10px;z-index:10;border-color:var(--accent)">
+    <div class="card" style="position:sticky;top:12px;z-index:10;border-color:var(--accent);margin-bottom:12px">
       <div class="row between">
-        <div style="font-weight:900">운동 진행 중</div>
-        <div class="pill timer" id="workTimer">00:00:00</div>
+        <div class="row">
+          <div class="live-dot" style="opacity:1;background:var(--danger)"></div>
+          <div style="font-weight:900">운동 진행 중</div>
+        </div>
+        <div class="pill" id="workTimer">00:00:00</div>
       </div>
-      <div class="row" style="margin-top:10px;gap:8px">
-        <div class="btn ghost small" style="flex:1" id="btnAddEx">+ 운동 추가</div>
-        <div class="btn danger small" id="btnEndWork">종료</div>
+      <div class="divider"></div>
+      <div class="row">
+        <div class="btn primary" style="flex:1" id="btnAddPopup">종목 추가</div>
+        <div class="btn danger" style="width:80px" id="btnEndWork">종료</div>
       </div>
     </div>
 
-    <div id="workList" style="padding-top:12px">
+    <div id="exerciseList">
       <div class="muted" style="text-align:center;padding:40px 0">운동을 추가해주세요.</div>
     </div>
   </div>
 </div>
 
-<div class="overlay" id="overlayAddEx">
+<div class="overlay" id="overlayAdd">
   <div class="drawer">
     <div class="drawer-head">
-      <div class="drawer-title">운동 추가</div>
-      <div class="btn small ghost" onclick="closeOverlay('overlayAddEx')">닫기</div>
+      <div class="drawer-title">종목 추가</div>
+      <div class="btn small ghost" onclick="closeOverlay('overlayAdd')">닫기</div>
     </div>
     <div class="drawer-body">
       <div class="muted" style="margin-bottom:8px">부위 선택</div>
       <div class="chipline" id="partChips">
         </div>
       
-      <div class="muted" style="margin-bottom:8px">종목명</div>
+      <div class="muted" style="margin-bottom:8px;margin-top:12px">종목명</div>
       <input type="text" class="input" id="exNameInput" placeholder="예: 벤치프레스">
       
-      <div class="btn primary" style="margin-top:16px" id="btnConfirmAddEx">추가하기</div>
+      <div class="btn primary" style="margin-top:20px" id="btnConfirmAdd">추가하기</div>
     </div>
   </div>
 </div>
@@ -220,92 +203,69 @@
     <div class="drawer-head">
       <div>
         <div class="drawer-title" id="setTitle">1세트</div>
-        <div class="muted" id="setSubTitle" style="font-size:11px">-</div>
+        <div class="muted" id="setSub" style="font-size:11px">-</div>
       </div>
       <div class="btn small ghost" onclick="closeOverlay('overlaySet')">닫기</div>
     </div>
     <div class="drawer-body">
       <div id="stepWeight">
         <div style="text-align:center;margin:10px 0">
-          <div class="muted">무게 (kg)</div>
-          <div style="font-size:32px;font-weight:900" id="valWeight">20</div>
+          <div class="muted">무게 (KG)</div>
+          <div style="font-size:36px;font-weight:900" id="valWeight">20</div>
         </div>
-        <div class="kbd" id="kbdWeight">
-          </div>
-        <div class="btn primary" style="margin-top:16px" id="btnNextToReps">다음 (횟수)</div>
+        <div class="kbd" id="kbdWeight"></div>
+        <div class="btn primary" style="margin-top:20px" id="btnNextReps">다음 (횟수)</div>
       </div>
-
       <div id="stepReps" class="hidden">
         <div style="text-align:center;margin:10px 0">
           <div class="muted">횟수</div>
-          <div style="font-size:32px;font-weight:900" id="valReps">10</div>
+          <div style="font-size:36px;font-weight:900" id="valReps">10</div>
         </div>
-        <div class="kbd" id="kbdReps">
-          </div>
-        <div class="row" style="margin-top:16px;gap:10px">
-          <div class="btn ghost" style="flex:1" id="btnBackToWeight">이전</div>
-          <div class="btn primary" style="flex:2" id="btnSaveSet">완료</div>
+        <div class="kbd" id="kbdReps"></div>
+        <div class="row" style="margin-top:20px;gap:10px">
+          <div class="btn ghost" style="flex:1" id="btnPrevWeight">이전</div>
+          <div class="btn primary" style="flex:2" id="btnSaveSet">저장</div>
         </div>
       </div>
     </div>
   </div>
 </div>
 
-<div class="overlay" id="overlayCalDetail">
+<div class="overlay" id="overlayDetail">
   <div class="drawer">
     <div class="drawer-head">
       <div>
-        <div class="drawer-title" id="calDetailDate">날짜</div>
-        <div class="muted">부위별 볼륨 순위</div>
+        <div class="drawer-title" id="detailDate">날짜</div>
+        <div class="muted">부위별 볼륨 (높은순)</div>
       </div>
-      <div class="btn small ghost" onclick="closeOverlay('overlayCalDetail')">닫기</div>
+      <div class="btn small ghost" onclick="closeOverlay('overlayDetail')">닫기</div>
     </div>
-    <div class="drawer-body" id="calDetailBody">
-      </div>
-  </div>
-</div>
-
-<div class="bottom-nav hidden" id="navBar">
-  <div class="navbtn active" data-target="screen-main">
-    <div class="nav-icon">🏠</div>
-    <span>홈</span>
-  </div>
-  <div class="navbtn" id="navWorkBtn">
-    <div class="nav-icon">💪</div>
-    <span>운동중</span>
-  </div>
-  <div class="navbtn" onclick="alert('더보기 준비중')">
-    <div class="nav-icon">⚙️</div>
-    <span>설정</span>
+    <div class="drawer-body" id="detailBody"></div>
   </div>
 </div>
 
 <script>
-// --- Config & State ---
+// --- State & Config ---
 const PARTS = ['가슴','등','하체','어깨','팔','복근','유산소'];
 let state = {
   user: null,
-  profile: null,
+  lastSelectedPart: '가슴', // Remember last choice
   workout: {
     active: false,
     startTime: null,
-    exercises: [] // {id, name, part, sets:[{kg, reps, done}]}
+    list: [] // {id, part, name, sets:[{kg,reps,done}]}
   },
   calendar: {
     year: new Date().getFullYear(),
-    month: new Date().getMonth() + 1,
-    data: {} // 'YYYY-MM-DD': { totalVol:0, parts:{ 'Chest': 1000 ... } }
-  },
-  ui: {
-    lastSelectedPart: '가슴', // Default part
-    currentExId: null
+    month: new Date().getMonth()+1,
+    data: {} // Mock Data
   }
 };
 
-// --- Utils ---
-const $ = (s) => document.querySelector(s);
-const $$ = (s) => document.querySelectorAll(s);
-const pad = (n) => n.toString().padStart(2,'0');
+// --- Helper Funcs ---
+const $ = s => document.querySelector(s);
+const $$ = s => document.querySelectorAll(s);
+const pad = n => n.toString().padStart(2,'0');
 
 function showToast(msg) {
   const t = $('#toast');
@@ -314,253 +274,266 @@ function showToast(msg) {
   setTimeout(() => t.classList.remove('show'), 2000);
 }
 
-function switchScreen(id) {
-  $$('.screen').forEach(el => el.classList.remove('active'));
-  $(`#${id}`).classList.add('active');
-  
-  if(id === 'screen-main') {
-    $('#navBar').classList.remove('hidden');
-    renderCalendar();
-  } else if(id === 'screen-auth') {
-    $('#navBar').classList.add('hidden');
-  } else if(id === 'screen-work') {
-    $('#navBar').classList.add('hidden'); // Hide nav during workout focus
-  }
-}
-
 function openOverlay(id) { $(`#${id}`).classList.add('show'); }
 function closeOverlay(id) { $(`#${id}`).classList.remove('show'); }
 
-// --- Auth Logic ---
-// Mock Login for Demo
+// --- Auth & Init ---
 $('#btnLogin').onclick = () => {
   const id = $('#authId').value;
-  if(!id) return alert('아이디를 입력하세요');
-  
-  // Fake Success
-  const fakeUser = { id: 'u1', nick: '헬창꿈나무' };
-  localStorage.setItem('hr_user', JSON.stringify(fakeUser));
-  loginSuccess(fakeUser, false);
+  if(!id) return alert('아이디를 입력하세요.');
+  const user = { id: 'u1', nick: '헬창꿈나무' };
+  localStorage.setItem('hr_user', JSON.stringify(user));
+  loginSuccess(user, false);
 };
 
 function checkSession() {
-  const saved = localStorage.getItem('hr_user');
-  if(saved) {
-    const user = JSON.parse(saved);
-    loginSuccess(user, true); // true = isAutoLogin
-  } else {
-    switchScreen('screen-auth');
-  }
+  const s = localStorage.getItem('hr_user');
+  if(s) loginSuccess(JSON.parse(s), true);
+  else $('#screen-auth').classList.add('active');
 }
 
 function loginSuccess(user, isAuto) {
   state.user = user;
-  state.profile = { tier: 'Silver', score: 1250 }; // Mock profile
+  $('#screen-auth').classList.remove('active');
+  $('#screen-main').classList.add('active');
   
-  $('#tierName').textContent = state.profile.tier;
-  $('#tierScore').textContent = `${state.profile.score} pt`;
+  $('#tierName').textContent = 'Silver';
+  $('#tierScore').textContent = '1250 pt';
   
-  switchScreen('screen-main');
-  
-  if(isAuto) {
-    // 1. Auto Login Popup
-    showToast(`이전 로그인한 '${user.nick}'님으로\n자동 로그인 됐습니다.`);
-  }
-  
-  // Load mock calendar data
   generateMockData();
   renderCalendar();
+  
+  if(isAuto) {
+    showToast(`이전 로그인한 '${user.nick}'님으로 자동 로그인 됐습니다.`);
+  }
 }
 
-// --- Main Screen Logic ---
-$('#btnStartMain').onclick = () => {
-  startWorkout();
-};
-
-function startWorkout() {
+// --- Main Screen ---
+$('#btnStartWork').onclick = () => {
   state.workout.active = true;
   state.workout.startTime = Date.now();
-  state.workout.exercises = [];
-  renderWorkoutList();
+  state.workout.list = [];
   startTimer();
-  switchScreen('screen-work');
-}
+  renderWorkoutList();
+  
+  $('#screen-main').classList.remove('active');
+  $('#screen-work').classList.add('active');
+};
 
-// --- Workout Logic ---
-let timerInterval;
+let timerInt;
 function startTimer() {
-  if(timerInterval) clearInterval(timerInterval);
+  if(timerInt) clearInterval(timerInt);
   const tick = () => {
-    if(!state.workout.active) return;
     const diff = Math.floor((Date.now() - state.workout.startTime)/1000);
     const h = Math.floor(diff/3600);
     const m = Math.floor((diff%3600)/60);
     const s = diff%60;
     $('#workTimer').textContent = `${pad(h)}:${pad(m)}:${pad(s)}`;
   };
-  timerInterval = setInterval(tick, 1000);
+  timerInt = setInterval(tick, 1000);
   tick();
 }
 
+// --- Workout Logic (Original List Style) ---
 $('#btnEndWork').onclick = () => {
-  if(!confirm('운동을 종료하고 저장하시겠습니까?')) return;
-  state.workout.active = false;
-  clearInterval(timerInterval);
+  if(!confirm('운동을 종료하시겠습니까?')) return;
   
-  // Save to Calendar Data (Mock)
-  const todayKey = getTodayKey();
-  let dayData = state.calendar.data[todayKey] || { totalVol:0, parts:{} };
-  
-  state.workout.exercises.forEach(ex => {
-    ex.sets.forEach(set => {
-      const vol = set.kg * set.reps;
-      dayData.totalVol += vol;
-      dayData.parts[ex.part] = (dayData.parts[ex.part] || 0) + vol;
+  // Save Mock
+  const k = getTodayKey();
+  let d = state.calendar.data[k] || {parts:{}, vol:0};
+  state.workout.list.forEach(ex => {
+    ex.sets.forEach(s => {
+      const v = s.kg * s.reps;
+      d.vol += v;
+      d.parts[ex.part] = (d.parts[ex.part]||0) + v;
     });
   });
-  state.calendar.data[todayKey] = dayData;
+  state.calendar.data[k] = d;
   
-  switchScreen('screen-main');
-  showToast('운동이 기록되었습니다.');
+  state.workout.active = false;
+  clearInterval(timerInt);
+  $('#screen-work').classList.remove('active');
+  $('#screen-main').classList.add('active');
+  renderCalendar();
+  showToast('운동이 저장되었습니다.');
 };
 
-// --- Add Exercise Logic ---
-$('#btnAddEx').onclick = () => {
+// Add Exercise Button -> Popup
+$('#btnAddPopup').onclick = () => {
   // Render Chips
-  const container = $('#partChips');
-  container.innerHTML = '';
-  PARTS.forEach(part => {
-    const el = document.createElement('div');
-    el.className = `chip ${part === state.ui.lastSelectedPart ? 'active' : ''}`;
-    el.textContent = part;
-    el.onclick = () => {
+  const box = $('#partChips');
+  box.innerHTML = '';
+  PARTS.forEach(p => {
+    const chip = document.createElement('div');
+    chip.className = `chip ${p === state.lastSelectedPart ? 'active' : ''}`;
+    chip.textContent = p;
+    chip.onclick = () => {
+      state.lastSelectedPart = p;
       $$('#partChips .chip').forEach(c => c.classList.remove('active'));
-      el.classList.add('active');
-      state.ui.lastSelectedPart = part; // Remember selection
+      chip.classList.add('active');
     };
-    container.appendChild(el);
+    box.appendChild(chip);
   });
   
   $('#exNameInput').value = '';
-  openOverlay('overlayAddEx');
+  openOverlay('overlayAdd');
   $('#exNameInput').focus();
 };
 
-$('#btnConfirmAddEx').onclick = () => {
+$('#btnConfirmAdd').onclick = () => {
   const name = $('#exNameInput').value.trim();
-  if(!name) return alert('종목명을 입력하세요');
+  if(!name) return alert('종목명을 입력하세요.');
   
-  const newEx = {
+  state.workout.list.push({
     id: Date.now(),
-    part: state.ui.lastSelectedPart,
+    part: state.lastSelectedPart,
     name: name,
     sets: []
-  };
-  state.workout.exercises.push(newEx);
-  closeOverlay('overlayAddEx');
+  });
+  closeOverlay('overlayAdd');
   renderWorkoutList();
 };
 
+// Render Exercise Cards (Accordion)
 function renderWorkoutList() {
-  const list = $('#workList');
-  list.innerHTML = '';
-  if(state.workout.exercises.length === 0) {
-    list.innerHTML = `<div class="muted" style="text-align:center;padding:40px 0">운동을 추가해주세요.</div>`;
+  const con = $('#exerciseList');
+  con.innerHTML = '';
+  if(state.workout.list.length === 0) {
+    con.innerHTML = `<div class="muted" style="text-align:center;padding:40px 0">운동을 추가해주세요.</div>`;
     return;
   }
   
-  state.workout.exercises.forEach((ex, idx) => {
-    const div = document.createElement('div');
-    div.className = 'ex-item';
-    div.innerHTML = `
-      <div class="ex-head">
-        <div>
-          <div class="ex-name">${ex.name}</div>
-          <div class="ex-part">${ex.part}</div>
-        </div>
-        <div class="btn small primary" onclick="openSetModal(${idx})">+ 세트</div>
+  state.workout.list.forEach((ex, idx) => {
+    const card = document.createElement('div');
+    card.className = 'ex-card';
+    
+    // Header
+    const head = document.createElement('div');
+    head.className = 'ex-head';
+    head.innerHTML = `
+      <div>
+        <div class="ex-title">${ex.name}</div>
+        <div class="ex-sub">${ex.part} · ${ex.sets.length}세트</div>
       </div>
-      <div class="sets-container" style="margin-top:8px">
-        ${ex.sets.map((s, i) => `
-          <div class="set-row">
-            <span class="muted">${i+1}세트</span>
-            <span style="font-weight:bold">${s.kg}kg x ${s.reps}회</span>
-          </div>
-        `).join('')}
-      </div>
+      <div class="btn small primary" onclick="event.stopPropagation(); addSet(${idx})">+ 세트</div>
     `;
-    list.appendChild(div);
+    
+    // Body
+    const body = document.createElement('div');
+    body.className = 'ex-body';
+    
+    ex.sets.forEach((s, sIdx) => {
+      const swipe = document.createElement('div');
+      swipe.className = 'swipe';
+      
+      // Swipe Actions (Delete)
+      const act = document.createElement('div');
+      act.className = 'swipe-actions';
+      act.textContent = '삭제';
+      act.onclick = () => { ex.sets.splice(sIdx,1); renderWorkoutList(); };
+      
+      // Front Content
+      const front = document.createElement('div');
+      front.className = `swipe-front ${s.done ? 'done' : ''}`;
+      front.innerHTML = `
+        <div class="row">
+          <div class="live-dot"></div>
+          <div class="set-idx">${sIdx+1}</div>
+          <div class="set-val">${s.kg}kg x ${s.reps}</div>
+        </div>
+        <div class="muted" style="font-size:11px">${s.done ? '완료' : '진행전'}</div>
+      `;
+      
+      // Swipe Logic
+      let tx = 0;
+      front.ontouchstart = e => { tx = e.touches[0].clientX; };
+      front.ontouchend = e => {
+        if(tx - e.changedTouches[0].clientX > 50) swipe.classList.add('open');
+        else swipe.classList.remove('open');
+      };
+      front.onclick = () => {
+        // Toggle Done
+        if(!swipe.classList.contains('open')) {
+          s.done = !s.done;
+          renderWorkoutList();
+        }
+      };
+
+      swipe.append(act, front);
+      body.appendChild(swipe);
+    });
+
+    // Accordion Toggle
+    head.onclick = () => {
+      body.classList.toggle('collapsed');
+    };
+    
+    card.append(head, body);
+    con.appendChild(card);
   });
 }
 
-// --- Set Input Logic ---
-let targetExIdx = null;
-let tempSet = { kg: 20, reps: 10 };
+// --- Set Input (Keypad) ---
+let currentExIdx = null;
+let tempSet = {kg:20, reps:10};
 
-window.openSetModal = (idx) => {
-  targetExIdx = idx;
-  const ex = state.workout.exercises[idx];
-  // Pre-fill with last set if exists
-  if(ex.sets.length > 0) {
-    tempSet = { ...ex.sets[ex.sets.length-1] };
-  }
+window.addSet = (idx) => {
+  currentExIdx = idx;
+  const ex = state.workout.list[idx];
+  // Copy last set
+  if(ex.sets.length > 0) tempSet = {...ex.sets[ex.sets.length-1], done:false};
   
-  $('#setTitle').textContent = `${ex.sets.length + 1}세트 입력`;
-  $('#setSubTitle').textContent = ex.name;
+  $('#setTitle').textContent = `${ex.sets.length+1}세트`;
+  $('#setSub').textContent = ex.name;
   
-  // Reset Step
   $('#stepWeight').classList.remove('hidden');
   $('#stepReps').classList.add('hidden');
-  updateSetDisplay();
+  updateSetVal();
   openOverlay('overlaySet');
 };
 
-function updateSetDisplay() {
+function updateSetVal() {
   $('#valWeight').textContent = tempSet.kg;
   $('#valReps').textContent = tempSet.reps;
 }
 
-// Render Keypads
-const renderKeypad = (containerId, keys, action) => {
-  const c = $(containerId);
-  c.innerHTML = '';
+// Draw Keypads
+const drawKeys = (id, keys, cb) => {
+  const b = $(id); b.innerHTML = '';
   keys.forEach(k => {
-    const div = document.createElement('div');
-    div.className = 'key';
-    div.textContent = k;
-    div.onclick = () => action(k);
-    c.appendChild(div);
+    const d = document.createElement('div');
+    d.className = 'key';
+    d.textContent = k;
+    d.onclick = () => cb(k);
+    b.appendChild(d);
   });
 };
 
-// Weight Keys
-renderKeypad('#kbdWeight', ['-5','-1','+1','+5','C','←'], (k) => {
+drawKeys('#kbdWeight', ['-5','-1','+1','+5','C','←'], k => {
   if(k==='C') tempSet.kg = 0;
   else if(k==='←') tempSet.kg = Math.floor(tempSet.kg/10);
   else tempSet.kg += parseInt(k);
-  if(tempSet.kg < 0) tempSet.kg = 0;
-  updateSetDisplay();
+  if(tempSet.kg<0) tempSet.kg=0;
+  updateSetVal();
 });
 
-// Reps Keys
-renderKeypad('#kbdReps', ['-5','-1','+1','+5','10','12'], (k) => {
-   tempSet.reps += parseInt(k);
-   if(tempSet.reps < 1) tempSet.reps = 1;
-   updateSetDisplay();
+drawKeys('#kbdReps', ['-5','-1','+1','+5','10','12'], k => {
+  tempSet.reps += parseInt(k);
+  if(tempSet.reps<1) tempSet.reps=1;
+  updateSetVal();
 });
 
-$('#btnNextToReps').onclick = () => {
+$('#btnNextReps').onclick = () => {
   $('#stepWeight').classList.add('hidden');
   $('#stepReps').classList.remove('hidden');
 };
-$('#btnBackToWeight').onclick = () => {
+$('#btnPrevWeight').onclick = () => {
   $('#stepReps').classList.add('hidden');
   $('#stepWeight').classList.remove('hidden');
 };
-
 $('#btnSaveSet').onclick = () => {
-  if(targetExIdx !== null) {
-    state.workout.exercises[targetExIdx].sets.push({ ...tempSet });
+  if(currentExIdx !== null) {
+    state.workout.list[currentExIdx].sets.push({...tempSet});
     renderWorkoutList();
     closeOverlay('overlaySet');
   }
@@ -574,118 +547,85 @@ function getTodayKey() {
 }
 
 function generateMockData() {
-  // Generate some random history for this month
-  const y = state.calendar.year;
-  const m = state.calendar.month;
-  for(let i=1; i<20; i++) {
-    const k = `${y}-${pad(m)}-${pad(i)}`;
-    if(Math.random() > 0.5) {
-      state.calendar.data[k] = {
-        totalVol: Math.floor(Math.random()*10000),
-        parts: {
-          '가슴': Math.floor(Math.random()*5000),
-          '삼두': Math.floor(Math.random()*2000),
-          '복근': 500
-        }
+  const y = state.calendar.year, m = state.calendar.month;
+  for(let i=1; i<25; i++) {
+    if(Math.random()>.4) {
+      state.calendar.data[`${y}-${pad(m)}-${pad(i)}`] = {
+        vol: Math.floor(Math.random()*10000),
+        parts: { '가슴': 5000, '삼두': 2000, '어깨': 1500 } // Simply hardcoded for demo
       };
     }
   }
 }
 
 function renderCalendar() {
-  const y = state.calendar.year;
-  const m = state.calendar.month;
-  $('#calMonthTitle').textContent = `${y}. ${pad(m)}`;
+  const y = state.calendar.year, m = state.calendar.month;
+  $('#calMonth').textContent = `${y}. ${pad(m)}`;
   
-  const firstDay = new Date(y, m-1, 1).getDay();
-  const lastDate = new Date(y, m, 0).getDate();
+  const fDay = new Date(y, m-1, 1).getDay();
+  const lDate = new Date(y, m, 0).getDate();
+  const b = $('#calBody'); b.innerHTML = '';
   
-  const grid = $('#calBody');
-  grid.innerHTML = '';
+  for(let i=0; i<fDay; i++) b.appendChild(document.createElement('div'));
   
-  // Blanks
-  for(let i=0; i<firstDay; i++) {
-    grid.appendChild(document.createElement('div'));
-  }
-  
-  // Days
-  for(let d=1; d<=lastDate; d++) {
-    const key = `${y}-${pad(m)}-${pad(d)}`;
-    const data = state.calendar.data[key];
+  for(let d=1; d<=lDate; d++) {
+    const k = `${y}-${pad(m)}-${pad(d)}`;
+    const data = state.calendar.data[k];
     const el = document.createElement('div');
     el.className = 'cal-cell';
     
-    // Check Today
     const today = new Date();
-    if(today.getFullYear()===y && today.getMonth()+1===m && today.getDate()===d) {
-      el.classList.add('today');
-    }
-
-    let subHtml = '';
+    if(today.getFullYear()===y && today.getMonth()+1===m && today.getDate()===d) el.classList.add('today');
+    
+    let sub = '';
     if(data) {
-      // Find Max Volume Part
-      const entries = Object.entries(data.parts);
-      if(entries.length > 0) {
-        entries.sort((a,b) => b[1] - a[1]); // Desc volume
-        const maxPart = entries[0][0]; // Part Name
-        subHtml = `<div class="cal-sub">${maxPart}</div>`;
-      }
-      
-      // Click Event -> Overlay Detail
-      el.onclick = () => openCalDetail(key, data);
+      // Find Max
+      const sorted = Object.entries(data.parts).sort((a,b)=>b[1]-a[1]);
+      if(sorted.length>0) sub = `<div class="cal-sub">${sorted[0][0]}</div>`;
+      el.onclick = () => openCalDetail(k, data);
     }
     
-    el.innerHTML = `<div class="cal-day">${d}</div>${subHtml}`;
-    grid.appendChild(el);
+    el.innerHTML = `<div class="cal-day">${d}</div>${sub}`;
+    b.appendChild(el);
   }
 }
 
-// Calendar Date Click -> Detail Overlay
-function openCalDetail(dateStr, data) {
-  $('#calDetailDate').textContent = dateStr;
-  const body = $('#calDetailBody');
-  body.innerHTML = '';
-  
-  if(!data || !data.parts) return;
-  
-  // Sort parts by volume
-  const sorted = Object.entries(data.parts).sort((a,b) => b[1] - a[1]);
-  const maxVol = sorted[0][1]; // for progress bar calc
-  
-  sorted.forEach(([part, vol]) => {
-    const percent = (vol / maxVol) * 100;
-    const row = document.createElement('div');
-    row.className = 'stat-grid';
-    row.innerHTML = `
-      <div>
-        <div class="row between">
-          <span style="font-weight:bold">${part}</span>
-        </div>
-        <div class="stat-bar-bg">
-          <div class="stat-bar-fill" style="width:${percent}%"></div>
-        </div>
-      </div>
-      <div style="text-align:right;font-size:13px;font-weight:bold;margin-top:auto">
-        ${vol.toLocaleString()} <span class="muted" style="font-size:10px;font-weight:normal">kg</span>
-      </div>
-    `;
-    body.appendChild(row);
-  });
-  
-  openOverlay('overlayCalDetail');
-}
-
-// Calendar Nav
 $('#calPrev').onclick = () => {
   state.calendar.month--;
-  if(state.calendar.month < 1) { state.calendar.month=12; state.calendar.year--; }
+  if(state.calendar.month<1){state.calendar.month=12;state.calendar.year--;}
   renderCalendar();
 };
 $('#calNext').onclick = () => {
   state.calendar.month++;
-  if(state.calendar.month > 12) { state.calendar.month=1; state.calendar.year++; }
+  if(state.calendar.month>12){state.calendar.month=1;state.calendar.year++;}
   renderCalendar();
 };
+
+function openCalDetail(date, data) {
+  $('#detailDate').textContent = date;
+  const b = $('#detailBody'); b.innerHTML = '';
+  
+  const sorted = Object.entries(data.parts).sort((a,b)=>b[1]-a[1]);
+  if(sorted.length===0) return;
+  
+  const max = sorted[0][1];
+  
+  sorted.forEach(([p, v]) => {
+    const row = document.createElement('div');
+    row.innerHTML = `
+      <div class="row between" style="margin-bottom:4px;font-size:13px">
+        <span style="font-weight:bold">${p}</span>
+        <span class="muted">${v.toLocaleString()} kg</span>
+      </div>
+      <div class="stat-bar-bg">
+        <div class="stat-bar-fill" style="width:${(v/max)*100}%"></div>
+      </div>
+      <div style="height:12px"></div>
+    `;
+    b.appendChild(row);
+  });
+  openOverlay('overlayDetail');
+}
 
 // Clock
 setInterval(() => {
