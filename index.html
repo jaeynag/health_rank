@@ -3,7 +3,8 @@
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no"/>
-<title>Health Rank - Updated Flow</title>
+<title>Health Rank - App (Step42)</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
   :root{
     --bg:#0f1115; --card:#141826; --card2:#1b1f2a; --line:#2a3040;
@@ -11,331 +12,689 @@
     --danger:#ff4c6a; --good:#36d399;
   }
   *{box-sizing:border-box}
-  body{margin:0;font-family:system-ui, -apple-system, sans-serif;background:var(--bg);color:var(--txt);overscroll-behavior:none}
-  .page{max-width:480px;margin:0 auto;padding:12px 12px 100px}
-  
+  body{margin:0;font-family:-apple-system,BlinkMacSystemFont,system-ui,Segoe UI,Roboto,Apple SD Gothic Neo,Noto Sans KR,sans-serif;background:var(--bg);color:var(--txt)}
+  .page{max-width:480px;margin:0 auto;padding:12px 12px 80px} /* padding-bottom increased for nav */
+
   /* UI Components */
   .section{margin:12px 0}
-  .card{position:relative;background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px}
-  .divider{height:1px;background:var(--line);margin:12px 0}
+  .card{position:relative;background:var(--card);border:1px solid var(--line);border-radius:14px;padding:12px}
   .row{display:flex;gap:8px;align-items:center}
   .row.between{justify-content:space-between}
   .muted{color:var(--mut);font-size:12px}
-  .btn{background:var(--card2);border:1px solid var(--line);color:#fff;border-radius:10px;padding:12px;text-align:center;cursor:pointer;user-select:none}
+  .btn{background:var(--card2);border:1px solid var(--line);color:#fff;border-radius:10px;padding:12px;text-align:center;user-select:none;cursor:pointer;display:flex;align-items:center;justify-content:center}
   .btn.primary{background:var(--accent);border-color:var(--accent)}
-  .btn.small{padding:6px 10px;font-size:13px}
-  .input{width:100%;padding:12px;border-radius:12px;border:1px solid var(--line);background:rgba(255,255,255,0.03);color:#fff;outline:none}
-
-  /* Tier Card Custom */
-  .tier-score-area{text-align:center;padding:10px 0}
-  .start-workout-btn{margin-top:16px;width:100%;font-weight:900;font-size:16px;box-shadow: 0 4px 15px rgba(76, 92, 255, 0.3)}
-
-  /* Calendar */
-  .cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:4px}
-  .cal-cell{
-    border:1px solid var(--line);background:rgba(255,255,255,0.02);border-radius:8px;
-    min-height:50px;padding:4px;display:flex;flex-direction:column;align-items:center;cursor:pointer;
-  }
-  .cal-cell.today{border-color:var(--accent);background:rgba(76,92,255,0.1)}
-  .cal-cell .day-num{font-size:12px;font-weight:700}
-  .cal-cell .top-part{font-size:10px;color:var(--accent2);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
+  .btn.ghost{background:var(--card);border-color:var(--line)}
+  .btn.small{padding:8px 12px;font-size:12px;height:32px}
+  .btn.danger{background:rgba(255,76,106,.14);border-color:rgba(255,76,106,.40);color:#ffd0d8}
   
-  /* Calendar Detail Overlay (Fixed to prevent scrolling issues) */
-  .cal-detail-overlay {
-    position: fixed; inset: 0; background: rgba(0,0,0,0.7); z-index: 1000;
-    display: none; align-items: center; justify-content: center; padding: 20px;
-  }
-  .cal-detail-overlay.active { display: flex; }
-  .cal-detail-card { 
-    background: var(--card); border: 1px solid var(--line); border-radius: 20px; 
-    width: 100%; max-width: 340px; padding: 20px; 
-  }
+  .input{width:100%;padding:12px;border-radius:12px;border:1px solid #23283a;background:rgba(255,255,255,.03);color:var(--txt);outline:none;font-size:16px}
+  .input:focus{border-color:rgba(76,92,255,.55)}
+  
+  .pill{padding:4px 10px;border-radius:99px;border:1px solid var(--line);font-size:12px;background:var(--card2)}
+  .pill.tap{cursor:pointer}
+  .divider{height:1px;background:var(--line);margin:12px 0;opacity:.5}
+  .hidden{display:none !important}
 
-  /* Vertical Part List for Exercise Addition */
-  .part-list-v { display: flex; flex-direction: column; gap: 8px; margin-bottom: 16px; }
-  .part-item-v { 
-    padding: 14px; border-radius: 12px; border: 1px solid var(--line); 
-    background: var(--card2); text-align: center; font-weight: 700;
+  /* Tier Badges */
+  .tier-pill{font-weight:900}
+  
+  /* Calendar */
+  .cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:6px}
+  .cal-dow .cal-cell{color:var(--mut);font-size:11px;text-align:center;padding:4px 0;border:none;background:transparent;min-height:auto}
+  .cal-cell{
+    border:1px solid rgba(42,48,64,.7);
+    background:rgba(255,255,255,.02);
+    border-radius:10px;
+    padding:6px 4px;
+    min-height:50px;
+    display:flex;
+    flex-direction:column;
+    gap:2px;
+    align-items:center;
+    cursor:pointer;
   }
-  .part-item-v.selected { border-color: var(--accent); background: rgba(76, 92, 255, 0.15); color: var(--accent2); }
+  .cal-cell.today{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent) inset}
+  .cal-day{font-weight:900;font-size:13px}
+  .cal-sub{font-size:10px;color:var(--accent2);text-align:center;line-height:1.2;margin-top:2px;white-space:nowrap;overflow:hidden;width:100%;text-overflow:ellipsis}
 
-  /* Tiers */
-  .pill{padding:4px 10px;border-radius:999px;font-size:12px;font-weight:800;background:var(--line)}
-  .screen { display: none; }
-  .screen.active { display: block; }
+  /* Exercise Item */
+  .ex-item{background:rgba(255,255,255,.03);border:1px solid var(--line);border-radius:12px;padding:12px;margin-top:8px}
+  .ex-head{display:flex;justify-content:space-between;align-items:center}
+  .ex-name{font-weight:bold;font-size:15px}
+  .ex-part{font-size:11px;color:var(--mut);margin-top:2px}
+  .set-row{display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid rgba(255,255,255,.05);font-size:13px}
+  .set-row:last-child{border-bottom:none}
+  
+  /* Overlays */
+  .overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:100;align-items:center;justify-content:center;padding:20px}
+  .overlay.show{display:flex}
+  .drawer{width:100%;max-width:400px;background:var(--card);border:1px solid var(--line);border-radius:16px;overflow:hidden;box-shadow:0 20px 40px rgba(0,0,0,.6)}
+  .drawer-head{padding:14px;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;align-items:center;background:var(--card2)}
+  .drawer-title{font-weight:900}
+  .drawer-body{padding:16px;max-height:60vh;overflow-y:auto}
 
-  /* Overlay System */
-  .overlay{position:fixed;inset:0;background:rgba(0,0,0,0.8);z-index:2000;display:none;align-items:flex-end}
-  .overlay.active{display:flex}
-  .drawer{width:100%;background:var(--card);border-radius:20px 20px 0 0;padding:20px;max-height:85vh;overflow-y:auto}
+  /* Part Chips in Modal */
+  .chipline{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:12px}
+  .chip{padding:8px 14px;border-radius:99px;border:1px solid var(--line);background:var(--card2);color:var(--mut);font-size:13px;cursor:pointer;transition:all .2s}
+  .chip.active{background:rgba(76,92,255,.2);border-color:var(--accent);color:var(--accent2);font-weight:bold}
+
+  /* Auto Login Toast */
+  #toast{
+    position:fixed;top:20px;left:50%;transform:translateX(-50%);
+    background:rgba(76,92,255,.9);color:#fff;
+    padding:12px 20px;border-radius:20px;
+    font-size:14px;font-weight:bold;
+    box-shadow:0 10px 30px rgba(0,0,0,.5);
+    z-index:9999;
+    opacity:0;transition:opacity .3s;pointer-events:none;
+    text-align:center;width:max-content;max-width:90vw;
+  }
+  #toast.show{opacity:1}
+
+  /* Bottom Nav */
+  .bottom-nav{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);width:min(460px, 94%);background:rgba(20,24,38,.85);backdrop-filter:blur(12px);border:1px solid var(--line);border-radius:20px;display:flex;padding:6px;z-index:90;box-shadow:0 10px 30px rgba(0,0,0,.5)}
+  .navbtn{flex:1;background:transparent;border:none;color:var(--mut);font-size:11px;flex-direction:column;gap:4px;padding:8px 0}
+  .navbtn.active{color:var(--accent2)}
+  .nav-icon{width:24px;height:24px;border-radius:8px;background:rgba(255,255,255,.05);display:flex;align-items:center;justify-content:center;margin-bottom:2px}
+  .navbtn.active .nav-icon{background:var(--accent);color:#fff}
+
+  /* Screens */
+  .screen{display:none}
+  .screen.active{display:block;animation:fadeIn .3s ease}
+  @keyframes fadeIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+
+  /* Keypad */
+  .kbd{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-top:12px}
+  .key{background:var(--card2);border:1px solid var(--line);padding:14px;border-radius:10px;text-align:center;font-size:18px;font-weight:bold;cursor:pointer}
+  .key:active{background:rgba(255,255,255,.1)}
+
+  /* Compare Grid for Cal Detail */
+  .stat-grid{display:grid;grid-template-columns:1fr auto;gap:10px;padding:8px 0;border-bottom:1px solid var(--line)}
+  .stat-bar-bg{height:6px;background:rgba(255,255,255,.1);border-radius:3px;margin-top:6px;overflow:hidden}
+  .stat-bar-fill{height:100%;background:var(--accent);width:0}
 </style>
 </head>
 <body>
 
-<div id="app">
-  <div id="screen-auth" class="screen active">
-    <div class="page" style="margin-top:100px">
-      <div class="card">
-        <h2>로그인</h2>
-        <input type="text" id="authId" class="input" placeholder="아이디" value="user123" style="margin-bottom:10px">
-        <input type="password" id="authPw" class="input" placeholder="비밀번호" value="****">
-        <div class="btn primary" id="btnLogin" style="margin-top:20px">로그인 시작</div>
-      </div>
-    </div>
-  </div>
+<div id="toast"></div>
 
-  <div id="screen-main" class="screen">
-    <div class="page">
-      <div class="section card">
-        <div class="row between">
-          <div class="muted">내 현재 등급</div>
-          <div class="pill" style="background:#ffd700;color:#000">GOLD III</div>
-        </div>
-        <div class="tier-score-area">
-          <div style="font-size:32px;font-weight:900">1,250 <span style="font-size:14px;color:var(--mut)">pt</span></div>
-          <div class="muted" style="margin-top:4px">어제보다 +45pt 상승</div>
-        </div>
-        <div class="btn primary start-workout-btn" id="btnGoWorkout">운동 시작</div>
-      </div>
-
-      <div class="section card">
-        <div class="row between" style="margin-bottom:15px">
-          <div style="font-weight:800">운동 달력</div>
-          <div class="row">
-            <div class="btn small" id="calPrev"><</div>
-            <div id="calMonth" style="font-variant-numeric:tabular-nums;font-weight:700">2023.12</div>
-            <div class="btn small" id="calNext">></div>
-          </div>
-        </div>
-        <div class="cal-grid" id="calGrid">
-          </div>
-      </div>
-    </div>
-  </div>
-
-  <div id="screen-workout" class="screen">
-    <div class="page">
-      <div class="row" style="margin-bottom:20px">
-        <div class="btn small" id="btnBackHome">← 돌아가기</div>
-        <div style="font-weight:800;font-size:18px;margin-left:10px">오늘의 운동 기록</div>
-      </div>
-
-      <div id="exerciseList">
-        <div class="muted" id="emptyMsg" style="text-align:center;padding:40px 0">추가된 운동이 없습니다.</div>
-      </div>
-
-      <div class="btn" id="btnAddExercise" style="margin-top:20px;border-style:dashed;background:transparent">
-        + 운동 추가
-      </div>
+<div id="screen-auth" class="screen active">
+  <div class="page" style="display:flex;flex-direction:column;justify-content:center;min-height:80vh">
+    <div class="card" style="padding:24px">
+      <h2 style="margin:0 0 8px">Health Rank</h2>
+      <p class="muted" style="margin:0 0 20px">로그인하여 기록을 시작하세요.</p>
+      
+      <div class="muted">아이디</div>
+      <input type="text" id="authId" class="input" style="margin-bottom:12px" placeholder="ID">
+      <div class="muted">비밀번호</div>
+      <input type="password" id="authPw" class="input" style="margin-bottom:20px" placeholder="PW">
+      
+      <div class="btn primary" id="btnLogin">로그인</div>
+      <div class="btn ghost" id="btnSignup" style="margin-top:10px">회원가입</div>
+      <div id="authMsg" class="muted" style="margin-top:12px;text-align:center;min-height:20px;color:var(--danger)"></div>
     </div>
   </div>
 </div>
 
-<div class="cal-detail-overlay" id="calDetailOverlay">
-  <div class="cal-detail-card">
-    <div class="row between" style="margin-bottom:15px">
-      <div id="detailDate" style="font-weight:800">2023-12-20</div>
-      <div class="btn small" onclick="closeDetail()">닫기</div>
+<div id="screen-main" class="screen">
+  <div class="page">
+    
+    <div class="row between" style="margin-bottom:12px">
+      <div style="font-weight:900;font-size:18px">오늘</div>
+      <div class="muted" id="clock">00:00</div>
     </div>
-    <div id="detailContent">
+
+    <div class="section card" id="tierCard">
+      <div class="row between">
+        <div>
+          <div class="muted">내 티어</div>
+          <div style="font-weight:900;font-size:24px;margin-top:4px" id="tierName">Unranked</div>
+        </div>
+        <div style="text-align:right">
+          <div class="pill" id="tierScore">0 pt</div>
+          <div class="muted" style="margin-top:4px;font-size:11px">상위 --%</div>
+        </div>
       </div>
+      <div class="divider"></div>
+      <div class="btn primary" id="btnStartMain">운동 시작하기</div>
+    </div>
+
+    <div class="section card">
+      <div class="row between" style="margin-bottom:12px">
+        <div class="muted" id="calMonthTitle">2025. 12</div>
+        <div class="row">
+          <div class="btn small ghost" id="calPrev">&lt;</div>
+          <div class="btn small ghost" id="calNext">&gt;</div>
+        </div>
+      </div>
+      <div class="cal-grid cal-dow">
+        <div class="cal-cell">일</div><div class="cal-cell">월</div><div class="cal-cell">화</div><div class="cal-cell">수</div>
+        <div class="cal-cell">목</div><div class="cal-cell">금</div><div class="cal-cell">토</div>
+      </div>
+      <div class="cal-grid" id="calBody" style="margin-top:6px"></div>
+    </div>
+
   </div>
 </div>
 
-<div class="overlay" id="addExOverlay">
+<div id="screen-work" class="screen">
+  <div class="page">
+    <div class="card" style="position:sticky;top:10px;z-index:10;border-color:var(--accent)">
+      <div class="row between">
+        <div style="font-weight:900">운동 진행 중</div>
+        <div class="pill timer" id="workTimer">00:00:00</div>
+      </div>
+      <div class="row" style="margin-top:10px;gap:8px">
+        <div class="btn ghost small" style="flex:1" id="btnAddEx">+ 운동 추가</div>
+        <div class="btn danger small" id="btnEndWork">종료</div>
+      </div>
+    </div>
+
+    <div id="workList" style="padding-top:12px">
+      <div class="muted" style="text-align:center;padding:40px 0">운동을 추가해주세요.</div>
+    </div>
+  </div>
+</div>
+
+<div class="overlay" id="overlayAddEx">
   <div class="drawer">
-    <div class="row between" style="margin-bottom:20px">
-      <div style="font-weight:800;font-size:18px">운동 추가</div>
-      <div class="btn small" onclick="closeAddEx()">취소</div>
+    <div class="drawer-head">
+      <div class="drawer-title">운동 추가</div>
+      <div class="btn small ghost" onclick="closeOverlay('overlayAddEx')">닫기</div>
     </div>
-    
-    <div class="muted" style="margin-bottom:8px">부위 선택</div>
-    <div class="part-list-v" id="partListV">
-      <div class="part-item-v" data-part="가슴">가슴</div>
-      <div class="part-item-v" data-part="등">등</div>
-      <div class="part-item-v" data-part="하체">하체</div>
-      <div class="part-item-v" data-part="어깨">어깨</div>
-      <div class="part-item-v" data-part="팔">팔</div>
-      <div class="part-item-v" data-part="복근">복근</div>
+    <div class="drawer-body">
+      <div class="muted" style="margin-bottom:8px">부위 선택</div>
+      <div class="chipline" id="partChips">
+        </div>
+      
+      <div class="muted" style="margin-bottom:8px">종목명</div>
+      <input type="text" class="input" id="exNameInput" placeholder="예: 벤치프레스">
+      
+      <div class="btn primary" style="margin-top:16px" id="btnConfirmAddEx">추가하기</div>
     </div>
+  </div>
+</div>
 
-    <div class="muted" style="margin-bottom:8px">종목 이름</div>
-    <input type="text" id="exNameInput" class="input" placeholder="예: 벤치프레스">
-    
-    <div class="btn primary" id="btnConfirmAdd" style="margin-top:20px;width:100%">추가하기</div>
+<div class="overlay" id="overlaySet">
+  <div class="drawer">
+    <div class="drawer-head">
+      <div>
+        <div class="drawer-title" id="setTitle">1세트</div>
+        <div class="muted" id="setSubTitle" style="font-size:11px">-</div>
+      </div>
+      <div class="btn small ghost" onclick="closeOverlay('overlaySet')">닫기</div>
+    </div>
+    <div class="drawer-body">
+      <div id="stepWeight">
+        <div style="text-align:center;margin:10px 0">
+          <div class="muted">무게 (kg)</div>
+          <div style="font-size:32px;font-weight:900" id="valWeight">20</div>
+        </div>
+        <div class="kbd" id="kbdWeight">
+          </div>
+        <div class="btn primary" style="margin-top:16px" id="btnNextToReps">다음 (횟수)</div>
+      </div>
+
+      <div id="stepReps" class="hidden">
+        <div style="text-align:center;margin:10px 0">
+          <div class="muted">횟수</div>
+          <div style="font-size:32px;font-weight:900" id="valReps">10</div>
+        </div>
+        <div class="kbd" id="kbdReps">
+          </div>
+        <div class="row" style="margin-top:16px;gap:10px">
+          <div class="btn ghost" style="flex:1" id="btnBackToWeight">이전</div>
+          <div class="btn primary" style="flex:2" id="btnSaveSet">완료</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="overlay" id="overlayCalDetail">
+  <div class="drawer">
+    <div class="drawer-head">
+      <div>
+        <div class="drawer-title" id="calDetailDate">날짜</div>
+        <div class="muted">부위별 볼륨 순위</div>
+      </div>
+      <div class="btn small ghost" onclick="closeOverlay('overlayCalDetail')">닫기</div>
+    </div>
+    <div class="drawer-body" id="calDetailBody">
+      </div>
+  </div>
+</div>
+
+<div class="bottom-nav hidden" id="navBar">
+  <div class="navbtn active" data-target="screen-main">
+    <div class="nav-icon">🏠</div>
+    <span>홈</span>
+  </div>
+  <div class="navbtn" id="navWorkBtn">
+    <div class="nav-icon">💪</div>
+    <span>운동중</span>
+  </div>
+  <div class="navbtn" onclick="alert('더보기 준비중')">
+    <div class="nav-icon">⚙️</div>
+    <span>설정</span>
   </div>
 </div>
 
 <script>
-/**
- * Core Data & State
- */
-let currentUser = { nick: "재양" };
-let lastSelectedPart = "가슴"; // Sticky selection
-let workoutHistory = {
-  "2025-12-18": { "등": 5000, "팔": 1200 },
-  "2025-12-19": { "가슴": 6000, "어깨": 2000, "삼두": 800 },
-  "2025-12-20": { "하체": 12000, "복근": 500 }
+// --- Config & State ---
+const PARTS = ['가슴','등','하체','어깨','팔','복근','유산소'];
+let state = {
+  user: null,
+  profile: null,
+  workout: {
+    active: false,
+    startTime: null,
+    exercises: [] // {id, name, part, sets:[{kg, reps, done}]}
+  },
+  calendar: {
+    year: new Date().getFullYear(),
+    month: new Date().getMonth() + 1,
+    data: {} // 'YYYY-MM-DD': { totalVol:0, parts:{ 'Chest': 1000 ... } }
+  },
+  ui: {
+    lastSelectedPart: '가슴', // Default part
+    currentExId: null
+  }
 };
 
-const screens = {
-  auth: document.getElementById('screen-auth'),
-  main: document.getElementById('screen-main'),
-  workout: document.getElementById('screen-workout')
-};
+// --- Utils ---
+const $ = (s) => document.querySelector(s);
+const $$ = (s) => document.querySelectorAll(s);
+const pad = (n) => n.toString().padStart(2,'0');
 
-function showScreen(key) {
-  Object.values(screens).forEach(s => s.classList.remove('active'));
-  screens[key].classList.add('active');
+function showToast(msg) {
+  const t = $('#toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2000);
 }
 
-/**
- * 1. Auto Login Logic
- */
-window.onload = () => {
-  // 실제 앱이라면 localStorage 체크
-  const savedId = "user123"; 
-  if(savedId) {
-    alert(`이전 로그인한 '${currentUser.nick}'님으로 자동 로그인 됐습니다.`);
-    showScreen('main');
+function switchScreen(id) {
+  $$('.screen').forEach(el => el.classList.remove('active'));
+  $(`#${id}`).classList.add('active');
+  
+  if(id === 'screen-main') {
+    $('#navBar').classList.remove('hidden');
     renderCalendar();
-  }
-};
-
-document.getElementById('btnLogin').onclick = () => {
-  showScreen('main');
-  renderCalendar();
-};
-
-/**
- * 2. Navigation
- */
-document.getElementById('btnGoWorkout').onclick = () => showScreen('workout');
-document.getElementById('btnBackHome').onclick = () => showScreen('main');
-
-/**
- * 3. Calendar Logic
- */
-function renderCalendar() {
-  const grid = document.getElementById('calGrid');
-  grid.innerHTML = '';
-  const now = new Date();
-  const year = 2025, month = 11; // 12월 기준 예시
-
-  // 1일부터 31일까지 생성 (단순화)
-  for(let i=1; i<=31; i++) {
-    const dateStr = `2025-12-${String(i).padStart(2,'0')}`;
-    const data = workoutHistory[dateStr];
-    
-    const cell = document.createElement('div');
-    cell.className = 'cal-cell';
-    if(i === 20) cell.classList.add('today');
-    
-    // 볼륨 최대 부위 찾기
-    let topPart = '';
-    if(data) {
-      topPart = Object.entries(data).sort((a,b) => b[1] - a[1])[0][0];
-    }
-
-    cell.innerHTML = `
-      <div class="day-num">${i}</div>
-      <div class="top-part">${topPart}</div>
-    `;
-    
-    cell.onclick = () => openDetail(dateStr);
-    grid.appendChild(cell);
+  } else if(id === 'screen-auth') {
+    $('#navBar').classList.add('hidden');
+  } else if(id === 'screen-work') {
+    $('#navBar').classList.add('hidden'); // Hide nav during workout focus
   }
 }
 
-function openDetail(date) {
-  const overlay = document.getElementById('calDetailOverlay');
-  const content = document.getElementById('detailContent');
-  const dateTitle = document.getElementById('detailDate');
+function openOverlay(id) { $(`#${id}`).classList.add('show'); }
+function closeOverlay(id) { $(`#${id}`).classList.remove('show'); }
+
+// --- Auth Logic ---
+// Mock Login for Demo
+$('#btnLogin').onclick = () => {
+  const id = $('#authId').value;
+  if(!id) return alert('아이디를 입력하세요');
   
-  dateTitle.innerText = date;
-  content.innerHTML = '';
-  
-  const data = workoutHistory[date];
-  if(!data) {
-    content.innerHTML = '<div class="muted">기록이 없습니다.</div>';
+  // Fake Success
+  const fakeUser = { id: 'u1', nick: '헬창꿈나무' };
+  localStorage.setItem('hr_user', JSON.stringify(fakeUser));
+  loginSuccess(fakeUser, false);
+};
+
+function checkSession() {
+  const saved = localStorage.getItem('hr_user');
+  if(saved) {
+    const user = JSON.parse(saved);
+    loginSuccess(user, true); // true = isAutoLogin
   } else {
-    // 볼륨순 정렬
-    const sorted = Object.entries(data).sort((a,b) => b[1] - a[1]);
-    sorted.forEach(([part, vol]) => {
-      const row = document.createElement('div');
-      row.className = 'row between';
-      row.style.padding = '10px 0';
-      row.style.borderBottom = '1px solid var(--line)';
-      row.innerHTML = `
-        <div style="font-weight:700">${part}</div>
-        <div class="muted">${vol.toLocaleString()} kg</div>
-      `;
-      content.appendChild(row);
-    });
+    switchScreen('screen-auth');
+  }
+}
+
+function loginSuccess(user, isAuto) {
+  state.user = user;
+  state.profile = { tier: 'Silver', score: 1250 }; // Mock profile
+  
+  $('#tierName').textContent = state.profile.tier;
+  $('#tierScore').textContent = `${state.profile.score} pt`;
+  
+  switchScreen('screen-main');
+  
+  if(isAuto) {
+    // 1. Auto Login Popup
+    showToast(`이전 로그인한 '${user.nick}'님으로\n자동 로그인 됐습니다.`);
   }
   
-  overlay.classList.add('active');
+  // Load mock calendar data
+  generateMockData();
+  renderCalendar();
 }
 
-function closeDetail() {
-  document.getElementById('calDetailOverlay').classList.remove('active');
-}
-
-/**
- * 4. Workout Entry & Exercise Add (New Mechanism)
- */
-const addExOverlay = document.getElementById('addExOverlay');
-const partItems = document.querySelectorAll('.part-item-v');
-
-document.getElementById('btnAddExercise').onclick = () => {
-  addExOverlay.classList.add('active');
-  // Sticky 부위 적용
-  selectPart(lastSelectedPart);
+// --- Main Screen Logic ---
+$('#btnStartMain').onclick = () => {
+  startWorkout();
 };
 
-function selectPart(partName) {
-  lastSelectedPart = partName;
-  partItems.forEach(item => {
-    item.classList.toggle('selected', item.dataset.part === partName);
+function startWorkout() {
+  state.workout.active = true;
+  state.workout.startTime = Date.now();
+  state.workout.exercises = [];
+  renderWorkoutList();
+  startTimer();
+  switchScreen('screen-work');
+}
+
+// --- Workout Logic ---
+let timerInterval;
+function startTimer() {
+  if(timerInterval) clearInterval(timerInterval);
+  const tick = () => {
+    if(!state.workout.active) return;
+    const diff = Math.floor((Date.now() - state.workout.startTime)/1000);
+    const h = Math.floor(diff/3600);
+    const m = Math.floor((diff%3600)/60);
+    const s = diff%60;
+    $('#workTimer').textContent = `${pad(h)}:${pad(m)}:${pad(s)}`;
+  };
+  timerInterval = setInterval(tick, 1000);
+  tick();
+}
+
+$('#btnEndWork').onclick = () => {
+  if(!confirm('운동을 종료하고 저장하시겠습니까?')) return;
+  state.workout.active = false;
+  clearInterval(timerInterval);
+  
+  // Save to Calendar Data (Mock)
+  const todayKey = getTodayKey();
+  let dayData = state.calendar.data[todayKey] || { totalVol:0, parts:{} };
+  
+  state.workout.exercises.forEach(ex => {
+    ex.sets.forEach(set => {
+      const vol = set.kg * set.reps;
+      dayData.totalVol += vol;
+      dayData.parts[ex.part] = (dayData.parts[ex.part] || 0) + vol;
+    });
+  });
+  state.calendar.data[todayKey] = dayData;
+  
+  switchScreen('screen-main');
+  showToast('운동이 기록되었습니다.');
+};
+
+// --- Add Exercise Logic ---
+$('#btnAddEx').onclick = () => {
+  // Render Chips
+  const container = $('#partChips');
+  container.innerHTML = '';
+  PARTS.forEach(part => {
+    const el = document.createElement('div');
+    el.className = `chip ${part === state.ui.lastSelectedPart ? 'active' : ''}`;
+    el.textContent = part;
+    el.onclick = () => {
+      $$('#partChips .chip').forEach(c => c.classList.remove('active'));
+      el.classList.add('active');
+      state.ui.lastSelectedPart = part; // Remember selection
+    };
+    container.appendChild(el);
+  });
+  
+  $('#exNameInput').value = '';
+  openOverlay('overlayAddEx');
+  $('#exNameInput').focus();
+};
+
+$('#btnConfirmAddEx').onclick = () => {
+  const name = $('#exNameInput').value.trim();
+  if(!name) return alert('종목명을 입력하세요');
+  
+  const newEx = {
+    id: Date.now(),
+    part: state.ui.lastSelectedPart,
+    name: name,
+    sets: []
+  };
+  state.workout.exercises.push(newEx);
+  closeOverlay('overlayAddEx');
+  renderWorkoutList();
+};
+
+function renderWorkoutList() {
+  const list = $('#workList');
+  list.innerHTML = '';
+  if(state.workout.exercises.length === 0) {
+    list.innerHTML = `<div class="muted" style="text-align:center;padding:40px 0">운동을 추가해주세요.</div>`;
+    return;
+  }
+  
+  state.workout.exercises.forEach((ex, idx) => {
+    const div = document.createElement('div');
+    div.className = 'ex-item';
+    div.innerHTML = `
+      <div class="ex-head">
+        <div>
+          <div class="ex-name">${ex.name}</div>
+          <div class="ex-part">${ex.part}</div>
+        </div>
+        <div class="btn small primary" onclick="openSetModal(${idx})">+ 세트</div>
+      </div>
+      <div class="sets-container" style="margin-top:8px">
+        ${ex.sets.map((s, i) => `
+          <div class="set-row">
+            <span class="muted">${i+1}세트</span>
+            <span style="font-weight:bold">${s.kg}kg x ${s.reps}회</span>
+          </div>
+        `).join('')}
+      </div>
+    `;
+    list.appendChild(div);
   });
 }
 
-partItems.forEach(item => {
-  item.onclick = () => selectPart(item.dataset.part);
-});
+// --- Set Input Logic ---
+let targetExIdx = null;
+let tempSet = { kg: 20, reps: 10 };
 
-function closeAddEx() {
-  addExOverlay.classList.remove('active');
-  document.getElementById('exNameInput').value = '';
-}
-
-document.getElementById('btnConfirmAdd').onclick = () => {
-  const name = document.getElementById('exNameInput').value;
-  if(!name) return alert('운동 이름을 입력하세요.');
+window.openSetModal = (idx) => {
+  targetExIdx = idx;
+  const ex = state.workout.exercises[idx];
+  // Pre-fill with last set if exists
+  if(ex.sets.length > 0) {
+    tempSet = { ...ex.sets[ex.sets.length-1] };
+  }
   
-  addExerciseToList(lastSelectedPart, name);
-  closeAddEx();
+  $('#setTitle').textContent = `${ex.sets.length + 1}세트 입력`;
+  $('#setSubTitle').textContent = ex.name;
+  
+  // Reset Step
+  $('#stepWeight').classList.remove('hidden');
+  $('#stepReps').classList.add('hidden');
+  updateSetDisplay();
+  openOverlay('overlaySet');
 };
 
-function addExerciseToList(part, name) {
-  const list = document.getElementById('exerciseList');
-  const emptyMsg = document.getElementById('emptyMsg');
-  if(emptyMsg) emptyMsg.remove();
-  
-  const div = document.createElement('div');
-  div.className = 'card';
-  div.style.marginBottom = '10px';
-  div.innerHTML = `
-    <div class="row between">
-      <div>
-        <span class="muted">[${part}]</span>
-        <div style="font-weight:800;font-size:16px">${name}</div>
-      </div>
-      <div class="btn small">세트 추가</div>
-    </div>
-  `;
-  list.appendChild(div);
+function updateSetDisplay() {
+  $('#valWeight').textContent = tempSet.kg;
+  $('#valReps').textContent = tempSet.reps;
 }
+
+// Render Keypads
+const renderKeypad = (containerId, keys, action) => {
+  const c = $(containerId);
+  c.innerHTML = '';
+  keys.forEach(k => {
+    const div = document.createElement('div');
+    div.className = 'key';
+    div.textContent = k;
+    div.onclick = () => action(k);
+    c.appendChild(div);
+  });
+};
+
+// Weight Keys
+renderKeypad('#kbdWeight', ['-5','-1','+1','+5','C','←'], (k) => {
+  if(k==='C') tempSet.kg = 0;
+  else if(k==='←') tempSet.kg = Math.floor(tempSet.kg/10);
+  else tempSet.kg += parseInt(k);
+  if(tempSet.kg < 0) tempSet.kg = 0;
+  updateSetDisplay();
+});
+
+// Reps Keys
+renderKeypad('#kbdReps', ['-5','-1','+1','+5','10','12'], (k) => {
+   tempSet.reps += parseInt(k);
+   if(tempSet.reps < 1) tempSet.reps = 1;
+   updateSetDisplay();
+});
+
+$('#btnNextToReps').onclick = () => {
+  $('#stepWeight').classList.add('hidden');
+  $('#stepReps').classList.remove('hidden');
+};
+$('#btnBackToWeight').onclick = () => {
+  $('#stepReps').classList.add('hidden');
+  $('#stepWeight').classList.remove('hidden');
+};
+
+$('#btnSaveSet').onclick = () => {
+  if(targetExIdx !== null) {
+    state.workout.exercises[targetExIdx].sets.push({ ...tempSet });
+    renderWorkoutList();
+    closeOverlay('overlaySet');
+  }
+};
+
+
+// --- Calendar Logic ---
+function getTodayKey() {
+  const d = new Date();
+  return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+}
+
+function generateMockData() {
+  // Generate some random history for this month
+  const y = state.calendar.year;
+  const m = state.calendar.month;
+  for(let i=1; i<20; i++) {
+    const k = `${y}-${pad(m)}-${pad(i)}`;
+    if(Math.random() > 0.5) {
+      state.calendar.data[k] = {
+        totalVol: Math.floor(Math.random()*10000),
+        parts: {
+          '가슴': Math.floor(Math.random()*5000),
+          '삼두': Math.floor(Math.random()*2000),
+          '복근': 500
+        }
+      };
+    }
+  }
+}
+
+function renderCalendar() {
+  const y = state.calendar.year;
+  const m = state.calendar.month;
+  $('#calMonthTitle').textContent = `${y}. ${pad(m)}`;
+  
+  const firstDay = new Date(y, m-1, 1).getDay();
+  const lastDate = new Date(y, m, 0).getDate();
+  
+  const grid = $('#calBody');
+  grid.innerHTML = '';
+  
+  // Blanks
+  for(let i=0; i<firstDay; i++) {
+    grid.appendChild(document.createElement('div'));
+  }
+  
+  // Days
+  for(let d=1; d<=lastDate; d++) {
+    const key = `${y}-${pad(m)}-${pad(d)}`;
+    const data = state.calendar.data[key];
+    const el = document.createElement('div');
+    el.className = 'cal-cell';
+    
+    // Check Today
+    const today = new Date();
+    if(today.getFullYear()===y && today.getMonth()+1===m && today.getDate()===d) {
+      el.classList.add('today');
+    }
+
+    let subHtml = '';
+    if(data) {
+      // Find Max Volume Part
+      const entries = Object.entries(data.parts);
+      if(entries.length > 0) {
+        entries.sort((a,b) => b[1] - a[1]); // Desc volume
+        const maxPart = entries[0][0]; // Part Name
+        subHtml = `<div class="cal-sub">${maxPart}</div>`;
+      }
+      
+      // Click Event -> Overlay Detail
+      el.onclick = () => openCalDetail(key, data);
+    }
+    
+    el.innerHTML = `<div class="cal-day">${d}</div>${subHtml}`;
+    grid.appendChild(el);
+  }
+}
+
+// Calendar Date Click -> Detail Overlay
+function openCalDetail(dateStr, data) {
+  $('#calDetailDate').textContent = dateStr;
+  const body = $('#calDetailBody');
+  body.innerHTML = '';
+  
+  if(!data || !data.parts) return;
+  
+  // Sort parts by volume
+  const sorted = Object.entries(data.parts).sort((a,b) => b[1] - a[1]);
+  const maxVol = sorted[0][1]; // for progress bar calc
+  
+  sorted.forEach(([part, vol]) => {
+    const percent = (vol / maxVol) * 100;
+    const row = document.createElement('div');
+    row.className = 'stat-grid';
+    row.innerHTML = `
+      <div>
+        <div class="row between">
+          <span style="font-weight:bold">${part}</span>
+        </div>
+        <div class="stat-bar-bg">
+          <div class="stat-bar-fill" style="width:${percent}%"></div>
+        </div>
+      </div>
+      <div style="text-align:right;font-size:13px;font-weight:bold;margin-top:auto">
+        ${vol.toLocaleString()} <span class="muted" style="font-size:10px;font-weight:normal">kg</span>
+      </div>
+    `;
+    body.appendChild(row);
+  });
+  
+  openOverlay('overlayCalDetail');
+}
+
+// Calendar Nav
+$('#calPrev').onclick = () => {
+  state.calendar.month--;
+  if(state.calendar.month < 1) { state.calendar.month=12; state.calendar.year--; }
+  renderCalendar();
+};
+$('#calNext').onclick = () => {
+  state.calendar.month++;
+  if(state.calendar.month > 12) { state.calendar.month=1; state.calendar.year++; }
+  renderCalendar();
+};
+
+// Clock
+setInterval(() => {
+  const d = new Date();
+  $('#clock').textContent = `${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}, 1000);
+
+// Init
+checkSession();
 
 </script>
 </body>
